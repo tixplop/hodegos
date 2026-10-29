@@ -166,6 +166,23 @@ export function locate(doc, quote, lineHint) {
   return best && { from: best.from, to: best.to };
 }
 
+/**
+ * Frappe par-dessus une sélection de plusieurs lignes : on remplace la sélection
+ * nous-mêmes. Laissé au navigateur, Chrome fusionne les lignes en posant des
+ * attributs `style` pour garder la coloration, que la CSP stricte bloque.
+ */
+function replaceMultilineSelection(event, view) {
+  if (event.inputType !== 'insertText' || event.isComposing || !event.data) return false;
+  const { state } = view;
+  const crossesLines = state.selection.ranges.some(
+    (range) => !range.empty && state.doc.lineAt(range.from).number !== state.doc.lineAt(range.to).number,
+  );
+  if (!crossesLines) return false;
+  event.preventDefault();
+  view.dispatch(state.update(state.replaceSelection(event.data), { userEvent: 'input.type', scrollIntoView: true }));
+  return true;
+}
+
 function position(state) {
   const head = state.selection.main.head;
   const line = state.doc.lineAt(head);
@@ -218,6 +235,7 @@ export function createEditor(parent, { onChange, onCursor, onAnchor }) {
             if (anchor) onAnchor(anchor.getAttribute('data-remark'));
             return false;
           },
+          beforeinput: replaceMultilineSelection,
         }),
         languageSupport(language, path),
         EditorView.updateListener.of((update) => {

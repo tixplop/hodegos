@@ -60,6 +60,7 @@ Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, a
 - **Éditeur** (décisions du 29 octobre 2026) :
   - CodeMirror est monté dans un shadow root : il y pose ses styles par `adoptedStyleSheets`, que la CSP stricte autorise, alors qu'elle bloque les balises `<style>` qu'il insère dans un document.
   - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP).
+  - Frappe par-dessus une sélection de plusieurs lignes : l'éditeur remplace lui-même la sélection (`beforeinput`). Laissé au navigateur, Chrome fusionne les lignes en posant des attributs `style`, que la CSP bloque (corrigé après la phase 5).
   - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2.
   - Version d'un fichier : empreinte SHA-256 du contenu (16 caractères hexadécimaux).
   - Écriture par fichier temporaire renommé, droits conservés, contenu écrit tel quel (fins de ligne, BOM).
