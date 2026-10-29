@@ -1,0 +1,27 @@
+[package]
+name = "hodegos-cli"
+description = "Binaire hodegos : lancement de l'IDE."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "hodegos"
+path = "src/main.rs"
+
+[dependencies]
+hodegos-core.workspace = true
+hodegos-server.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

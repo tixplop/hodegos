@@ -16,8 +16,18 @@ dans le même commit.
 - `v` : version du protocole, `1` pour le MVP.
 - `type` : nom du message, en `snake_case`.
 - `id` : fourni par l'émetteur quand une réponse est attendue ; la réponse reprend
-  la même valeur dans `re`.
-- `payload` : objet propre au type.
+  la même valeur dans `re`, au niveau de l'enveloppe (y compris pour `error`).
+- `payload` : objet propre au type ; absent ou `null` pour un message sans charge
+  utile (`ping`, `pong`).
+
+Une enveloppe illisible, un type inconnu, une charge utile incorrecte ou une
+version `v` différente de `1` reçoivent `error` avec le code `bad_message` ; la
+connexion reste ouverte.
+
+```json
+{ "v": 1, "type": "ping", "id": "c-1" }
+{ "v": 1, "type": "pong", "re": "c-1" }
+```
 
 ## Du front vers le backend
 
@@ -48,7 +58,7 @@ dans le même commit.
 | `file_changed` | `path`, `version` | fichier modifié hors de Hodegos |
 | `mentors_changed` | `warnings` (fichiers invalides) | rechargement à chaud des mentors |
 | `status` | `provider_ok`, `budget_used`, `budget_cap`, `last_pass` | au démarrage puis à chaque passe |
-| `error` | `code`, `message`, `re` | erreur liée ou non à une demande |
+| `error` | `code`, `message` (`re` dans l'enveloppe si l'erreur répond à une demande) | erreur liée ou non à une demande |
 
 Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 « Contrat : format d'une remarque ». Un mentor dans `titular`, `consultants` et

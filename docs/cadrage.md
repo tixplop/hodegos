@@ -57,7 +57,8 @@ Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, a
 - **Backend** : Rust stable, `tokio`, `axum` (HTTP et WebSocket), `notify` (fichiers), `similar` (diffs), `tree-sitter` avec les grammaires Rust, TypeScript, JavaScript, Python et Markdown (sections), `reqwest` (OpenRouter, en streaming), `serde`, `tracing`, `rust-embed` (front intégré au binaire).
 - **Front** : HTML, CSS et JavaScript sans framework ; CodeMirror 6 empaqueté une fois dans `ui/vendor/` (aucune étape de build pour le reste du front) ; design system Hodegos (préfixe `hd-`, voir `ui/styles/README.md`).
 - **Polices** : Inter et JetBrains Mono servies par le binaire (fichiers woff2 dans `ui/fonts/`, par exemple depuis les paquets npm `@fontsource`), jamais chargées depuis Google Fonts ; repli sur les polices système tant qu'elles ne sont pas en place.
-- **Lancement** : `hodegos ~/projets/troc` démarre le serveur sur un port libre, génère un jeton, puis affiche dans le terminal l'URL d'accès (`http://127.0.0.1:PORT/?token=…`) ; un Ctrl+clic l'ouvre dans le navigateur Windows. L'ouverture automatique viendra plus tard.
+- **Lancement** : `hodegos ~/projets/troc` démarre le serveur sur le port 7420 (ou celui de `--port`), génère un jeton, puis affiche dans le terminal l'URL d'accès (`http://127.0.0.1:PORT/?token=…`) ; un Ctrl+clic l'ouvre dans le navigateur Windows. L'ouverture automatique viendra plus tard.
+- **Port fixe** (décidé le 29 octobre 2026) : 7420 par défaut, `--port N` pour en changer. Un port tiré au hasard ne convient pas sous WSL2 en mode NAT : la redirection de `localhost` vers Windows échoue sans message si le port tombe dans une plage réservée par Windows (Hyper-V, WinNAT ; voir `netsh interface ipv4 show excludedportrange protocol=tcp`), et le navigateur répond `ERR_CONNECTION_REFUSED`. Si le port est occupé, le lancement échoue avec un message qui renvoie à `--port`. `--port 0` laisse le système choisir (tests).
 - **Adresse canonique** : `127.0.0.1`. Une requête reçue sur `localhost:PORT` est redirigée vers `127.0.0.1:PORT` avant toute vérification de `Host` et d'`Origin`.
 - **Contraintes WSL2** : projets dans le système de fichiers Linux (`~/…`), jamais sous `/mnt/c`, où les notifications de modification ne remontent pas ; aucune dépendance à WSLg.
 
@@ -110,10 +111,13 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 
 **Serveur local**
 
-- Écoute uniquement sur `127.0.0.1`, sur un port choisi au lancement ; jamais sur `0.0.0.0`.
-- Jeton aléatoire de 256 bits généré à chaque lancement, transmis dans l'URL d'accès, puis échangé contre un cookie `HttpOnly`, `SameSite=Strict` ; le jeton disparaît de l'URL après le chargement (redirection).
-- La mise à niveau WebSocket vérifie le cookie **et** l'en-tête `Origin` (égal à `http://127.0.0.1:<port>`) ; sinon, refus.
-- L'en-tête `Host` doit être `127.0.0.1:<port>`, contre le rebinding DNS ; `localhost:<port>` est d'abord redirigé vers l'adresse canonique.
+- Écoute uniquement sur `127.0.0.1`, sur le port 7420 par défaut (`--port` pour en changer) ; jamais sur `0.0.0.0`.
+- Jeton aléatoire de 256 bits généré à chaque lancement, transmis dans l'URL d'accès, puis échangé contre un cookie `HttpOnly`, `SameSite=Strict` ; le jeton disparaît de l'URL après le chargement (redirection 303 vers le chemin sans requête).
+- Le jeton reste valable tant que le processus tourne (un second Ctrl+clic fonctionne). Le cookie s'appelle `hodegos_<port>`, car les navigateurs ne distinguent pas les cookies par port, et contient un secret de session distinct du jeton, tiré lui aussi au lancement.
+- Toute requête sans cookie valide, y compris vers les fichiers statiques, reçoit 401 avec une page qui renvoie à l'URL du terminal.
+- La mise à niveau WebSocket vérifie le cookie **et** l'en-tête `Origin` (égal à `http://127.0.0.1:<port>`) ; sinon, refus (403).
+- L'en-tête `Host` doit être `127.0.0.1:<port>`, contre le rebinding DNS, sinon 421 ; `localhost:<port>` est d'abord redirigé (307, chemin et requête conservés) vers l'adresse canonique.
+- Un chemin de projet sous `/mnt/`, avant ou après résolution des liens symboliques, est refusé au lancement, de même qu'un chemin inexistant ou qui n'est pas un dossier.
 - Aucun chemin hors de la racine du projet : chaque chemin reçu est normalisé, puis refusé s'il sort de la racine (y compris par lien symbolique).
 - `Content-Security-Policy` stricte sur le front : scripts, styles et polices servis par le binaire uniquement, aucune source externe.
 
@@ -369,10 +373,15 @@ Ces choix ont été faits pour débloquer le démarrage ; chacun se change avant
 | Modèles | À choisir via l'évaluation (rapide et fort) | Phase 6 |
 | Budget mensuel | 10 USD, avertissement à 80 % | Phase 4 |
 | Garde « pas de solution » | Aucun code avant le palier exemple ; 12 lignes au plus ensuite | Phase 5 |
-| Ouverture de l'interface | URL affichée dans le terminal, ouverte par Ctrl+clic ; ouverture automatique plus tard | Phase 1 |
+| Ouverture de l'interface | URL affichée dans le terminal, ouverte par Ctrl+clic ; ouverture automatique plus tard (tranché le 29 octobre 2026) | Phase 1 |
 
 Questions ouvertes :
 
 - [ ] Le dépôt Hodegos sera-t-il public, et sous quelle licence ?
 - [ ] Les remarques fermées doivent-elles rester consultables (onglet Historique) dès le MVP ?
 - [ ] Faut-il un raccourci clavier pour déclencher une passe sans enregistrer ?
+- [ ] Consultants : un au plus (ce dossier) ou deux au plus (`ui/styles/README.md`) ? À trancher en phase 3.
+- [ ] Un mentor `strong-signal` peut-il être titulaire, ou seulement consultant ? Phase 3.
+- [ ] Comment dériver `<id-projet>` de `~/.local/share/hodegos/<id-projet>/` (et donc `ProjectId`) ? Phase 4.
+- [ ] Budget à 100 % : quelle « confirmation » rouvre les passes proactives ? Phase 4.
+- [ ] Garde au palier exemple : les mots-clés du langage comptent-ils parmi les « identifiants de la section » ? Phase 5.

@@ -1,0 +1,4 @@
+/* Mise en page de l'application ; les composants viennent de styles/components.css. */
+html, body { margin: 0; }
+body.hd-app { min-height: 100vh; display: flex; flex-direction: column; }
+body.hd-app > .hd-main { flex: 1 1 auto; }

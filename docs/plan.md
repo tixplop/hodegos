@@ -6,16 +6,16 @@ suivante ne commence qu'une fois les critères de fin de la précédente cochés
 ## Phase 1 — Squelette
 
 Workspace Cargo et ses cinq crates ; `hodegos ~/projet` démarre axum sur
-`127.0.0.1` (port libre), sert une page vide intégrée au binaire et affiche l'URL
+`127.0.0.1` (port 7420 par défaut, `--port` pour en changer), sert une page vide intégrée au binaire et affiche l'URL
 d'accès dans le terminal ; jeton, cookie, contrôles `Origin` et `Host`, redirection
 de `localhost` ; WebSocket qui répond à un `ping`.
 
-- [ ] `cargo run -p hodegos-cli -- ~/projets/exemple` affiche `http://127.0.0.1:PORT/?token=…`
-- [ ] Un Ctrl+clic sur l'URL ouvre la page dans le navigateur Windows ; le jeton disparaît de l'URL
-- [ ] `http://localhost:PORT/…` est redirigé vers `http://127.0.0.1:PORT/…`
-- [ ] Tests : refus sans jeton, refus d'une `Origin` étrangère, refus d'un `Host` étranger, `ping`/`pong`
-- [ ] Un chemin de projet sous `/mnt/` est refusé au lancement avec un message clair
-- [ ] `cargo test`, `clippy -D warnings` et `fmt --check` passent
+- [x] `cargo run -p hodegos-cli -- ~/projets/exemple` affiche `http://127.0.0.1:PORT/?token=…`
+- [x] Un Ctrl+clic sur l'URL ouvre la page dans le navigateur Windows ; le jeton disparaît de l'URL
+- [x] `http://localhost:PORT/…` est redirigé vers `http://127.0.0.1:PORT/…`
+- [x] Tests : refus sans jeton, refus d'une `Origin` étrangère, refus d'un `Host` étranger, `ping`/`pong`
+- [x] Un chemin de projet sous `/mnt/` est refusé au lancement avec un message clair
+- [x] `cargo test`, `clippy -D warnings` et `fmt --check` passent
 
 ## Phase 2 — Éditeur
 
