@@ -1,0 +1,6 @@
+{
+  "language": "typescript",
+  "section": "export function reserver(objet: Objet, debut: Date, emprunts: Emprunt[]) {\n  const dejaPris = emprunts.find((e) => e.debut === debut);\n  return !dejaPris;\n}",
+  "kept": true,
+  "response": "{\"replies\": [{\"level\": \"exemple\", \"message\": \"Un cas voisin, sur des points :\\n```ts\\nconst a = { x: 1, y: 2 };\\nconst b = { x: 1, y: 2 };\\nconsole.log(a === b);          // false\\nconsole.log(a.x === b.x && a.y === b.y); // true\\n```\\nQue compare chacune des deux lignes ?\", \"confidence\": 0.8}]}"
+}

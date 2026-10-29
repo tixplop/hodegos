@@ -38,9 +38,9 @@ connexion reste ouverte.
 | `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) |
 | `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe : `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
 | `cursor` | `path`, `line`, `col` (à partir de 1) | Met à jour la section courante, envoie `casting` s'il change ; sans `id`, aucune autre réponse |
-| `hint_next` | `remark_id` | Demande le palier suivant ; renvoie `remark_update` |
-| `remark_reply` | `remark_id`, `text` | Ajoute votre réponse ; le mentor peut relancer au même palier |
-| `remark_dismiss` | `remark_id`, `reason` (`ignored` ou `resolved`) | Ferme la remarque |
+| `hint_next` | `remark_id`, `confirm_over_budget` (facultatif, `false`) | Demande le palier suivant au mentor de la remarque ; renvoie `remark_update` quand il a répondu, puis `status` |
+| `remark_reply` | `remark_id`, `text` (2 000 caractères au plus), `confirm_over_budget` (facultatif) | Ajoute votre réponse et renvoie `remark_update` ; le mentor est relancé au même palier, ce qui pousse un second `remark_update`, puis `status` |
+| `remark_dismiss` | `remark_id`, `reason` (`ignored` ou `resolved`) | Ferme la remarque (le statut prend la valeur de `reason`) ; renvoie `remark_update` |
 | `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler) | Force un interlocuteur pour la section ou le fichier ; renvoie `casting` (ou `not_found` si le mentor n'est pas actif) |
 
 ## Du backend vers le front
@@ -49,12 +49,12 @@ connexion reste ouverte.
 | --- | --- | --- |
 | `pong` | — | réponse à `ping` |
 | `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` |
-| `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` | réponse à `open_file` |
+| `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` (ouvertes, répondues ou détachées) | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
 | `pass_started` | `path`, `sections` (identifiants), `mentors` (titulaires appelés) | dès qu'une passe appelle le modèle |
 | `remarks` | `path`, `items` (nouvelles remarques complètes, au plus 2) | à la fin d'une passe |
-| `remark_update` | une remarque complète | palier suivant, réponse, fermeture, détachement |
+| `remark_update` | une remarque complète | réponse à `hint_next`, `remark_reply` et `remark_dismiss` ; relance après une réponse ; détachement après un enregistrement ou une modification externe |
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
 | `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass` | à la connexion, puis après chaque enregistrement |
@@ -73,7 +73,8 @@ Détails des fichiers :
   rang ajouté aux homonymes (`fn:new-2`), `top:N` pour le reste.
 - `mentors` (dans `dir`) : titulaire et consultant du fichier, calculés sur son
   chemin et son langage seulement ; vide pour un dossier.
-- `remarks` (dans `file`) : remarques ouvertes du fichier, persistées entre deux lancements.
+- `remarks` (dans `file`) : remarques du fichier au statut `open`, `answered` ou
+  `detached`, persistées entre deux lancements.
 
 Détails des passes :
 
@@ -88,7 +89,33 @@ Détails des passes :
   `outcome` parmi `ok`, `no_change`, `no_mentor`, `excluded`, `budget_exceeded`,
   `provider_error`, `invalid_response`.
 - Les codes `budget_exceeded` et `provider_error` servent aux demandes explicites
-  (phase 5) ; une passe proactive les signale par `status`, jamais par `error`.
+  (`hint_next`, `remark_reply`) ; une passe proactive les signale par `status`,
+  jamais par `error`.
+
+Détails des remarques (phase 5) :
+
+- `hint_next` : le palier suivant est calculé par le serveur (indice → question →
+  piste → exemple). Le message du mentor s'ajoute au fil ; `level` et
+  `levels_given` avancent. Si le mentor n'ajoute rien ou si sa réponse est écartée
+  (garde « pas de solution », JSON invalide après la relance unique), la remarque
+  revient inchangée. Refus : `bad_message` au palier exemple, pour une remarque
+  fermée ou détachée, ou si une demande est déjà en cours pour elle ; `not_found`
+  pour une remarque ou un mentor inconnus ; `budget_exceeded` au-delà du budget
+  sans `confirm_over_budget: true` ; `provider_error` sans fournisseur ou en cas
+  de panne, sans nouvelle tentative.
+- `remark_reply` : le premier `remark_update` (qui porte `re`) contient votre
+  message (`author: "user"`) et le statut `answered`. Le second, spontané, arrive
+  quand la relance est finie : avec le message du mentor au même palier, ou
+  inchangé si le mentor n'ajoute rien ou ne peut pas être joint. Au-delà du
+  budget sans confirmation : `budget_exceeded`, et rien n'est enregistré. Une
+  réponse vide, trop longue, ou sur une remarque fermée ou détachée : `bad_message`.
+- Détachement : à l'ouverture, à l'enregistrement et après une modification
+  externe, chaque remarque active est recalée sur la version enregistrée. Si sa
+  section ou sa citation n'existe plus, elle passe en `detached` (définitivement,
+  même si la citation revient) ; `remark_update` est poussé, sauf à l'ouverture
+  où `file` la contient déjà. Sinon, `anchor.line_hint` est mis à jour sans
+  message. Une remarque détachée reste lisible et peut être fermée ; elle
+  n'accepte ni palier suivant ni réponse.
 
 Détails du casting :
 
@@ -117,8 +144,8 @@ Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 | `not_found` | fichier ou remarque introuvable |
 | `version_conflict` | `base_version` ne correspond plus à la version sur disque |
 | `not_text` | fichier qui n'est pas un texte UTF-8 de 2 Mo au plus |
-| `budget_exceeded` | budget mensuel atteint, passe proactive refusée |
-| `provider_error` | erreur ou délai dépassé chez le fournisseur de modèles |
+| `budget_exceeded` | budget mensuel atteint : demande explicite non confirmée |
+| `provider_error` | fournisseur non configuré, erreur ou délai dépassé chez le fournisseur de modèles |
 | `internal` | erreur inattendue (détail dans le journal du serveur) |
 
 Conflit : si `base_version` ne correspond plus à la version sur disque, le serveur

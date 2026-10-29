@@ -199,6 +199,7 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
             section_text: &lines(&masked_lines, section.start_line, section.end_line),
             section_diff: &diff,
             context: &context(&masked_lines, &section),
+            follow_up: None,
         });
         jobs.push(Job {
             mentor_id: mentor.id.clone(),
@@ -233,14 +234,14 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
     }))
 }
 
-fn model_for(state: &AppState, mentor: &Mentor) -> Option<String> {
+pub(crate) fn model_for(state: &AppState, mentor: &Mentor) -> Option<String> {
     match mentor.model {
         ModelTier::Fast => state.llm.config.fast.clone(),
         ModelTier::Strong => state.llm.config.strong.clone(),
     }
 }
 
-fn remark_level(level: Level) -> RemarkLevel {
+pub(crate) fn remark_level(level: Level) -> RemarkLevel {
     match level {
         Level::Indice => RemarkLevel::Indice,
         Level::Question => RemarkLevel::Question,
@@ -250,7 +251,7 @@ fn remark_level(level: Level) -> RemarkLevel {
 }
 
 /// Lignes `start..=end` (à partir de 1).
-fn lines(all: &[&str], start: usize, end: usize) -> String {
+pub(crate) fn lines(all: &[&str], start: usize, end: usize) -> String {
     all.iter()
         .skip(start.saturating_sub(1))
         .take(end + 1 - start)
@@ -260,7 +261,7 @@ fn lines(all: &[&str], start: usize, end: usize) -> String {
 }
 
 /// Jusqu'à 20 lignes avant et 20 lignes après la section.
-fn context(all: &[&str], section: &Section) -> String {
+pub(crate) fn context(all: &[&str], section: &Section) -> String {
     let before_start = section.start_line.saturating_sub(CONTEXT_LINES).max(1);
     let before = if section.start_line > 1 {
         lines(all, before_start, section.start_line - 1)
@@ -391,6 +392,24 @@ fn finish(
     }
 }
 
+/// Ligne (à partir de 1) de `quote` dans la section ; début de la section pour une
+/// citation vide, `None` si la citation n'y est plus.
+fn line_of(section: &Section, section_text: &str, quote: &str) -> Option<usize> {
+    if quote.is_empty() {
+        return Some(section.start_line);
+    }
+    section_text
+        .find(quote)
+        .map(|index| section.start_line + section_text[..index].matches('\n').count())
+}
+
+/// Ligne de l'ancre dans la version enregistrée, ou `None` si sa section ou sa
+/// citation n'existe plus : la remarque est alors détachée.
+pub(crate) fn locate_anchor(sections: &[Section], content: &str, anchor: &Anchor) -> Option<usize> {
+    let section = sections.iter().find(|s| s.id == anchor.section_id)?;
+    line_of(section, &section.text(content), &anchor.quote)
+}
+
 /// Remarque complète, ancrée sur sa section et sa citation.
 fn anchor(
     path: &RelPath,
@@ -400,10 +419,7 @@ fn anchor(
     draft: RemarkDraft,
     now: &str,
 ) -> Remark {
-    let offset = section_text
-        .find(&draft.quote)
-        .filter(|_| !draft.quote.is_empty())
-        .map_or(0, |index| section_text[..index].matches('\n').count());
+    let line_hint = line_of(section, section_text, &draft.quote).unwrap_or(section.start_line);
     let level = draft.level.as_str().to_owned();
     Remark {
         id: format!("rm_{}", ulid::Ulid::generate()),
@@ -412,7 +428,7 @@ fn anchor(
         anchor: Anchor {
             section_id: section.id.clone(),
             quote: draft.quote,
-            line_hint: section.start_line + offset,
+            line_hint,
         },
         level: level.clone(),
         kind: draft.kind.as_str().to_owned(),

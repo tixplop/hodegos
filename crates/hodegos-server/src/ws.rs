@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -11,17 +11,30 @@ use hodegos_core::{
     EntryKind, FileError, Language, RelPath, Section, Session, UserId, Version, section_at,
     sections,
 };
-use hodegos_mentors::{CastRequest, Registry, cast};
+use hodegos_mentors::{CastRequest, FollowUpKind, Registry, cast};
 use jiff::Timestamp;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc;
 
 use crate::AppState;
-use crate::pass::{self, PassRequest, PassResult, Prepared, cast_section, mentor_ref};
+use crate::followup;
+use crate::pass::{
+    self, PassRequest, PassResult, Prepared, cast_section, locate_anchor, mentor_ref,
+};
 use crate::protocol::{
     self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
-    Outgoing, PassOutcome, SectionInfo, ServerMessage,
+    Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
 };
+
+/// Longueur maximale d'une réponse de l'utilisateur.
+const MAX_REPLY_CHARS: usize = 2000;
+
+/// Reprise terminée, avec l'`id` de la demande à laquelle elle répond (`hint_next`),
+/// ou `None` pour la relance qui suit une réponse.
+struct FollowUpDone {
+    re: Option<String>,
+    done: followup::Done,
+}
 
 /// Mise à niveau WebSocket : le cookie est déjà vérifié par la garde, on vérifie ici `Origin`.
 pub(crate) async fn upgrade(
@@ -74,6 +87,10 @@ struct Connection {
     passes: mpsc::UnboundedSender<PassResult>,
     /// Numéro de la dernière passe lancée par fichier : un résultat plus ancien est ignoré.
     generations: HashMap<RelPath, u64>,
+    /// Les reprises terminées (palier suivant, relance) reviennent par ce canal.
+    followups: mpsc::UnboundedSender<FollowUpDone>,
+    /// Remarques dont une reprise est en cours : une seule à la fois.
+    busy: HashSet<String>,
 }
 
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
@@ -81,6 +98,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let mut reloaded = state.mentors.reloaded.subscribe();
     let session = state.project.session(user);
     let (passes, mut finished) = mpsc::unbounded_channel();
+    let (followups, mut followed) = mpsc::unbounded_channel();
     let mut connection = Connection {
         state,
         session,
@@ -89,6 +107,8 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         last_casting: None,
         passes,
         generations: HashMap::new(),
+        followups,
+        busy: HashSet::new(),
     };
     let mut pending = vec![Outgoing::push(connection.state.status())];
     pending.extend(connection.mentor_warnings(false));
@@ -124,6 +144,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
                 Err(RecvError::Closed) => break,
             },
             Some(result) = finished.recv() => connection.pass_finished(result),
+            Some(done) = followed.recv() => connection.followup_finished(done),
         };
     }
 }
@@ -183,13 +204,18 @@ impl Connection {
                 let file = project.read_file(&self.session, &rel)?;
                 self.watch(&rel);
                 let open = OpenFile::new(file.version.clone(), file.content.clone(), file.language);
+                // Le fichier a pu changer pendant que Hodegos était arrêté ; les remarques
+                // détachées partent avec `file`, sans `remark_update`.
+                self.state.store.reanchor(rel.as_str(), |anchor| {
+                    locate_anchor(&open.sections, &open.content, anchor)
+                });
                 let reply = ServerMessage::File {
                     path: rel.to_string(),
                     content: file.content,
                     version: file.version.as_str().to_owned(),
                     language: file.language.as_str().to_owned(),
                     sections: open.sections.iter().map(section_info).collect(),
-                    remarks: self.state.store.open_remarks(rel.as_str()),
+                    remarks: self.state.store.visible_remarks(rel.as_str()),
                 };
                 self.open.insert(rel.clone(), open);
                 self.cursor = Some((rel, 1));
@@ -225,6 +251,7 @@ impl Connection {
                         version: version.as_str().to_owned(),
                     },
                 )];
+                replies.extend(self.reanchor(&rel));
                 replies.extend(self.casting_if_changed());
                 replies.extend(self.start_pass(PassRequest {
                     path: rel,
@@ -276,7 +303,182 @@ impl Connection {
                 self.last_casting = Some(casting.clone());
                 Ok(vec![Outgoing::reply(re, casting)])
             }
+            ClientMessage::HintNext {
+                remark_id,
+                confirm_over_budget,
+            } => Ok(self.hint_next(re, &remark_id, confirm_over_budget)),
+            ClientMessage::RemarkReply {
+                remark_id,
+                text,
+                confirm_over_budget,
+            } => Ok(self.remark_reply(re, &remark_id, &text, confirm_over_budget)),
+            ClientMessage::RemarkDismiss { remark_id, reason } => {
+                let remark = self
+                    .state
+                    .store
+                    .update(&remark_id, |remark| {
+                        if remark.is_visible() {
+                            remark.status = reason.status().to_owned();
+                        }
+                    })
+                    .ok_or_else(|| FileError::NotFound(format!("remarque {remark_id}")))?;
+                Ok(vec![remark_update(re, remark)])
+            }
         }
+    }
+
+    /// Palier suivant : la réponse (`remark_update` ou `error`) part quand le mentor
+    /// a répondu.
+    fn hint_next(&mut self, re: Option<String>, id: &str, confirm: bool) -> Vec<Outgoing> {
+        let Some(remark) = self.state.store.get(id) else {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::NotFound,
+                format!("remarque {id}"),
+            )];
+        };
+        match self.start_followup(re.clone(), &remark, FollowUpKind::NextLevel, confirm) {
+            Ok(()) => Vec::new(),
+            Err(refused) => vec![
+                Outgoing::error(re, refused.code, refused.message),
+                Outgoing::push(self.state.status()),
+            ],
+        }
+    }
+
+    /// Réponse de l'utilisateur : `remark_update` tout de suite avec son message, puis
+    /// un second `remark_update` quand la relance est finie (inchangé si le mentor
+    /// n'ajoute rien ou ne peut pas être joint). Au-delà du budget, rien n'est
+    /// enregistré sans confirmation.
+    fn remark_reply(
+        &mut self,
+        re: Option<String>,
+        id: &str,
+        text: &str,
+        confirm: bool,
+    ) -> Vec<Outgoing> {
+        let text = text.trim();
+        if text.is_empty() || text.chars().count() > MAX_REPLY_CHARS {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BadMessage,
+                "réponse vide ou de plus de 2 000 caractères",
+            )];
+        }
+        let Some(remark) = self.state.store.get(id) else {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::NotFound,
+                format!("remarque {id}"),
+            )];
+        };
+        if !remark.is_active() {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BadMessage,
+                "cette remarque est fermée ou détachée",
+            )];
+        }
+        if self.busy.contains(id) {
+            return vec![busy_error(re)];
+        }
+        let over_budget =
+            self.state.budget.state(Timestamp::now()).level == hodegos_llm::BudgetLevel::Exceeded;
+        if over_budget && !confirm {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BudgetExceeded,
+                "budget du mois atteint : confirmez pour envoyer cette réponse",
+            )];
+        }
+        let now = Timestamp::now().to_string();
+        let Some(remark) = self.state.store.update(id, |remark| {
+            remark.thread.push(ThreadEntry {
+                author: "user".to_owned(),
+                text: text.to_owned(),
+                at: now,
+            });
+            remark.status = "answered".to_owned();
+        }) else {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::NotFound,
+                format!("remarque {id}"),
+            )];
+        };
+        let mut replies = vec![remark_update(re, remark.clone())];
+        if let Err(refused) = self.start_followup(None, &remark, FollowUpKind::Reply, true) {
+            tracing::info!(message = %refused.message, "réponse enregistrée sans relance du mentor");
+            replies.push(remark_update(None, remark));
+            replies.push(Outgoing::push(self.state.status()));
+        }
+        replies
+    }
+
+    /// Lance une reprise en tâche de fond ; son issue revient par `followups`.
+    fn start_followup(
+        &mut self,
+        re: Option<String>,
+        remark: &Remark,
+        kind: FollowUpKind,
+        confirm: bool,
+    ) -> Result<(), followup::Refused> {
+        if self.busy.contains(&remark.id) {
+            return Err(followup::Refused {
+                code: ErrorCode::BadMessage,
+                message: BUSY.to_owned(),
+            });
+        }
+        let registry = self.state.mentors.registry();
+        let job = followup::prepare(&self.state, &registry, &self.session, remark, kind, confirm)?;
+        self.busy.insert(job.remark_id.clone());
+        let state = self.state.clone();
+        let sender = self.followups.clone();
+        tokio::spawn(async move {
+            let done = followup::run(state, job).await;
+            let _ = sender.send(FollowUpDone { re, done });
+        });
+        Ok(())
+    }
+
+    /// Message du mentor ajouté au fil (ou remarque inchangée), puis nouvel état.
+    fn followup_finished(&mut self, finished: FollowUpDone) -> Vec<Outgoing> {
+        let FollowUpDone { re, done } = finished;
+        self.busy.remove(&done.remark_id);
+        let first = match (&done.outcome, re) {
+            (Err(refused), Some(re)) => Some(Outgoing::error(
+                Some(re),
+                refused.code,
+                refused.message.clone(),
+            )),
+            (Err(_), None) => self
+                .state
+                .store
+                .get(&done.remark_id)
+                .map(|remark| remark_update(None, remark)),
+            (Ok(message), re) => followup::apply(&self.state, &done, message.as_deref())
+                .map(|remark| remark_update(re, remark)),
+        };
+        first
+            .into_iter()
+            .chain([Outgoing::push(self.state.status())])
+            .collect()
+    }
+
+    /// Recale les remarques du fichier sur sa version enregistrée ; `remark_update`
+    /// pour chaque remarque détachée.
+    fn reanchor(&self, rel: &RelPath) -> Vec<Outgoing> {
+        let Some(file) = self.open.get(rel) else {
+            return Vec::new();
+        };
+        self.state
+            .store
+            .reanchor(rel.as_str(), |anchor| {
+                locate_anchor(&file.sections, &file.content, anchor)
+            })
+            .into_iter()
+            .map(|remark| remark_update(None, remark))
+            .collect()
     }
 
     /// Fait observer le dossier du fichier.
@@ -450,6 +652,7 @@ impl Connection {
                         path.clone(),
                         OpenFile::new(file.version, file.content, file.language),
                     );
+                    replies.extend(self.reanchor(path));
                 }
                 None => {
                     if let Some(open) = self.open.get_mut(path) {
@@ -479,6 +682,16 @@ fn file_mentors(registry: &Registry, path: &str) -> Vec<MentorRef> {
         .chain(casting.consultants.iter())
         .filter_map(|id| mentor_ref(registry, id))
         .collect()
+}
+
+const BUSY: &str = "une demande est déjà en cours pour cette remarque";
+
+fn busy_error(re: Option<String>) -> Outgoing {
+    Outgoing::error(re, ErrorCode::BadMessage, BUSY)
+}
+
+fn remark_update(re: Option<String>, remark: Remark) -> Outgoing {
+    Outgoing::reply(re, ServerMessage::RemarkUpdate(Box::new(remark)))
 }
 
 fn section_info(section: &Section) -> SectionInfo {

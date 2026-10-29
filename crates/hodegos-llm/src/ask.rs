@@ -1,4 +1,6 @@
-use crate::validate::{Rules, Validated, parse_remarks, validate};
+use crate::validate::{
+    ReplyDraft, Rules, Validated, parse_remarks, parse_replies, validate, validate_replies,
+};
 use crate::{ChatMessage, LlmClient, LlmError, LlmRequest, RemarkDraft, Role};
 
 /// Remarques validées d'un appel, et ce qu'il a coûté.
@@ -27,14 +29,58 @@ impl AskError {
     }
 }
 
+/// Réponse validée d'un appel dans le fil d'une remarque, et ce qu'il a coûté.
+#[derive(Debug, PartialEq)]
+pub struct Replied {
+    /// `None` : le modèle n'a rien ajouté, ou toutes ses réponses ont été écartées.
+    pub reply: Option<ReplyDraft>,
+    pub rejected: Vec<&'static str>,
+    pub cost_usd: f64,
+    pub retried: bool,
+}
+
 /// Demande des remarques au modèle, puis les valide. Une réponse illisible ou hors
 /// schéma donne une seule relance, avec l'erreur renvoyée au modèle ; une panne du
 /// fournisseur n'est jamais relancée.
 pub async fn ask_for_remarks(
     client: &dyn LlmClient,
-    mut request: LlmRequest,
+    request: LlmRequest,
     rules: &Rules<'_>,
 ) -> Result<Asked, AskError> {
+    let (drafts, cost_usd, retried) = ask_parsed(client, request, parse_remarks).await?;
+    let Validated { kept, rejected } = validate(drafts, rules);
+    Ok(Asked {
+        remarks: kept,
+        rejected,
+        cost_usd,
+        retried,
+    })
+}
+
+/// Demande au modèle un message dans le fil d'une remarque, avec les mêmes règles
+/// de relance que [`ask_for_remarks`].
+pub async fn ask_for_reply(
+    client: &dyn LlmClient,
+    request: LlmRequest,
+    rules: &Rules<'_>,
+) -> Result<Replied, AskError> {
+    let (drafts, cost_usd, retried) = ask_parsed(client, request, parse_replies).await?;
+    let (reply, rejected) = validate_replies(drafts, rules);
+    Ok(Replied {
+        reply,
+        rejected,
+        cost_usd,
+        retried,
+    })
+}
+
+/// Appelle le modèle et lit sa réponse avec `parse` ; une seule relance si elle est
+/// illisible. Renvoie le résultat lu, le coût cumulé et s'il y a eu relance.
+async fn ask_parsed<T>(
+    client: &dyn LlmClient,
+    mut request: LlmRequest,
+    parse: fn(&str) -> Result<T, String>,
+) -> Result<(T, f64, bool), AskError> {
     let mut cost_usd = 0.0;
     let mut retried = false;
     loop {
@@ -43,18 +89,10 @@ pub async fn ask_for_remarks(
             .await
             .map_err(|error| AskError::Provider { error, cost_usd })?;
         cost_usd += response.cost_usd;
-        match parse_remarks(&response.content) {
-            Ok(drafts) => {
-                let Validated { kept, rejected } = validate(drafts, rules);
-                return Ok(Asked {
-                    remarks: kept,
-                    rejected,
-                    cost_usd,
-                    retried,
-                });
-            }
+        match parse(&response.content) {
+            Ok(parsed) => return Ok((parsed, cost_usd, retried)),
             Err(detail) if retried => {
-                tracing::warn!(%detail, "réponse du modèle invalide après relance, passe abandonnée");
+                tracing::warn!(%detail, "réponse du modèle invalide après relance, demande abandonnée");
                 return Err(AskError::InvalidResponse { detail, cost_usd });
             }
             Err(detail) => {
@@ -156,5 +194,15 @@ mod tests {
             }
         );
         assert_eq!(fake.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn une_reponse_dans_le_fil_suit_la_meme_relance() {
+        let reply = json!({ "replies": [{ "level": "indice", "message": "Relisez la condition.", "confidence": 0.7 }] });
+        let fake = FakeLlmClient::new([text("{}", 0.001), text(&reply.to_string(), 0.001)]);
+        let replied = ask_for_reply(&fake, request(), &rules()).await.unwrap();
+        assert!(replied.retried);
+        assert_eq!(replied.reply.unwrap().message, "Relisez la condition.");
+        assert_eq!(fake.requests().len(), 2);
     }
 }

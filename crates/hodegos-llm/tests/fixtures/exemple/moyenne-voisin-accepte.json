@@ -1,0 +1,6 @@
+{
+  "language": "python",
+  "section": "def moyenne(notes):\n    total = 0\n    for note in notes:\n        total += note\n    return total / len(notes)",
+  "kept": true,
+  "response": "{\"replies\": [{\"level\": \"exemple\", \"message\": \"Un cas voisin :\\n```python\\nmots = []\\nif not mots:\\n    print(\\\"liste vide\\\")\\nelse:\\n    print(len(mots))\\n```\\nQue se passe-t-il pour une liste vide dans votre fonction ?\", \"confidence\": 0.8}]}"
+}

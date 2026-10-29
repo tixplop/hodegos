@@ -43,8 +43,17 @@ let currentPath = null;
 let wasConnected = false;
 /** Dernier `casting` reçu, par chemin. */
 const castings = new Map();
-/** Remarques ouvertes, par chemin. */
+/** Remarques affichées (ouvertes, répondues, détachées), par chemin. */
 const remarksByPath = new Map();
+/** Remarques qui attendent le mentor (palier suivant ou relance). */
+const pendingRemarks = new Set();
+/** Remarques dont la relance suit une réponse envoyée : elle arrive en `remark_update` spontané. */
+const awaitingRelaunch = new Set();
+/** Note affichée sous une remarque (« rien ajouté », panne…), par id. */
+const remarkNotes = new Map();
+/** Remarques dont le champ de réponse est ouvert, et texte saisi par remarque. */
+const composing = new Set();
+const drafts = new Map();
 /** Remarque sélectionnée (carte et passage mis en avant). */
 let activeRemark = null;
 /** Noms des mentors connus, par `id`, pour signer les remarques. */
@@ -111,6 +120,17 @@ function onPush(message) {
     const { path, items } = message.payload;
     remarksByPath.set(path, [...(remarksByPath.get(path) ?? []), ...items]);
     if (path === currentPath) renderRemarksPanel();
+    return;
+  }
+  if (message.type === 'remark_update') {
+    const remark = message.payload;
+    if (awaitingRelaunch.delete(remark.id)) {
+      pendingRemarks.delete(remark.id);
+      if (remark.thread.at(-1)?.author === 'user') {
+        remarkNotes.set(remark.id, "Le mentor n'a rien ajouté pour l'instant.");
+      }
+    }
+    applyRemark(remark);
     return;
   }
   if (message.type === 'status') {
@@ -206,19 +226,105 @@ function showMentorWarnings(warnings) {
 
 /* ---------- Remarques ---------- */
 
-/** Remarques ouvertes d'un fichier, numérotées dans l'ordre du texte, avec leur position. */
+const VISIBLE = new Set(['open', 'answered', 'detached']);
+
+/** Remarques affichées d'un fichier, numérotées dans l'ordre du texte, avec leur position. */
 function remarkItems(path) {
   const tab = tabs.get(path);
   if (!tab) return [];
   const doc = path === currentPath ? editor.state.doc : tab.state.doc;
   return (remarksByPath.get(path) ?? [])
-    .filter((remark) => remark.status === 'open')
+    .filter((remark) => VISIBLE.has(remark.status))
     .sort((a, b) => a.anchor.line_hint - b.anchor.line_hint)
     .map((remark, index) => ({
       remark,
       number: index + 1,
-      position: locate(doc, remark.anchor.quote, remark.anchor.line_hint),
+      // Une remarque détachée n'a plus de passage, même si la citation existe ailleurs.
+      position: remark.status === 'detached' ? null : locate(doc, remark.anchor.quote, remark.anchor.line_hint),
     }));
+}
+
+/** Remplace une remarque par son nouvel état (palier, fil, statut). */
+function applyRemark(remark) {
+  const list = remarksByPath.get(remark.path);
+  if (!list) return;
+  const index = list.findIndex((r) => r.id === remark.id);
+  if (index >= 0) list[index] = remark;
+  else list.push(remark);
+  if (!VISIBLE.has(remark.status)) {
+    composing.delete(remark.id);
+    drafts.delete(remark.id);
+    if (activeRemark === remark.id) activeRemark = null;
+  }
+  if (remark.path === currentPath) renderRemarksPanel();
+}
+
+function confirmOverBudget() {
+  return window.confirm(
+    "Le budget du mois est atteint. Envoyer quand même cette demande ? Son coût s'ajoutera au mois en cours.",
+  );
+}
+
+function remarkError(remark, error) {
+  if (error.code === 'provider_error') {
+    remarkNotes.set(remark.id, `OpenRouter indisponible : ${error.message}`);
+  } else {
+    showError(error);
+  }
+}
+
+async function hintNext(remark, confirm = false) {
+  remarkNotes.delete(remark.id);
+  pendingRemarks.add(remark.id);
+  renderRemarksPanel();
+  let retry = false;
+  try {
+    const reply = await server.request('hint_next', { remark_id: remark.id, confirm_over_budget: confirm });
+    if (reply.payload.levels_given.length === remark.levels_given.length) {
+      remarkNotes.set(remark.id, "Le mentor n'a pas pu formuler le palier suivant ; réessayez plus tard.");
+    }
+    pendingRemarks.delete(remark.id);
+    applyRemark(reply.payload);
+  } catch (error) {
+    if (error.code === 'budget_exceeded' && !confirm) retry = confirmOverBudget();
+    else remarkError(remark, error);
+  } finally {
+    pendingRemarks.delete(remark.id);
+    renderRemarksPanel();
+  }
+  if (retry) await hintNext(remark, true);
+}
+
+async function sendReply(remark, text, confirm = false) {
+  if (!text.trim()) return;
+  remarkNotes.delete(remark.id);
+  pendingRemarks.add(remark.id);
+  renderRemarksPanel();
+  let retry = false;
+  try {
+    const reply = await server.request('remark_reply', { remark_id: remark.id, text, confirm_over_budget: confirm });
+    // Le mentor répond dans un second `remark_update`, spontané.
+    awaitingRelaunch.add(remark.id);
+    composing.delete(remark.id);
+    drafts.delete(remark.id);
+    applyRemark(reply.payload);
+  } catch (error) {
+    pendingRemarks.delete(remark.id);
+    if (error.code === 'budget_exceeded' && !confirm) retry = confirmOverBudget();
+    else remarkError(remark, error);
+    renderRemarksPanel();
+  }
+  if (retry) await sendReply(remark, text, true);
+}
+
+async function dismissRemark(remark, reason) {
+  try {
+    const reply = await server.request('remark_dismiss', { remark_id: remark.id, reason });
+    remarkNotes.delete(remark.id);
+    applyRemark(reply.payload);
+  } catch (error) {
+    showError(error);
+  }
 }
 
 function renderRemarksPanel() {
@@ -227,6 +333,20 @@ function renderRemarksPanel() {
     activeId: activeRemark,
     mentorName: (id) => mentorNames.get(id) ?? id,
     onSelect: (remark) => selectRemark(remark.id, true),
+    pending: pendingRemarks,
+    notes: remarkNotes,
+    composing,
+    drafts,
+    onHint: (remark) => hintNext(remark),
+    onCompose: (remark, open) => {
+      if (open) composing.add(remark.id);
+      else composing.delete(remark.id);
+      renderRemarksPanel();
+      if (open) document.getElementById(`reponse-${remark.id}`)?.focus();
+    },
+    onDraft: (id, text) => drafts.set(id, text),
+    onReply: (remark, text) => sendReply(remark, text),
+    onDismiss: (remark, reason) => dismissRemark(remark, reason),
   });
   if (!currentPath) return;
   editor.showAnchors(items

@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use crate::protocol::Remark;
+use crate::protocol::{Anchor, Remark};
 
 #[derive(Serialize, Deserialize, Default)]
 struct RemarksFile {
@@ -49,18 +49,25 @@ impl Store {
         }
     }
 
-    /// Remarques ouvertes d'un fichier.
-    pub(crate) fn open_remarks(&self, path: &str) -> Vec<Remark> {
+    /// Remarques d'un fichier affichées dans le panneau : ouvertes, répondues ou détachées.
+    pub(crate) fn visible_remarks(&self, path: &str) -> Vec<Remark> {
         self.remarks
             .lock()
             .map(|remarks| {
                 remarks
                     .iter()
-                    .filter(|r| r.path == path && r.status == "open")
+                    .filter(|r| r.path == path && r.is_visible())
                     .cloned()
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    pub(crate) fn get(&self, id: &str) -> Option<Remark> {
+        self.remarks
+            .lock()
+            .ok()
+            .and_then(|remarks| remarks.iter().find(|r| r.id == id).cloned())
     }
 
     pub(crate) fn add(&self, items: &[Remark]) {
@@ -68,12 +75,63 @@ impl Store {
             return;
         };
         remarks.extend(items.iter().cloned());
+        self.persist(&remarks);
+    }
+
+    /// Modifie une remarque et l'enregistre ; renvoie son nouvel état, `None` si elle
+    /// est introuvable.
+    pub(crate) fn update(&self, id: &str, change: impl FnOnce(&mut Remark)) -> Option<Remark> {
+        let mut remarks = self.remarks.lock().ok()?;
+        let remark = remarks.iter_mut().find(|r| r.id == id)?;
+        change(remark);
+        let updated = remark.clone();
+        self.persist(&remarks);
+        Some(updated)
+    }
+
+    /// Recale les remarques actives d'un fichier : `locate` donne la ligne de l'ancre,
+    /// ou `None` si la section ou la citation n'existe plus. Une remarque sans ancre
+    /// passe en `detached`, définitivement ; renvoie celles-là.
+    pub(crate) fn reanchor(
+        &self,
+        path: &str,
+        locate: impl Fn(&Anchor) -> Option<usize>,
+    ) -> Vec<Remark> {
+        let Ok(mut remarks) = self.remarks.lock() else {
+            return Vec::new();
+        };
+        let mut changed = false;
+        let mut detached = Vec::new();
+        for remark in remarks
+            .iter_mut()
+            .filter(|r| r.path == path && r.is_active())
+        {
+            match locate(&remark.anchor) {
+                Some(line) if line == remark.anchor.line_hint => {}
+                Some(line) => {
+                    remark.anchor.line_hint = line;
+                    changed = true;
+                }
+                None => {
+                    remark.status = "detached".to_owned();
+                    detached.push(remark.clone());
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.persist(&remarks);
+        }
+        detached
+    }
+
+    fn persist(&self, remarks: &[Remark]) {
         let Some(dir) = &self.dir else {
             return;
         };
         let file = RemarksFile {
             version: 1,
-            remarks: remarks.clone(),
+            remarks: remarks.to_vec(),
         };
         if let Err(err) = write_json(&dir.join("remarks.json"), &file) {
             tracing::error!(error = %err, "historique des remarques non écrit");

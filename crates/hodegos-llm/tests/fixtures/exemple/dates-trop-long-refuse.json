@@ -1,0 +1,6 @@
+{
+  "language": "typescript",
+  "section": "export function reserver(objet: Objet, debut: Date, emprunts: Emprunt[]) {\n  const dejaPris = emprunts.find((e) => e.debut === debut);\n  return !dejaPris;\n}",
+  "kept": false,
+  "response": "{\"replies\": [{\"level\": \"exemple\", \"message\": \"Un cas voisin :\\n```ts\\nconst p1 = { x: 1 };\\nconst p2 = { x: 2 };\\nconst p3 = { x: 3 };\\nconst p4 = { x: 4 };\\nconst p5 = { x: 5 };\\nconst p6 = { x: 6 };\\nconst p7 = { x: 7 };\\nconst p8 = { x: 8 };\\nconst p9 = { x: 9 };\\nconst p10 = { x: 10 };\\nconst p11 = { x: 11 };\\nconst p12 = { x: 12 };\\nconst p13 = { x: 13 };\\n```\", \"confidence\": 0.8}]}"
+}

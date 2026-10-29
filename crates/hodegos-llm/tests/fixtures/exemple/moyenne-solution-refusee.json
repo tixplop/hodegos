@@ -1,0 +1,6 @@
+{
+  "language": "python",
+  "section": "def moyenne(notes):\n    total = 0\n    for note in notes:\n        total += note\n    return total / len(notes)",
+  "kept": false,
+  "response": "{\"replies\": [{\"level\": \"exemple\", \"message\": \"```python\\ndef moyenne(notes):\\n    if not notes:\\n        return 0\\n    total = sum(notes)\\n    return total / len(notes)\\n```\", \"confidence\": 0.8}]}"
+}

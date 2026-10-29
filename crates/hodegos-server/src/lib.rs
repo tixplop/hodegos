@@ -5,6 +5,7 @@
 
 mod assets;
 mod auth;
+mod followup;
 mod guard;
 mod mentors;
 mod pass;

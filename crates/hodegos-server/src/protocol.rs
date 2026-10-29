@@ -83,6 +83,39 @@ pub enum ClientMessage {
         #[serde(default)]
         mentor_id: Option<String>,
     },
+    HintNext {
+        remark_id: String,
+        /// Budget du mois atteint : la demande part quand même.
+        #[serde(default)]
+        confirm_over_budget: bool,
+    },
+    RemarkReply {
+        remark_id: String,
+        text: String,
+        #[serde(default)]
+        confirm_over_budget: bool,
+    },
+    RemarkDismiss {
+        remark_id: String,
+        reason: DismissReason,
+    },
+}
+
+/// Pourquoi une remarque est fermée ; c'est aussi son nouveau statut.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DismissReason {
+    Ignored,
+    Resolved,
+}
+
+impl DismissReason {
+    pub fn status(self) -> &'static str {
+        match self {
+            Self::Ignored => "ignored",
+            Self::Resolved => "resolved",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -135,6 +168,9 @@ pub enum ServerMessage {
         path: String,
         items: Vec<Remark>,
     },
+    /// Remarque complète après un palier suivant, une réponse, une fermeture ou un
+    /// détachement.
+    RemarkUpdate(Box<Remark>),
     Status {
         provider_ok: bool,
         /// Texte affiché dans la barre d'état (« clé absente »…), si besoin.
@@ -210,6 +246,18 @@ pub struct Remark {
     pub created_at: String,
 }
 
+impl Remark {
+    /// Ouverte ou répondue : elle accepte encore un palier suivant ou une réponse.
+    pub fn is_active(&self) -> bool {
+        matches!(self.status.as_str(), "open" | "answered")
+    }
+
+    /// Affichée dans le panneau : active ou détachée.
+    pub fn is_visible(&self) -> bool {
+        self.is_active() || self.status == "detached"
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Anchor {
     pub section_id: String,
@@ -274,6 +322,8 @@ pub enum ErrorCode {
     NotFound,
     VersionConflict,
     NotText,
+    BudgetExceeded,
+    ProviderError,
     Internal,
 }
 
@@ -373,6 +423,59 @@ mod tests {
         );
     }
 
+    fn sample_remark() -> Remark {
+        Remark {
+            id: "rm_01".to_owned(),
+            mentor_id: "mentor-langage".to_owned(),
+            path: "a.rs".to_owned(),
+            anchor: Anchor {
+                section_id: "fn:a".to_owned(),
+                quote: "let x".to_owned(),
+                line_hint: 2,
+            },
+            level: "indice".to_owned(),
+            kind: "observation".to_owned(),
+            levels_given: vec!["indice".to_owned()],
+            status: "open".to_owned(),
+            thread: vec![ThreadEntry {
+                author: "mentor".to_owned(),
+                text: "Regardez.".to_owned(),
+                at: "2026-10-29T12:04:00Z".to_owned(),
+            }],
+            created_at: "2026-10-29T12:04:00Z".to_owned(),
+        }
+    }
+
+    #[test]
+    fn lit_les_messages_des_remarques() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "hint_next", "payload": { "remark_id": "rm_1" } }))
+                .unwrap()
+                .1,
+            ClientMessage::HintNext {
+                remark_id: "rm_1".to_owned(),
+                confirm_over_budget: false
+            }
+        );
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "remark_dismiss",
+                "payload": { "remark_id": "rm_1", "reason": "ignored" } }))
+            .unwrap()
+            .1,
+            ClientMessage::RemarkDismiss {
+                remark_id: "rm_1".to_owned(),
+                reason: DismissReason::Ignored
+            }
+        );
+        let bad = parse_value(json!({ "v": 1, "type": "remark_dismiss", "id": "c-9",
+            "payload": { "remark_id": "rm_1", "reason": "detached" } }));
+        assert_eq!(error_code(bad)["payload"]["code"], "bad_message");
+        let update = Outgoing::push(ServerMessage::RemarkUpdate(Box::new(sample_remark())));
+        let value = serde_json::to_value(&update).unwrap();
+        assert_eq!(value["type"], "remark_update");
+        assert_eq!(value["payload"]["id"], "rm_01");
+    }
+
     #[test]
     fn json_invalide_donne_bad_message_sans_re() {
         let out = error_code(parse("{ pas du json"));
@@ -450,6 +553,19 @@ mod tests {
                 section_id: Some("fn:a".to_owned()),
                 mentor_id: None,
             },
+            ClientMessage::HintNext {
+                remark_id: "rm_01".to_owned(),
+                confirm_over_budget: true,
+            },
+            ClientMessage::RemarkReply {
+                remark_id: "rm_01".to_owned(),
+                text: "Je ne sais pas.".to_owned(),
+                confirm_over_budget: false,
+            },
+            ClientMessage::RemarkDismiss {
+                remark_id: "rm_01".to_owned(),
+                reason: DismissReason::Resolved,
+            },
         ] {
             let incoming = Incoming {
                 v: VERSION,
@@ -483,27 +599,9 @@ mod tests {
                     end_line: 3,
                     parents: vec![],
                 }],
-                remarks: vec![Remark {
-                    id: "rm_01".to_owned(),
-                    mentor_id: "mentor-langage".to_owned(),
-                    path: "a.rs".to_owned(),
-                    anchor: Anchor {
-                        section_id: "fn:a".to_owned(),
-                        quote: "let x".to_owned(),
-                        line_hint: 2,
-                    },
-                    level: "indice".to_owned(),
-                    kind: "observation".to_owned(),
-                    levels_given: vec!["indice".to_owned()],
-                    status: "open".to_owned(),
-                    thread: vec![ThreadEntry {
-                        author: "mentor".to_owned(),
-                        text: "Regardez.".to_owned(),
-                        at: "2026-10-29T12:04:00Z".to_owned(),
-                    }],
-                    created_at: "2026-10-29T12:04:00Z".to_owned(),
-                }],
+                remarks: vec![sample_remark()],
             },
+            ServerMessage::RemarkUpdate(Box::new(sample_remark())),
             ServerMessage::PassStarted {
                 path: "a.rs".to_owned(),
                 sections: vec!["fn:a".to_owned()],

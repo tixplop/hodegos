@@ -53,19 +53,29 @@ en trois couches, validation des remarques, ancrage, persistance dans
 - [x] Tests avec `FakeLlmClient` : JSON invalide, relance unique, citation introuvable, garde « pas de solution », plafond
 - [x] Test : un fichier `.env` ou ignoré par git n'est jamais envoyé ; un secret dans une section est masqué
 - [ ] Enregistrer un fichier produit au plus deux remarques ancrées en moins de 10 secondes
-  (testé avec `FakeLlmClient` et un faux OpenRouter local ; délai à vérifier avec la vraie clé)
+  (testé avec `FakeLlmClient` et un faux OpenRouter local ; la mesure avec la vraie clé est
+  reportée en phase 6, avec le critère de fin du MVP, décidé le 29 octobre 2026)
 - [x] Budget : avertissement à 80 %, arrêt des passes proactives à 100 %
 - [x] Panne du fournisseur : passe abandonnée, état visible, aucune nouvelle tentative
 
 ## Phase 5 — Paliers et conversation
 
 `hint_next`, `remark_reply`, `remark_dismiss`, remarques détachées, choix forcé de
-l'interlocuteur depuis le panneau.
+l'interlocuteur depuis le panneau (livré en phase 3 ; la phase 5 vérifie que le mentor
+choisi tient aussi le fil).
 
-- [ ] Une remarque monte de l'indice à l'exemple ; le bouton disparaît au dernier palier
-- [ ] L'exemple passe la garde « pas de solution » (test avec réponses enregistrées)
-- [ ] Une remarque dont la citation disparaît passe en `detached` et reste lisible
-- [ ] Une réponse de l'utilisateur relance le mentor au même palier
+- [x] Une remarque monte de l'indice à l'exemple ; le bouton disparaît au dernier palier
+- [x] L'exemple passe la garde « pas de solution » (test avec réponses enregistrées)
+- [x] Une remarque dont la citation disparaît passe en `detached` et reste lisible
+- [x] Une réponse de l'utilisateur relance le mentor au même palier
+
+Vérifications manuelles (navigateur, faux OpenRouter local via `base_url`) :
+
+- [x] Paliers affichés en `hd-stepper` ; « Palier suivant » absent au palier exemple
+- [x] « Répondre » ouvre le champ ; la réponse s'affiche signée « Vous », puis le message du mentor
+- [x] Les blocs de code d'un exemple s'affichent en police à chasse fixe, sans HTML venu du modèle
+- [x] Carte détachée : badge « Détachée », sans surlignage ni paliers, bouton « Fermer »
+- [x] « Résolu », « Ignorer » et « Fermer » retirent la carte ; thèmes clair et sombre lisibles
 
 ## Phase 6 — Évaluation et durcissement
 
@@ -76,3 +86,5 @@ journalisation propre, documentation d'installation dans le README.
 - [ ] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
 - [ ] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
 - [ ] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
+- [ ] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
+  (critère reporté de la phase 4)
