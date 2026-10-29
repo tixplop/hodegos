@@ -36,11 +36,22 @@
 <p id="vide" class="hd-muted app-empty">Choisissez un fichier dans l'arborescence.</p>
 <div id="editeur" class="app-editor" role="tabpanel" hidden></div>
 </main>
+<aside class="hd-panel app-panel" aria-label="Mentors">
+<div class="app-panel__head">
+<h2 class="app-panel__title">Interlocuteurs de cette section</h2>
+<div id="interlocuteurs" class="hd-mentors"><p class="hd-muted app-panel__note">Ouvrez un fichier pour voir qui vous accompagne.</p></div>
+</div>
+<div class="app-panel__body">
+<p class="hd-muted app-panel__note">Aucune remarque pour cette section.</p>
+</div>
+</aside>
 </div>
 <footer class="hd-statusbar">
 <span id="position" class="hd-mono"></span>
 <span id="langage"></span>
 <span id="etat"></span>
+<span id="titulaire"></span>
+<span id="mentors-erreurs" hidden></span>
 <span id="message" role="status"></span>
 <span class="hd-statusbar__end">Serveur : <span id="connexion" class="hd-badge">Connexion…</span></span>
 </footer>

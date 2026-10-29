@@ -7,12 +7,19 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+deunicode.workspace = true
 ignore.workspace = true
 notify-debouncer-full.workspace = true
 sha2.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tree-sitter.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-md.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-rust.workspace = true
+tree-sitter-typescript.workspace = true
 
 [lints]
 workspace = true

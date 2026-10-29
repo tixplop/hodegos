@@ -1,5 +1,7 @@
 //! Messages WebSocket entre le front et le backend (docs/protocole.md fait référence).
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -66,6 +68,21 @@ pub enum ClientMessage {
         content: String,
         base_version: String,
     },
+    /// Ligne et colonne à partir de 1.
+    Cursor {
+        path: String,
+        line: usize,
+        col: usize,
+    },
+    CastOverride {
+        path: String,
+        /// Absent : le choix vaut pour tout le fichier.
+        #[serde(default)]
+        section_id: Option<String>,
+        /// `null` : revenir au choix automatique.
+        #[serde(default)]
+        mentor_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,8 +98,7 @@ pub enum ServerMessage {
         content: String,
         version: String,
         language: String,
-        /// Rempli à partir de la phase 3.
-        sections: Vec<serde_json::Value>,
+        sections: Vec<SectionInfo>,
         /// Rempli à partir de la phase 4.
         remarks: Vec<serde_json::Value>,
     },
@@ -94,6 +110,20 @@ pub enum ServerMessage {
         path: String,
         /// `None` (`null`) si le fichier a été supprimé.
         version: Option<String>,
+    },
+    Casting {
+        path: String,
+        section_id: Option<String>,
+        section_name: Option<String>,
+        titular: Option<MentorRef>,
+        consultants: Vec<MentorRef>,
+        available: Vec<MentorRef>,
+        /// Raisons de la présence du titulaire et des consultants, par `id`.
+        reasons: BTreeMap<String, Vec<String>>,
+        forced: Option<ForcedBy>,
+    },
+    MentorsChanged {
+        warnings: Vec<MentorWarning>,
     },
     Error {
         code: ErrorCode,
@@ -117,6 +147,31 @@ pub struct DirEntry {
 pub enum EntryKind {
     Dir,
     File,
+}
+
+/// Section d'un fichier ; lignes à partir de 1, bornes incluses.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SectionInfo {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub parents: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForcedBy {
+    User,
+    Frontmatter,
+}
+
+/// Fichier de mentor ignoré, avec la raison.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MentorWarning {
+    pub file: String,
+    pub message: String,
 }
 
 /// Mentor tel que le voit le front.
@@ -221,6 +276,21 @@ mod tests {
     }
 
     #[test]
+    fn lit_cast_override_sans_section_ni_mentor() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "cast_override",
+                "payload": { "path": "a.md", "mentor_id": null } }))
+            .unwrap()
+            .1,
+            ClientMessage::CastOverride {
+                path: "a.md".to_owned(),
+                section_id: None,
+                mentor_id: None
+            }
+        );
+    }
+
+    #[test]
     fn json_invalide_donne_bad_message_sans_re() {
         let out = error_code(parse("{ pas du json"));
         assert_eq!(out["payload"]["code"], "bad_message");
@@ -287,6 +357,16 @@ mod tests {
                 content: "x".to_owned(),
                 base_version: "v".to_owned(),
             },
+            ClientMessage::Cursor {
+                path: "a.rs".to_owned(),
+                line: 3,
+                col: 1,
+            },
+            ClientMessage::CastOverride {
+                path: "a.rs".to_owned(),
+                section_id: Some("fn:a".to_owned()),
+                mentor_id: None,
+            },
         ] {
             let incoming = Incoming {
                 v: VERSION,
@@ -312,8 +392,39 @@ mod tests {
                 content: "x".to_owned(),
                 version: "v".to_owned(),
                 language: "rust".to_owned(),
-                sections: vec![],
+                sections: vec![SectionInfo {
+                    id: "fn:a".to_owned(),
+                    kind: "fn".to_owned(),
+                    name: "a".to_owned(),
+                    start_line: 1,
+                    end_line: 3,
+                    parents: vec![],
+                }],
                 remarks: vec![],
+            },
+            ServerMessage::Casting {
+                path: "a.rs".to_owned(),
+                section_id: Some("fn:a".to_owned()),
+                section_name: Some("a".to_owned()),
+                titular: Some(MentorRef {
+                    id: "mentor-langage".to_owned(),
+                    name: "Mentor du langage".to_owned(),
+                    initials: "ML".to_owned(),
+                    role: "Mentor du langage".to_owned(),
+                }),
+                consultants: vec![],
+                available: vec![],
+                reasons: BTreeMap::from([(
+                    "mentor-langage".to_owned(),
+                    vec!["langage rust".to_owned()],
+                )]),
+                forced: Some(ForcedBy::User),
+            },
+            ServerMessage::MentorsChanged {
+                warnings: vec![MentorWarning {
+                    file: "x.md".to_owned(),
+                    message: "champ id manquant".to_owned(),
+                }],
             },
             ServerMessage::Saved {
                 path: "a.rs".to_owned(),

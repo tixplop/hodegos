@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 hodegos-core.workspace = true
+hodegos-mentors.workspace = true
 axum.workspace = true
 getrandom.workspace = true
 rust-embed.workspace = true

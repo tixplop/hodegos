@@ -33,18 +33,52 @@ fn sample() -> tempfile::TempDir {
     dir
 }
 
+/// Envoie une demande et renvoie sa réponse ; les `casting` spontanés sont ignorés.
 async fn request(socket: &mut Socket, id: &str, kind: &str, payload: Value) -> Value {
-    let reply = exchange(
+    let mut reply = exchange(
         socket,
         json!({ "v": 1, "type": kind, "id": id, "payload": payload }),
     )
     .await;
+    while reply["type"] == "casting" && reply["re"] != id {
+        reply = next(socket).await;
+    }
     assert_eq!(reply["re"], id, "{reply}");
     reply
 }
 
+/// Prochain message autre qu'un `casting`.
+async fn next_event(socket: &mut Socket) -> Value {
+    loop {
+        let message = next(socket).await;
+        if message["type"] != "casting" {
+            return message;
+        }
+    }
+}
+
+/// Messages autres que `casting` reçus pendant `wait`.
+async fn events_within(socket: &mut Socket, wait: Duration) -> Vec<Value> {
+    let deadline = tokio::time::Instant::now() + wait;
+    let mut events = Vec::new();
+    while let Some(left) = deadline.checked_duration_since(tokio::time::Instant::now()) {
+        match next_within(socket, left).await {
+            Some(message) if message["type"] != "casting" => events.push(message),
+            Some(_) => {}
+            None => break,
+        }
+    }
+    events
+}
+
+/// `open_file` ; un fichier ouvert est suivi de son `casting`, consommé ici.
 async fn open(socket: &mut Socket, path: &str) -> Value {
-    request(socket, "open", "open_file", json!({ "path": path })).await
+    let reply = request(socket, "open", "open_file", json!({ "path": path })).await;
+    if reply["type"] == "file" {
+        let casting = next(socket).await;
+        assert_eq!(casting["type"], "casting", "{casting}");
+    }
+    reply
 }
 
 fn names(reply: &Value) -> Vec<String> {
@@ -111,7 +145,10 @@ async fn ouvre_un_fichier_de_chaque_langage() {
         assert_eq!(payload["language"], language, "{path}");
         assert_eq!(payload["content"], content);
         assert_eq!(payload["version"].as_str().unwrap().len(), 16);
-        assert_eq!(payload["sections"], json!([]));
+        assert!(
+            !payload["sections"].as_array().unwrap().is_empty(),
+            "{path}"
+        );
         assert_eq!(payload["remarks"], json!([]));
     }
 }
@@ -155,8 +192,11 @@ async fn un_enregistrement_par_hodegos_ne_produit_pas_file_changed() {
                 "base_version": file["payload"]["version"] }),
     )
     .await;
-    let extra = next_within(&mut socket, Duration::from_millis(1500)).await;
-    assert_eq!(extra, None, "message inattendu après l'enregistrement");
+    let events = events_within(&mut socket, Duration::from_millis(1500)).await;
+    assert!(
+        events.is_empty(),
+        "message inattendu après l'enregistrement : {events:?}"
+    );
 }
 
 #[tokio::test]
@@ -166,7 +206,7 @@ async fn une_modification_externe_produit_file_changed() {
     open(&mut socket, "src/main.rs").await;
 
     write(dir.path(), "src/main.rs", "fn b() {}\n");
-    let changed = next(&mut socket).await;
+    let changed = next_event(&mut socket).await;
     assert_eq!(changed["type"], "file_changed", "{changed}");
     assert!(changed.get("re").is_none());
     assert_eq!(changed["payload"]["path"], "src/main.rs");
@@ -186,7 +226,7 @@ async fn une_suppression_externe_produit_file_changed_sans_version() {
     open(&mut socket, "src/main.rs").await;
 
     fs::remove_file(dir.path().join("src/main.rs")).unwrap();
-    let changed = next(&mut socket).await;
+    let changed = next_event(&mut socket).await;
     assert_eq!(changed["type"], "file_changed", "{changed}");
     assert_eq!(changed["payload"]["version"], Value::Null);
 }
@@ -197,8 +237,8 @@ async fn un_fichier_non_ouvert_ne_produit_rien() {
     let mut socket = open_socket(dir.path()).await;
     open(&mut socket, "src/main.rs").await;
     write(dir.path(), "src/autre.rs", "fn c() {}\n");
-    let extra = next_within(&mut socket, Duration::from_millis(1500)).await;
-    assert_eq!(extra, None);
+    let events = events_within(&mut socket, Duration::from_millis(1500)).await;
+    assert!(events.is_empty(), "{events:?}");
 }
 
 #[tokio::test]
@@ -209,7 +249,7 @@ async fn conflit_de_version_puis_ecrasement() {
     let base = file["payload"]["version"].clone();
 
     write(dir.path(), "src/main.rs", "fn ailleurs() {}\n");
-    let changed = next(&mut socket).await;
+    let changed = next_event(&mut socket).await;
     assert_eq!(changed["type"], "file_changed");
 
     let conflict = request(

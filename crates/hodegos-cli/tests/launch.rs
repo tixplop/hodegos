@@ -21,10 +21,12 @@ impl Drop for Running {
 #[test]
 fn affiche_l_url_d_acces_et_ecoute_dessus() {
     let project = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
     let mut child = Running(
         Command::new(BIN)
             .arg(project.path())
             .args(["--port", "0"])
+            .env("XDG_CONFIG_HOME", config.path())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -60,6 +62,7 @@ fn refuse_un_port_occupe_avec_un_message_clair() {
     let output = Command::new(BIN)
         .arg(project.path())
         .args(["--port", &port])
+        .env("XDG_CONFIG_HOME", project.path().join("config"))
         .output()
         .unwrap();
     assert!(!output.status.success());

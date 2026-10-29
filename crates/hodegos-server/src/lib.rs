@@ -6,6 +6,7 @@
 mod assets;
 mod auth;
 mod guard;
+mod mentors;
 pub mod protocol;
 mod secret;
 mod ws;
@@ -17,10 +18,13 @@ use std::sync::Arc;
 use axum::Router;
 use axum::routing::get;
 use hodegos_core::{FileError, FileWatcher, Project, RelPath};
+use hodegos_mentors::MentorSources;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
+
+use crate::mentors::Mentors;
 
 /// Port par défaut. Il est fixe : sous WSL2 en mode NAT, un port tiré au hasard peut
 /// tomber dans une plage réservée par Windows et rester injoignable depuis le navigateur.
@@ -57,6 +61,7 @@ struct AppState {
     project: Project,
     watcher: FileWatcher,
     changes: broadcast::Sender<Changes>,
+    mentors: Mentors,
 }
 
 impl AppState {
@@ -82,9 +87,14 @@ pub struct Server {
 
 impl Server {
     /// Ouvre `port` sur `127.0.0.1` pour `project` et génère le jeton de lancement.
+    /// Les mentors sont lus depuis `sources`, en plus des mentors livrés.
     ///
     /// `0` laisse le système choisir un port libre (utile aux tests).
-    pub async fn bind(project: Project, port: u16) -> Result<Self, ServerError> {
+    pub async fn bind(
+        project: Project,
+        sources: MentorSources,
+        port: u16,
+    ) -> Result<Self, ServerError> {
         let bind_error = |source: std::io::Error| match source.kind() {
             std::io::ErrorKind::AddrInUse => ServerError::PortInUse(port),
             _ => ServerError::Bind { port, source },
@@ -102,12 +112,20 @@ impl Server {
                 let _ = sender.send(Arc::new(paths));
             })
             .map_err(ServerError::Watch)?;
+        let (mentors, mut mentor_changes) = Mentors::start(sources);
         let state = Arc::new(AppState {
             port,
             auth: Arc::new(auth),
             project,
             watcher,
             changes,
+            mentors,
+        });
+        let reload_state = state.clone();
+        tokio::spawn(async move {
+            while mentor_changes.recv().await.is_some() {
+                reload_state.mentors.reload();
+            }
         });
         Ok(Self {
             listener,

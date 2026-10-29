@@ -17,13 +17,17 @@ hodegos-server = { path = "crates/hodegos-server" }
 anyhow = "1.0.104"
 axum = { version = "0.8.9", features = ["ws"] }
 clap = { version = "4.6.7", features = ["derive"] }
+deunicode = "1.6.2"
+dirs = "7.0.0"
 futures-util = "0.3.34"
 getrandom = "0.4.3"
+globset = "0.4.21"
 http-body-util = "0.1.5"
 ignore = "0.4.34"
 notify-debouncer-full = "0.7.0"
 rust-embed = { version = "8.13.0", features = ["mime-guess", "include-exclude"] }
 serde = { version = "1.0.229", features = ["derive"] }
+serde-saphyr = { version = "2.0.0", default-features = false, features = ["deserialize"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
 subtle = "2.6.1"
@@ -33,6 +37,12 @@ tokio = { version = "1.54.1", features = ["rt-multi-thread", "net", "macros", "s
 tokio-tungstenite = "0.30.0"
 tower = { version = "0.5.3", features = ["util"] }
 tracing = "0.1.44"
+tree-sitter = "0.27.1"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-md = "0.5.4"
+tree-sitter-python = "0.25.0"
+tree-sitter-rust = "0.24.2"
+tree-sitter-typescript = "0.23.2"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [workspace.lints.rust]

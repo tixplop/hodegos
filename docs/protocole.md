@@ -35,13 +35,13 @@ connexion reste ouverte.
 | --- | --- | --- |
 | `ping` | — | Renvoie `pong` (phase 1) |
 | `list_dir` | `path` (`""` pour la racine) | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
-| `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes) |
+| `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) |
 | `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe (à partir de la phase 4) |
-| `cursor` | `path`, `line`, `col` | Met à jour la section courante, renvoie `casting` si elle change |
+| `cursor` | `path`, `line`, `col` (à partir de 1) | Met à jour la section courante, envoie `casting` s'il change ; sans `id`, aucune autre réponse |
 | `hint_next` | `remark_id` | Demande le palier suivant ; renvoie `remark_update` |
 | `remark_reply` | `remark_id`, `text` | Ajoute votre réponse ; le mentor peut relancer au même palier |
 | `remark_dismiss` | `remark_id`, `reason` (`ignored` ou `resolved`) | Ferme la remarque |
-| `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler) | Force un interlocuteur pour la section ou le fichier |
+| `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler) | Force un interlocuteur pour la section ou le fichier ; renvoie `casting` (ou `not_found` si le mentor n'est pas actif) |
 
 ## Du backend vers le front
 
@@ -51,12 +51,12 @@ connexion reste ouverte.
 | `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` |
 | `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
-| `casting` | `path`, `section_id`, `titular`, `consultants`, `available`, `reasons` | ouverture, changement de section, choix forcé |
+| `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
 | `pass_started` | `path`, `sections`, `mentors` | dès qu'une passe démarre |
 | `remarks` | `path`, `items` (remarques complètes) | à la fin d'une passe |
 | `remark_update` | une remarque complète | palier suivant, réponse, fermeture, détachement |
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
-| `mentors_changed` | `warnings` (fichiers invalides) | rechargement à chaud des mentors |
+| `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
 | `status` | `provider_ok`, `budget_used`, `budget_cap`, `last_pass` | au démarrage puis à chaque passe |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
@@ -67,8 +67,24 @@ Détails des fichiers :
   change dès que le contenu change, quel qu'en soit l'auteur.
 - `language` vaut `rust`, `typescript`, `javascript`, `python`, `markdown` ou `text`.
 - Les entrées de `dir` viennent dossiers d'abord, puis par ordre alphabétique.
-- En phase 2, `mentors` (dans `dir`), `sections` et `remarks` (dans `file`) sont
-  des listes vides ; ils se remplissent aux phases 3 et 4.
+- Une section : `{ id, kind, name, start_line, end_line, parents }`, lignes à
+  partir de 1 et bornes incluses ; `parents` liste les titres parents (Markdown).
+  Identifiants : `kind:nom` (`fn:reserver`, `impl:Display-for-Point`, `h:decision`),
+  rang ajouté aux homonymes (`fn:new-2`), `top:N` pour le reste.
+- `mentors` (dans `dir`) : titulaire et consultant du fichier, calculés sur son
+  chemin et son langage seulement ; vide pour un dossier.
+- `remarks` (dans `file`) reste vide jusqu'à la phase 4.
+
+Détails du casting :
+
+- `titular` est `null` quand aucun mentor n'atteint le seuil (« Aucun mentor pour
+  cette section ») ; `section_id` est `null` pour un fichier vide.
+- `available` : mentors actifs ni titulaires ni consultants, `on-demand` compris.
+- `reasons` : `{ "<id>": ["chemin docs/architecture/**", "langage markdown",
+  "titre « Décision »"] }` pour le titulaire et les consultants.
+- `forced` : `"user"` (choix fait par `cast_override`), `"frontmatter"`
+  (`mentors:` en tête du document) ou `null`.
+- Les sections et le casting portent sur la version enregistrée du fichier.
 - `file_changed` ne concerne que les fichiers ouverts ou enregistrés par la fenêtre,
   et seulement si la version sur disque diffère de la dernière connue : un
   enregistrement fait par Hodegos ne le déclenche pas.

@@ -62,6 +62,13 @@ export function connect({ onPush, onState }) {
     });
   }
 
+  /** Envoie un message sans attendre de réponse ; ignoré si la connexion est fermée. */
+  function send(type, payload) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ v: 1, type, payload }));
+    }
+  }
+
   open();
-  return { request };
+  return { request, send };
 }

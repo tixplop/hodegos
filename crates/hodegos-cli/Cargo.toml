@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 hodegos-core.workspace = true
+hodegos-mentors.workspace = true
 hodegos-server.workspace = true
 anyhow.workspace = true
 clap.workspace = true

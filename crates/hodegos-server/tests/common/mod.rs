@@ -8,6 +8,7 @@ use axum::body::Body;
 use axum::http::{Request, Response, header};
 use futures_util::{SinkExt, StreamExt};
 use hodegos_core::Project;
+use hodegos_mentors::MentorSources;
 use hodegos_server::Server;
 use serde_json::Value;
 use tokio::net::TcpStream;
@@ -23,10 +24,20 @@ pub fn project_in(dir: &Path) -> Project {
     Project::open(dir).unwrap()
 }
 
+/// Mentors livrés et mentors du projet seulement : jamais ceux de l'utilisateur.
+pub fn sources_in(dir: &Path) -> MentorSources {
+    MentorSources {
+        user_dir: None,
+        project_dir: Some(dir.join(".hodegos").join("mentors")),
+    }
+}
+
 /// Serveur sur un port libre, pour un projet vide.
 pub async fn bind() -> (tempfile::TempDir, Server) {
     let dir = tempfile::tempdir().unwrap();
-    let server = Server::bind(project_in(dir.path()), 0).await.unwrap();
+    let server = Server::bind(project_in(dir.path()), sources_in(dir.path()), 0)
+        .await
+        .unwrap();
     (dir, server)
 }
 
@@ -64,7 +75,9 @@ pub async fn session_cookie(server: &Server) -> String {
 
 /// Démarre un vrai serveur sur `dir` et renvoie son port et le cookie de session.
 pub async fn start_in(dir: &Path) -> (u16, String) {
-    let server = Server::bind(project_in(dir), 0).await.unwrap();
+    let server = Server::bind(project_in(dir), sources_in(dir), 0)
+        .await
+        .unwrap();
     let port = server.port();
     let cookie = session_cookie(&server).await;
     tokio::spawn(server.serve(std::future::pending()));

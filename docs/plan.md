@@ -38,11 +38,11 @@ rechargement à chaud), score et casting, message `casting`, panneau des
 interlocuteurs, barre d'état, commandes `mentors list` et `mentors eject`.
 Pas encore d'appel au modèle.
 
-- [ ] Tests de découpage pour Rust, TypeScript, JavaScript, Python et Markdown ; identifiants stables
-- [ ] Tests de casting : scores, départage, seuils, « aucun mentor », choix forcé, frontmatter `mentors:`
-- [ ] Déplacer le curseur d'une fonction à un titre d'ADR change le titulaire affiché, avec ses raisons
-- [ ] Modifier un fichier de mentor s'applique sans redémarrage ; un fichier invalide est signalé
-- [ ] `mentors list` et `mentors eject architecte` fonctionnent
+- [x] Tests de découpage pour Rust, TypeScript, JavaScript, Python et Markdown ; identifiants stables
+- [x] Tests de casting : scores, départage, seuils, « aucun mentor », choix forcé, frontmatter `mentors:`
+- [x] Déplacer le curseur d'une fonction à un titre d'ADR change le titulaire affiché, avec ses raisons
+- [x] Modifier un fichier de mentor s'applique sans redémarrage ; un fichier invalide est signalé
+- [x] `mentors list` et `mentors eject architecte` fonctionnent
 
 ## Phase 4 — Première passe
 

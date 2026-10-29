@@ -8,6 +8,17 @@ publish.workspace = true
 
 [dependencies]
 hodegos-core.workspace = true
+dirs.workspace = true
+globset.workspace = true
+notify-debouncer-full.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+serde-saphyr.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

@@ -11,7 +11,7 @@ Le front-end est en HTML, CSS et JavaScript sans framework. Les composants sont 
 - **Le bon interlocuteur, visible.** Le mentor qui suit une section ou un fichier est toujours affiché, avec la raison de sa présence (« Chemin `docs/architecture/**` »).
 - **Une couleur, un rôle.** `accent` = action et sélection. `mentor` = la voix des mentors, et rien d'autre. `highlight` = un passage visé par une remarque, et rien d'autre.
 - **Un statut se lit en mots.** Un badge porte toujours un mot (« Question », « Acquis »), jamais une couleur seule.
-- **Peu, mais juste.** Deux remarques au plus par passe ; une section a un mentor titulaire et deux consultants au plus.
+- **Peu, mais juste.** Deux remarques au plus par passe ; une section a un mentor titulaire et un consultant au plus (MVP).
 
 ## Ton et rédaction
 

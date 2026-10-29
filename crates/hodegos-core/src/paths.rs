@@ -49,7 +49,7 @@ impl RelPath {
         }
     }
 
-    pub(crate) fn join(&self, name: &str) -> Self {
+    pub fn join(&self, name: &str) -> Self {
         if self.is_root() {
             Self(name.to_owned())
         } else {

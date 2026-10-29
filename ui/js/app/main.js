@@ -1,8 +1,10 @@
-/* Hodegos — application : arborescence, onglets, éditeur, enregistrement, modifications externes. */
+/* Hodegos — application : arborescence, onglets, éditeur, enregistrement, modifications externes,
+   interlocuteurs de la section courante. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
 import { createEditor, LANGUAGE_NAMES } from './editor.js';
 import { icon } from './icons.js';
+import { createPanel } from './panel.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -18,7 +20,13 @@ const ui = {
   saveState: $('etat'),
   message: $('message'),
   connection: $('connexion'),
+  titular: $('titulaire'),
+  mentorErrors: $('mentors-erreurs'),
+  mentors: $('interlocuteurs'),
 };
+
+/** Délai de regroupement des déplacements du curseur avant envoi au serveur. */
+const CURSOR_DELAY_MS = 150;
 
 /**
  * Onglets ouverts, par chemin. Pour chacun : `version` connue du disque, `state` CodeMirror,
@@ -28,14 +36,21 @@ const ui = {
 const tabs = new Map();
 let currentPath = null;
 let wasConnected = false;
+/** Dernier `casting` reçu, par chemin. */
+const castings = new Map();
+/** Dernier curseur envoyé : `{ path, line }`. */
+let sentCursor = null;
+let cursorTimer = null;
 
 const server = connect({ onPush, onState });
 const editor = createEditor(ui.editor, {
   onChange: () => renderTabs(),
   onCursor: ({ line, col }) => {
     ui.position.textContent = `l.${line}, col. ${col}`;
+    scheduleCursor(line, col);
   },
 });
+const panel = createPanel(ui.mentors, { onForce: forceMentor });
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => reply.payload.entries),
   onOpen: openFile,
@@ -61,12 +76,94 @@ function setBadge(text, variant) {
 }
 
 function onPush(message) {
+  if (message.type === 'casting') {
+    applyCasting(message.payload);
+    return;
+  }
+  if (message.type === 'mentors_changed') {
+    showMentorWarnings(message.payload.warnings);
+    return;
+  }
   if (message.type !== 'file_changed') return;
   const { path, version } = message.payload;
   const tab = tabs.get(path);
   if (!tab || version === tab.version) return;
   tab.banner = version === null ? { kind: 'deleted' } : { kind: 'changed', version };
   render();
+}
+
+/* ---------- Mentors ---------- */
+
+/** Envoie la ligne du curseur quand elle change, après un court délai. */
+function scheduleCursor(line, col) {
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => sendCursor(line, col), CURSOR_DELAY_MS);
+}
+
+function sendCursor(line, col = 1) {
+  if (!currentPath) return;
+  if (sentCursor && sentCursor.path === currentPath && sentCursor.line === line) return;
+  sentCursor = { path: currentPath, line };
+  server.send('cursor', { path: currentPath, line, col });
+}
+
+/** Le serveur replace son curseur en ligne 1 à chaque `open_file` : on lui renvoie le nôtre. */
+function resendCursor() {
+  sentCursor = null;
+  if (!currentPath) return;
+  const head = editor.state.selection.main.head;
+  sendCursor(editor.state.doc.lineAt(head).number);
+}
+
+function applyCasting(casting) {
+  castings.set(casting.path, casting);
+  if (casting.path === currentPath) renderMentors();
+}
+
+async function forceMentor(mentorId) {
+  const casting = castings.get(currentPath);
+  if (!casting) return;
+  try {
+    const reply = await server.request('cast_override', {
+      path: currentPath,
+      section_id: casting.section_id,
+      mentor_id: mentorId,
+    });
+    applyCasting(reply.payload);
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderMentors() {
+  const casting = castings.get(currentPath) ?? null;
+  panel.render(casting);
+  ui.titular.replaceChildren();
+  if (!casting) return;
+  if (!casting.titular) {
+    ui.titular.textContent = 'Aucun mentor pour cette section';
+    return;
+  }
+  const name = document.createElement('strong');
+  name.className = 'hd-mentor__name';
+  name.textContent = casting.titular.name;
+  ui.titular.append('Titulaire : ', name);
+  if (casting.consultants.length) {
+    ui.titular.append(` · consultant : ${casting.consultants.map((m) => m.name).join(', ')}`);
+  }
+}
+
+function showMentorWarnings(warnings) {
+  ui.mentorErrors.hidden = warnings.length === 0;
+  if (!warnings.length) {
+    showMessage('Mentors rechargés.');
+    return;
+  }
+  ui.mentorErrors.className = 'hd-badge hd-badge--warning';
+  ui.mentorErrors.textContent = warnings.length === 1 ? '1 mentor ignoré' : `${warnings.length} mentors ignorés`;
+  ui.mentorErrors.title = warnings.map((w) => `${w.file} : ${w.message}`).join('\n');
+  const file = warnings[0].file.split('/').pop();
+  showMessage(`Mentor ignoré : ${file} : ${warnings[0].message}`);
 }
 
 /** Après une reconnexion, le serveur ne suit plus les fichiers : on les rouvre. */
@@ -82,6 +179,7 @@ async function resync() {
     }
   }
   render();
+  resendCursor();
 }
 
 /* ---------- Fichiers ---------- */
@@ -118,6 +216,7 @@ async function reload(tab) {
     tab.banner = null;
     if (tab.path === currentPath) editor.show(tab.state);
     render();
+    resendCursor();
   } catch (error) {
     if (error.code === 'not_found') {
       tab.banner = { kind: 'deleted' };
@@ -176,6 +275,9 @@ function activate(path) {
   if (tab) {
     editor.show(tab.state);
     editor.focus();
+    clearTimeout(cursorTimer);
+    const head = tab.state.selection.main.head;
+    sendCursor(tab.state.doc.lineAt(head).number);
   }
   render();
 }
@@ -186,6 +288,7 @@ function closeTab(path) {
   if (isDirty(tab) && !window.confirm(`Fermer ${tab.path} sans enregistrer vos modifications ?`)) return;
   if (path === currentPath) tab.state = editor.state;
   tabs.delete(path);
+  castings.delete(path);
   if (path === currentPath) {
     currentPath = null;
     const next = [...tabs.keys()].pop();
@@ -211,6 +314,7 @@ function render() {
   if (!tab) ui.position.textContent = '';
   document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
   tree.setCurrent(currentPath);
+  renderMentors();
 }
 
 function renderTabs() {

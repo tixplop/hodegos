@@ -176,7 +176,8 @@ Gestion :
 - **Désactiver** un mentor : une surcharge au niveau supérieur avec le même `id` et `enabled: false` (les autres champs sont alors facultatifs).
 - **Personnaliser** un mentor livré : `hodegos mentors eject <id>` copie son fichier dans `~/.config/hodegos/mentors/` (ou `--project` pour `.hodegos/mentors/`), prêt à être modifié ; refus si le fichier existe déjà.
 - **Lister** : `hodegos mentors list` affiche chaque mentor actif, son niveau d'origine, son mode, et les fichiers en erreur avec la raison.
-- **Rechargement à chaud** : les trois dossiers sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage.
+- **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est jamais créé dans le projet par Hodegos, qui en observe les parents pour le voir apparaître.
+- **Validation** : `id` en `[a-z0-9-]`, `initials` de deux caractères, `priority` de 0 à 100, `max_remarks` de 1 à 2, `mode`, `model` et `entry_level` parmi les valeurs connues ; deux fichiers de même `id` au même niveau : le second est signalé. Les frontmatters sont lus avec `serde-saphyr` (`serde_yaml` n'est plus maintenu).
 - Un fichier invalide est ignoré, avec un avertissement dans la barre d'état et le journal ; il ne bloque jamais le démarrage. Un champ inconnu est ignoré, pour permettre d'ajouter des champs plus tard.
 
 Un mentor ne peut pas modifier le cadre commun (règles absolues, paliers, format JSON, garde « pas de solution ») : son corps est ajouté après le cadre, jamais à sa place.
@@ -236,14 +237,19 @@ Règles de validation, dans l'ordre :
 
 Le casting est déterministe et sans appel au modèle : un score par mentor et par section, calculé à partir de signaux simples, et le meilleur score devient titulaire.
 
-**Sections.** tree-sitter découpe chaque fichier : en Markdown, une section par titre (`##` et en dessous, rattachée à son parent) ; dans le code, une section par élément de premier niveau (fonction, `impl`, classe, module). Identifiant stable : `kind:nom` (`fn:reserver`, `h:decision`), suffixé d'un rang en cas de doublon.
+**Sections.** tree-sitter découpe chaque fichier (décisions de la phase 3) :
+
+- Markdown : une section par titre, du titre jusqu'au titre suivant quel que soit son niveau (pas de chevauchement) ; chaque section garde ses titres parents pour le score. Le texte avant le premier titre forme `top:1`. Le frontmatter est exclu.
+- Code : une section par élément de premier niveau (`fn`, `impl`, `struct`, `enum`, `trait`, `mod`, `class`, `interface`, `type`, `const`, `macro` ; en TypeScript et JavaScript, `const f = () => …` est une `fn`). Les commentaires, attributs et décorateurs collés à un élément lui sont rattachés ; les autres lignes (imports, instructions) forment des sections `top:1`, `top:2`…
+- Identifiant stable `kind:nom` : nom tel qu'écrit dans le code (`fn:reserver`, `impl:Point`, `impl:Display-for-Point`), titre sans accents ni ponctuation en Markdown (`h:decision`). Les homonymes reçoivent un rang dans l'ordre du fichier (`fn:new`, `fn:new-2`) ; modifier un corps ou insérer un élément avant ne change pas les identifiants.
+- Les sections et le casting portent sur la version enregistrée : une fonction ajoutée mais pas encore enregistrée n'a son interlocuteur qu'après l'enregistrement.
 
 **Signaux et points**
 
 | Signal | Points |
 | --- | --- |
 | Chemin du fichier correspond à `triggers.paths` | 50 |
-| Langage du fichier dans `triggers.languages` | 30 |
+| Langage du fichier dans `triggers.languages` | 40 (porté de 30 à 40 en phase 3 : à 30, le Mentor du langage, qui ne déclare que des langages, n'atteignait jamais le seuil du titulaire) |
 | Titre de la section ou de ses parents dans `triggers.headings` | 20 par titre, 40 au plus |
 | Mot de `triggers.keywords` présent dans la section | 10 par mot, 30 au plus |
 | Choix forcé par l'utilisateur (`cast_override`) | titulaire d'office |
@@ -252,11 +258,14 @@ Le casting est déterministe et sans appel au modèle : un score par mentor et p
 
 1. Seuls les mentors `proactive` ou `strong-signal` peuvent intervenir sans demande ; un mentor `on-demand` n'est proposé que dans « Demander à… ».
 2. Titulaire : le score le plus élevé, à condition d'atteindre 40 ; égalité départagée par `priority`, puis par `id`.
-3. Consultant (un au plus en MVP) : le deuxième score s'il atteint 70, ou un mentor `strong-signal` dont un mot-clé est présent.
+3. Consultant (un au plus en MVP), seulement s'il y a un titulaire : le meilleur des autres scores s'il atteint 70, sinon un mentor `strong-signal` dont un mot-clé est présent.
+   Un mentor `strong-signal` ne parle que si l'un de ses mots-clés est présent dans la section ; il peut alors être titulaire s'il atteint 40.
 4. Aucun mentor à 40 ou plus : pas de passe, et la barre d'état affiche « Aucun mentor pour cette section ».
 5. Chaque décision garde ses raisons (« chemin `docs/architecture/**` », « langage typescript ») ; elles alimentent `casting.reasons` et l'interface.
 
 Dans un document Markdown, un frontmatter `mentors: [architecte]` force le titulaire pour tout le fichier, comme un `cast_override` permanent.
+
+Un choix forcé depuis le panneau vaut pour la section (ou pour le fichier sans `section_id`) ; il l'emporte sur le frontmatter et reste en mémoire tant que le serveur tourne (persistance en phase 4). Le titulaire forcé peut être n'importe quel mentor actif, `on-demand` compris.
 
 ## Paliers d'aide
 
@@ -378,7 +387,7 @@ Ces choix ont été faits pour débloquer le démarrage ; chacun se change avant
 | Langages du MVP | Rust, TypeScript, JavaScript, Python, Markdown | Phase 3 |
 | Mentors du MVP | Mentor du langage, Architecte | Phase 3 |
 | Déclencheur | Enregistrement seul (pause de frappe plus tard) | Phase 4 |
-| Seuils du casting | Titulaire à 40 points, consultant à 70 | Phase 3 |
+| Seuils du casting | Titulaire à 40 points, consultant à 70, langage à 40 points (tranché en phase 3) | Phase 3 |
 | Contexte envoyé | Section, diff, 40 lignes autour | Phase 4 |
 | Modèles | À choisir via l'évaluation (rapide et fort) | Phase 6 |
 | Budget mensuel | 10 USD, avertissement à 80 % | Phase 4 |
@@ -390,8 +399,8 @@ Questions ouvertes :
 - [ ] Le dépôt Hodegos sera-t-il public, et sous quelle licence ?
 - [ ] Les remarques fermées doivent-elles rester consultables (onglet Historique) dès le MVP ?
 - [ ] Faut-il un raccourci clavier pour déclencher une passe sans enregistrer ?
-- [ ] Consultants : un au plus (ce dossier) ou deux au plus (`ui/styles/README.md`) ? À trancher en phase 3.
-- [ ] Un mentor `strong-signal` peut-il être titulaire, ou seulement consultant ? Phase 3.
+- [x] Consultants : un au plus en MVP (tranché en phase 3, `ui/styles/README.md` corrigé).
+- [x] Un mentor `strong-signal` peut être titulaire s'il atteint 40, mais seulement quand un de ses mots-clés est présent (tranché en phase 3).
 - [x] `<id-projet>` de `~/.local/share/hodegos/<id-projet>/` : `ProjectId`, empreinte SHA-256 du chemin résolu de la racine (16 caractères hexadécimaux), décidé en phase 2.
 - [ ] Budget à 100 % : quelle « confirmation » rouvre les passes proactives ? Phase 4.
 - [ ] Garde au palier exemple : les mots-clés du langage comptent-ils parmi les « identifiants de la section » ? Phase 5.

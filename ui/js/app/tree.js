@@ -48,6 +48,13 @@ export function createTree(root, { list, onOpen, onError }) {
     } else {
       button.classList.add('hd-mono', 'app-tree__file');
       button.append(name);
+      if (entry.mentors?.length) {
+        const meta = document.createElement('span');
+        meta.className = 'hd-nav__meta';
+        meta.textContent = entry.mentors.map((m) => m.initials).join(' · ');
+        meta.title = entry.mentors.map((m) => m.name).join(', ');
+        button.append(meta);
+      }
       button.addEventListener('click', () => onOpen(path));
     }
     li.append(button);
