@@ -1,0 +1,9 @@
+title = "ADR dont les conséquences ne listent aucun inconvénient"
+file = "docs/architecture/0002-connexion.md"
+section = "h:consequences"
+expected_mentor = "architecte"
+levels = ["indice", "question", "piste"]
+
+[expect]
+must_mention = ["inconvénient", "risque", "coût", "négati", "ce que vous perdez", "compromis", "contrepartie"]
+must_not = ["sans adresse e-mail ne pourront plus", "si l'e-mail n'arrive pas, le membre ne peut pas se connecter", "nous dépendons du fournisseur d'e-mails"]

@@ -296,6 +296,20 @@ pub enum PassOutcome {
     InvalidResponse,
 }
 
+impl PassOutcome {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::NoChange => "no_change",
+            Self::NoMentor => "no_mentor",
+            Self::Excluded => "excluded",
+            Self::BudgetExceeded => "budget_exceeded",
+            Self::ProviderError => "provider_error",
+            Self::InvalidResponse => "invalid_response",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LastPass {
     pub at: String,

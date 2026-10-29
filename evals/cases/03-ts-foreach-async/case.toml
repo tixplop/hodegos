@@ -1,0 +1,9 @@
+title = "forEach avec une fonction async : le compte est renvoyé avant les enregistrements"
+file = "src/import/importer.ts"
+section = "fn:importerTout"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["promesse", "n'attend pas", "Promise.all", "for...of", "for…of", "attendre"]
+must_not = ["for (const fiche of fiches)", "await Promise.all(fiches.map"]

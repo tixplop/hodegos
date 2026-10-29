@@ -7,6 +7,8 @@ use crate::{ChatMessage, LlmClient, LlmError, LlmRequest, RemarkDraft, Role};
 #[derive(Debug, PartialEq)]
 pub struct Asked {
     pub remarks: Vec<RemarkDraft>,
+    /// Tout ce que le modèle a proposé, avant validation (évaluation).
+    pub drafts: Vec<RemarkDraft>,
     pub rejected: Vec<&'static str>,
     pub cost_usd: f64,
     /// Une relance a été nécessaire.
@@ -34,6 +36,8 @@ impl AskError {
 pub struct Replied {
     /// `None` : le modèle n'a rien ajouté, ou toutes ses réponses ont été écartées.
     pub reply: Option<ReplyDraft>,
+    /// Tout ce que le modèle a proposé, avant validation (évaluation).
+    pub drafts: Vec<ReplyDraft>,
     pub rejected: Vec<&'static str>,
     pub cost_usd: f64,
     pub retried: bool,
@@ -48,9 +52,10 @@ pub async fn ask_for_remarks(
     rules: &Rules<'_>,
 ) -> Result<Asked, AskError> {
     let (drafts, cost_usd, retried) = ask_parsed(client, request, parse_remarks).await?;
-    let Validated { kept, rejected } = validate(drafts, rules);
+    let Validated { kept, rejected } = validate(drafts.clone(), rules);
     Ok(Asked {
         remarks: kept,
+        drafts,
         rejected,
         cost_usd,
         retried,
@@ -65,9 +70,10 @@ pub async fn ask_for_reply(
     rules: &Rules<'_>,
 ) -> Result<Replied, AskError> {
     let (drafts, cost_usd, retried) = ask_parsed(client, request, parse_replies).await?;
-    let (reply, rejected) = validate_replies(drafts, rules);
+    let (reply, rejected) = validate_replies(drafts.clone(), rules);
     Ok(Replied {
         reply,
+        drafts,
         rejected,
         cost_usd,
         retried,
@@ -92,11 +98,14 @@ async fn ask_parsed<T>(
         match parse(&response.content) {
             Ok(parsed) => return Ok((parsed, cost_usd, retried)),
             Err(detail) if retried => {
-                tracing::warn!(%detail, "réponse du modèle invalide après relance, demande abandonnée");
+                // Le détail peut citer la réponse du modèle, donc du code : en debug seulement.
+                tracing::debug!(%detail, "détail de la réponse invalide");
+                tracing::warn!("réponse du modèle invalide après relance, demande abandonnée");
                 return Err(AskError::InvalidResponse { detail, cost_usd });
             }
             Err(detail) => {
-                tracing::info!(%detail, "réponse du modèle invalide, relance unique");
+                tracing::debug!(%detail, "détail de la réponse invalide");
+                tracing::info!("réponse du modèle invalide, relance unique");
                 retried = true;
                 request
                     .messages

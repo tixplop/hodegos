@@ -1,0 +1,9 @@
+title = "var dans une boucle : toutes les fonctions voient la même variable"
+file = "src/ui/boutons.js"
+section = "fn:brancherBoutons"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["portée", "fermeture", "closure", "même variable", "capture"]
+must_not = ["for (let i = 0", "boutons.forEach((bouton, i)"]

@@ -91,9 +91,11 @@ impl OpenRouterClient {
             let message = serde_json::from_str::<ErrorBody>(&text)
                 .map(|b| b.error.message)
                 .unwrap_or_else(|_| text.chars().take(200).collect());
+            // Le message part dans la barre d'état et les journaux : un fournisseur ou
+            // un proxy qui recopierait la clé ne doit pas la faire fuiter.
             return Err(LlmError::Http {
                 status: status.as_u16(),
-                message,
+                message: message.replace(self.api_key.expose(), "[clé masquée]"),
             });
         }
         let completion: Completion = serde_json::from_str(&text)
@@ -288,5 +290,64 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, LlmError::Transport(_)), "{err:?}");
+    }
+
+    /// Tampon qui reçoit les journaux pendant le test.
+    #[derive(Clone, Default)]
+    struct Logs(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Logs {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn la_cle_n_apparait_ni_dans_les_erreurs_ni_dans_les_journaux() {
+        let logs = Logs::default();
+        let writer = logs.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || writer.clone())
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        // Un corps d'erreur qui recopie l'en-tête d'autorisation, en JSON puis en texte.
+        let (url, _) = serve(
+            StatusCode::UNAUTHORIZED,
+            json!({ "error": { "message": "en-tête reçu : Bearer sk-or-test" } }),
+            Duration::ZERO,
+        )
+        .await;
+        let err = client(&url, Duration::from_secs(5))
+            .complete(&request())
+            .await
+            .unwrap_err();
+        let text = err.to_string();
+        assert!(!text.contains("sk-or-test"), "{text}");
+        assert!(text.contains("[clé masquée]"), "{text}");
+        // Comme le serveur le fait pour une passe abandonnée.
+        tracing::warn!(message = %err, "passe abandonnée : erreur du fournisseur");
+
+        let (url, _) = serve(
+            StatusCode::BAD_GATEWAY,
+            json!(["Bearer sk-or-test"]),
+            Duration::ZERO,
+        )
+        .await;
+        let err = client(&url, Duration::from_secs(5))
+            .complete(&request())
+            .await
+            .unwrap_err();
+        assert!(!err.to_string().contains("sk-or-test"), "{err}");
+        assert_eq!(format!("{:?}", ApiKey::new("sk-or-test")), "ApiKey(…)");
+
+        let captured = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        assert!(captured.contains("passe abandonnée"), "{captured}");
+        assert!(!captured.contains("sk-or-test"), "{captured}");
     }
 }

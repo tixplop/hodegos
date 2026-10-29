@@ -1,0 +1,9 @@
+title = "Liste mutable comme valeur par défaut d'un paramètre"
+file = "inventaire/panier.py"
+section = "fn:ajouter"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["mutable", "valeur par défaut", "une seule fois", "partagée", "définition de la fonction"]
+must_not = ["panier=None", "if panier is None"]

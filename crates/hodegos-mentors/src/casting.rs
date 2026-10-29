@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use hodegos_core::{Language, Section};
 use serde::Deserialize;
 
 use crate::{Mentor, Mode, Registry};
@@ -205,6 +206,22 @@ pub fn cast(registry: &Registry, request: &CastRequest<'_>) -> Casting {
 }
 
 /// Titulaire imposé par le frontmatter d'un document : `mentors: [architecte]`.
+/// Titre de la section et de ses parents (Markdown), pour le casting.
+pub fn section_headings(language: Language, section: Option<&Section>) -> Vec<&str> {
+    let mut headings = Vec::new();
+    if language == Language::Markdown {
+        if let Some(section) = section.filter(|s| s.kind == "h") {
+            headings.push(section.name.as_str());
+        }
+        headings.extend(
+            section
+                .iter()
+                .flat_map(|s| s.parents.iter().map(String::as_str)),
+        );
+    }
+    headings
+}
+
 pub fn frontmatter_mentor(content: &str) -> Option<String> {
     #[derive(Deserialize)]
     struct Frontmatter {

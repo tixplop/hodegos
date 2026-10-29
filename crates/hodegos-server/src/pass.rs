@@ -4,15 +4,15 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use hodegos_core::secrets::{exclusion, mask_secrets};
+use hodegos_core::secrets::exclusion;
 use hodegos_core::{Language, RelPath, Section, changed_sections};
 use hodegos_llm::{
     AskError, BudgetLevel, ChatMessage, LlmRequest, RemarkDraft, RemarkLevel, Role, Rules,
     ask_for_remarks, remarks_schema,
 };
 use hodegos_mentors::{
-    CastRequest, Casting, Forced, Level, Mentor, ModelTier, PromptInput, Registry, build_prompt,
-    cast, frontmatter_mentor,
+    CastRequest, Casting, Forced, Level, Mentor, ModelTier, Registry, SectionRequest, cast,
+    frontmatter_mentor, section_headings, section_prompt,
 };
 use jiff::Timestamp;
 use tokio::task::JoinSet;
@@ -24,8 +24,6 @@ use crate::protocol::{Anchor, MentorRef, PassOutcome, Remark, ServerMessage, Thr
 const MAX_SECTIONS: usize = 2;
 /// Remarques gardées par passe, au plus, toutes sections confondues.
 const MAX_REMARKS: usize = 2;
-/// Lignes de contexte de part et d'autre de la section.
-const CONTEXT_LINES: usize = 20;
 
 /// Ce qu'un enregistrement apporte à la passe.
 pub(crate) struct PassRequest {
@@ -66,22 +64,7 @@ pub(crate) struct PassResult {
     pub(crate) remarks: Vec<Remark>,
     pub(crate) outcome: PassOutcome,
     pub(crate) duration_ms: u64,
-}
-
-/// Titre de la section et de ses parents (Markdown), pour le casting.
-pub(crate) fn headings(language: Language, section: Option<&Section>) -> Vec<&str> {
-    let mut headings = Vec::new();
-    if language == Language::Markdown {
-        if let Some(section) = section.filter(|s| s.kind == "h") {
-            headings.push(section.name.as_str());
-        }
-        headings.extend(
-            section
-                .iter()
-                .flat_map(|s| s.parents.iter().map(String::as_str)),
-        );
-    }
-    headings
+    pub(crate) cost_usd: f64,
 }
 
 /// Casting d'une section : choix forcé de l'utilisateur, sinon frontmatter, sinon score.
@@ -110,7 +93,7 @@ pub(crate) fn cast_section(
         &CastRequest {
             path: path.as_str(),
             language: language.as_str(),
-            headings: headings(language, section),
+            headings: section_headings(language, section),
             text: &text,
             forced,
         },
@@ -173,8 +156,6 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
         return Prepared::Done(PassOutcome::BudgetExceeded);
     }
 
-    let (masked, _) = mask_secrets(&request.new);
-    let masked_lines: Vec<&str> = masked.split('\n').collect();
     let mut jobs = Vec::new();
     for (change, mentor) in cast_changes {
         let Some(model) = model_for(state, &mentor) else {
@@ -189,17 +170,15 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
             return Prepared::Done(PassOutcome::ProviderError);
         };
         let section = change.section;
-        let (diff, _) = mask_secrets(&change.diff);
-        let prompt = build_prompt(&PromptInput {
+        let prompt = section_prompt(&SectionRequest {
             mentor: &mentor,
             level: mentor.entry_level,
             path,
             language: request.language.as_str(),
-            section_id: &section.id,
-            section_text: &lines(&masked_lines, section.start_line, section.end_line),
-            section_diff: &diff,
-            context: &context(&masked_lines, &section),
-            follow_up: None,
+            content: &request.new,
+            section: &section,
+            diff: &change.diff,
+            thread: None,
         });
         jobs.push(Job {
             mentor_id: mentor.id.clone(),
@@ -250,42 +229,6 @@ pub(crate) fn remark_level(level: Level) -> RemarkLevel {
     }
 }
 
-/// Lignes `start..=end` (à partir de 1).
-pub(crate) fn lines(all: &[&str], start: usize, end: usize) -> String {
-    all.iter()
-        .skip(start.saturating_sub(1))
-        .take(end + 1 - start)
-        .copied()
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// Jusqu'à 20 lignes avant et 20 lignes après la section.
-pub(crate) fn context(all: &[&str], section: &Section) -> String {
-    let before_start = section.start_line.saturating_sub(CONTEXT_LINES).max(1);
-    let before = if section.start_line > 1 {
-        lines(all, before_start, section.start_line - 1)
-    } else {
-        String::new()
-    };
-    let last = all.len();
-    let after = if section.end_line < last {
-        lines(
-            all,
-            section.end_line + 1,
-            (section.end_line + CONTEXT_LINES).min(last),
-        )
-    } else {
-        String::new()
-    };
-    match (before.trim().is_empty(), after.trim().is_empty()) {
-        (true, true) => String::new(),
-        (false, true) => before,
-        (true, false) => after,
-        (false, false) => format!("{before}\n[…section…]\n{after}"),
-    }
-}
-
 /// Appelle les mentors en parallèle, compte le coût, garde les meilleures remarques.
 pub(crate) async fn run(
     state: Arc<AppState>,
@@ -299,6 +242,7 @@ pub(crate) async fn run(
             generation,
             Vec::new(),
             PassOutcome::ProviderError,
+            0.0,
             started,
         );
     };
@@ -373,7 +317,7 @@ pub(crate) async fn run(
     } else {
         PassOutcome::Ok
     };
-    finish(run.path, generation, remarks, outcome, started)
+    finish(run.path, generation, remarks, outcome, cost, started)
 }
 
 fn finish(
@@ -381,6 +325,7 @@ fn finish(
     generation: u64,
     remarks: Vec<Remark>,
     outcome: PassOutcome,
+    cost_usd: f64,
     started: Instant,
 ) -> PassResult {
     PassResult {
@@ -388,6 +333,7 @@ fn finish(
         generation,
         remarks,
         outcome,
+        cost_usd,
         duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
     }
 }
@@ -440,32 +386,5 @@ fn anchor(
             at: now.to_owned(),
         }],
         created_at: now.to_owned(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn contexte_de_vingt_lignes_de_part_et_d_autre() {
-        let text: Vec<String> = (1..=60).map(|n| format!("l{n}")).collect();
-        let all: Vec<&str> = text.iter().map(String::as_str).collect();
-        let section = Section {
-            id: "fn:a".to_owned(),
-            kind: "fn".to_owned(),
-            name: "a".to_owned(),
-            start_line: 30,
-            end_line: 32,
-            parents: vec![],
-        };
-        let context = context(&all, &section);
-        let lines: Vec<&str> = context.lines().collect();
-        assert_eq!(lines.first(), Some(&"l10"));
-        assert_eq!(lines[19], "l29");
-        assert_eq!(lines[20], "[…section…]");
-        assert_eq!(lines[21], "l33");
-        assert_eq!(lines.last(), Some(&"l52"));
-        assert_eq!(lines.len(), 41);
     }
 }

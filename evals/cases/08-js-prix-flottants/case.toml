@@ -1,0 +1,9 @@
+title = "Montants en euros flottants comparés avec ==="
+file = "src/caisse/reste.js"
+section = "fn:resteAPayer"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["virgule flottante", "flottant", "arrondi", "centimes", "précision", "0.1 + 0.2"]
+must_not = ["Math.round(total", "total.toFixed(2)", "Math.abs(total - dejaVerse) <"]

@@ -433,6 +433,16 @@ Tout ce qui est déterministe est testé sans réseau ; le comportement des ment
 - Pour chaque cas et chaque palier, le rapport indique : remarque produite ou non, citation valide, palier respecté, solution divulguée ou non (motifs de `must_not`), coût et durée.
 - Un modèle n'est retenu pour un niveau que s'il ne divulgue la solution dans aucun cas et fait émerger la notion dans au moins 70 % des cas.
 
+Décisions de la phase 6 (détail dans `evals/README.md`) :
+
+- « Divulguer » se juge sur tout ce que le modèle propose, **brouillons écartés par la garde compris** : la garde est un filet de sécurité, pas une qualité du modèle. Le rapport donne aussi la solution affichée.
+- Chaque modèle est jugé sur les cas de son niveau (`fast` : Mentor du langage, 15 cas ; `strong` : Architecte, 5 cas). `--fast`, `--strong` et `--model` remplacent la configuration pour comparer des candidats.
+- Le premier palier d'un cas est joué comme une passe (fichier traité comme créé), les suivants comme « Palier suivant » sur la remarque la plus confiante, avec le fil réel ; mêmes prompts, masquage et validation que l'IDE (construction des prompts partagée dans `hodegos-mentors`, `section_prompt`). Seuls les mentors livrés sont utilisés.
+- L'évaluation est une vraie dépense : elle compte dans `usage.json`, sans être bloquée par le plafond mensuel ; `--max-cost` (3 USD par défaut) l'arrête.
+- Les rapports sont écrits dans `evals/reports/` et commités ; le choix des modèles fait l'objet d'un ADR qui s'y réfère.
+
+**Journaux** (décidé en phase 6) : sortie d'erreur du terminal, sans fichier. Par défaut, `info` pour les crates de Hodegos et `warn` pour les bibliothèques ; `RUST_LOG` remplace ce réglage. Une ligne `info` par passe (`passe` : chemin, issue, remarques, durée, coût) et par reprise d'une remarque (`reprise d'une remarque` : remarque, palier suivant ou relance, palier, issue, durée, coût). Jamais de contenu de fichier, de message de la personne ni de réponse du modèle au-dessus de `debug`. Le message d'erreur renvoyé par le fournisseur est purgé de la clé avant d'être affiché ou journalisé ; un test vérifie qu'elle n'apparaît dans aucun journal, même au niveau `trace`.
+
 Le front n'a pas de tests automatiques en MVP : une liste de vérifications manuelles par phase suffit (dans `docs/plan.md`).
 
 ## Plan par phases
@@ -466,3 +476,4 @@ Questions ouvertes :
 - [x] Budget à 100 % : aucune confirmation ne rouvre les passes proactives (mois suivant ou plafond relevé) ; chaque demande explicite est confirmée une à une par `confirm_over_budget` (tranché en phase 5).
 - [x] Garde au palier exemple : les mots-clés du langage ne comptent pas parmi les « identifiants de la section », pas plus que les noms d'un caractère (tranché en phase 5).
 - [x] Remarque détachée : le détachement est définitif, même si la citation revient (tranché en phase 5).
+- [ ] Garde au palier exemple : une solution d'une ligne qui ne reprend qu'un ou deux identifiants de la section passe la garde (constaté en phase 6, par exemple `return e.debut.getTime() === debut.getTime();`). L'évaluation la mesure (« solution affichée ») ; faut-il renforcer la garde, par exemple en comparant l'exemple aux lignes de la section ? À trancher au vu des rapports.

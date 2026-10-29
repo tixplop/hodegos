@@ -1,0 +1,9 @@
+title = "unwrap sur une saisie utilisateur : panique au lieu d'une erreur"
+file = "src/commande.rs"
+section = "fn:lire_quantite"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["panique", "panic", "Result", "propager"]
+must_not = ["-> Result<u32", ".parse::<u32>()?", ".parse()?", "match ligne.trim().parse"]

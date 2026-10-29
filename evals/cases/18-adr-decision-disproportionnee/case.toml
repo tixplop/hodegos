@@ -1,0 +1,9 @@
+title = "Décision disproportionnée au regard des contraintes du contexte"
+file = "docs/architecture/0003-notifications.md"
+section = "h:decision"
+expected_mentor = "architecte"
+levels = ["indice", "question", "piste"]
+
+[expect]
+must_mention = ["contrainte", "budget", "Raspberry", "disproportionn", "cohéren", "proportion", "volume"]
+must_not = ["remplacez Kafka", "utilisez une simple table", "une file en base de données suffit"]

@@ -1,0 +1,9 @@
+title = "sort trie sur place le tableau reçu en paramètre"
+file = "src/agenda/tri.ts"
+section = "fn:prochainsCreneaux"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["sur place", "en place", "modifie le tableau", "mutation", "toSorted", "copie"]
+must_not = ["[...creneaux].sort", "creneaux.slice().sort", "creneaux.toSorted("]

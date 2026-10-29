@@ -1,0 +1,9 @@
+title = "Borne de boucle : la dernière fenêtre manque, et soustraction qui déborde"
+file = "src/stats.rs"
+section = "fn:moyenne_glissante"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["dernière fenêtre", "borne", "inclus", "exclu", "débord", "underflow", "soustraction"]
+must_not = ["0..=valeurs.len() - fenetre", "valeurs.len() - fenetre + 1", "valeurs.windows(fenetre)"]

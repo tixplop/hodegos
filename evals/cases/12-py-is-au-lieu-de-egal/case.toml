@@ -1,0 +1,9 @@
+title = "is compare l'identité des objets, pas leur valeur"
+file = "comptes/verification.py"
+section = "fn:code_valide"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["identité", "même objet", "égalité de valeur", "=="]
+must_not = ["saisi.strip() == attendu"]

@@ -1,0 +1,9 @@
+title = "Fermetures créées dans une boucle : liaison tardive de la variable"
+file = "rapports/filtres.py"
+section = "fn:seuils"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["liaison tardive", "fermeture", "closure", "dernière valeur", "au moment de l'appel", "capture"]
+must_not = ["lambda note, limite=limite", "functools.partial"]

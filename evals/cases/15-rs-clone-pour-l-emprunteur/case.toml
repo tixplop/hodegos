@@ -1,0 +1,9 @@
+title = "clone partout pour contourner l'emprunteur, et liste vide qui panique"
+file = "src/inventaire.rs"
+section = "impl:Inventaire"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["emprunt", "par référence", "copie inutile", "copies", "&str", "liste vide"]
+must_not = ["-> &str", "self.articles.iter().max_by_key", "for article in &self.articles"]

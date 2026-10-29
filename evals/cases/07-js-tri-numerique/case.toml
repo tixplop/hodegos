@@ -1,0 +1,9 @@
+title = "sort sans comparateur trie des nombres comme du texte"
+file = "src/stats/mediane.js"
+section = "fn:mediane"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["chaîne", "lexicograph", "alphabétique", "comparateur", "comme du texte"]
+must_not = ["sort((a, b) => a - b)", "sort((a,b) => a - b)", "sort((a, b) => a-b)"]

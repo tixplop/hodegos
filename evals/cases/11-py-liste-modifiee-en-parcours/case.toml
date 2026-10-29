@@ -1,0 +1,9 @@
+title = "Liste modifiée pendant qu'on la parcourt : des éléments sont sautés"
+file = "taches/nettoyage.py"
+section = "fn:retirer_terminees"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["pendant le parcours", "en la parcourant", "pendant que vous la parcourez", "saut", "itération", "copie"]
+must_not = ["for tache in taches[:]", "for tache in list(taches)", "if not tache[\"terminee\"]]"]

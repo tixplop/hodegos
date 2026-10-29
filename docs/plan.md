@@ -82,9 +82,25 @@ Vérifications manuelles (navigateur, faux OpenRouter local via `base_url`) :
 Commande `hodegos eval`, vingt cas, rapport, choix des deux modèles,
 journalisation propre, documentation d'installation dans le README.
 
-- [ ] Vingt cas dans `evals/cases/`, couvrant les deux mentors et les cinq langages
-- [ ] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
+- [x] Vingt cas dans `evals/cases/`, couvrant les deux mentors et les cinq langages
+  (cohérence de chaque cas vérifiée par `cargo test` : section, casting, motifs)
+- [x] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
+  (vérifié avec `FakeLlmClient` et un faux OpenRouter local)
 - [ ] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
 - [ ] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
 - [ ] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
   (critère reporté de la phase 4)
+- [x] Journaux : une ligne par passe et par reprise, ni contenu ni clé au niveau par défaut
+  (test de la clé au niveau `trace`)
+- [x] README : installation, configuration, lancement, mentors, évaluation, journaux, dépannage
+
+Reste à faire avec la vraie clé (par l'utilisateur) :
+
+1. `hodegos eval evals/ --fast <candidat>` et `--strong <candidat>` pour chaque
+   candidat ; garder les rapports de `evals/reports/`.
+2. Consigner le choix dans `docs/adr/0003-choix-des-modeles.md` (candidats, chiffres
+   des rapports, coût) et dans `config.toml`.
+3. Sur un vrai projet d'environ 50 fichiers, ouvert avec `hodegos` : enregistrer
+   cinq modifications réelles (code et ADR) et relever la durée affichée dans la
+   barre d'état (« Dernière passe : … en N s ») ; vérifier qu'aucune remarque, à
+   aucun palier, ne contient le code attendu.

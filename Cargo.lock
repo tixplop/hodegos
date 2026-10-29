@@ -747,8 +747,13 @@ dependencies = [
  "hodegos-llm",
  "hodegos-mentors",
  "hodegos-server",
+ "jiff",
+ "serde",
+ "serde_json",
  "tempfile",
+ "thiserror",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]
@@ -789,6 +794,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

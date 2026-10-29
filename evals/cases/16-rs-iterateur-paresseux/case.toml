@@ -1,0 +1,9 @@
+title = "map sans consommation : l'itérateur paresseux ne s'exécute jamais"
+file = "src/journal.rs"
+section = "fn:archiver"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["paresseu", "lazy", "consomm", "jamais exécut", "for_each", "collect"]
+must_not = ["lignes.iter().for_each(", "for ligne in lignes {", "archive.extend("]

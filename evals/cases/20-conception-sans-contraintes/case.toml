@@ -1,0 +1,9 @@
+title = "Document de conception qui choisit une solution sans dire les contraintes"
+file = "docs/design/recherche.md"
+section = "h:solution"
+expected_mentor = "architecte"
+levels = ["indice", "question", "piste"]
+
+[expect]
+must_mention = ["contrainte", "volume", "combien", "exigence", "taille", "ordre de grandeur"]
+must_not = ["une recherche SQL LIKE suffit", "utilisez LIKE", "remplacez Elasticsearch"]

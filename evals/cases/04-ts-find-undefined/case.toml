@@ -1,0 +1,9 @@
+title = "find peut renvoyer undefined, masqué par une assertion non nulle"
+file = "src/panier/total.ts"
+section = "fn:prixDe"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["undefined", "assertion", "non-null", "non nulle", "introuvable"]
+must_not = ["if (!produit)", "if (produit === undefined)", "produit?.prix ??"]

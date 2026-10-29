@@ -1,5 +1,8 @@
 //! Binaire `hodegos` : lance l'IDE sur un projet et affiche l'URL d'accès ;
-//! gère aussi les mentors (`hodegos mentors list`, `hodegos mentors eject <id>`).
+//! gère aussi les mentors (`hodegos mentors list`, `hodegos mentors eject <id>`)
+//! et évalue les mentors avec les vrais modèles (`hodegos eval evals/`).
+
+mod eval;
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -42,6 +45,30 @@ enum Command {
         #[command(subcommand)]
         action: MentorsAction,
     },
+    /// Rejoue les cas d'évaluation avec les vrais modèles (consomme du budget).
+    Eval {
+        /// Dossier des cas : evals/ du dépôt Hodegos.
+        #[arg(default_value = "evals")]
+        dir: PathBuf,
+        /// Seulement les cas dont le nom contient ce texte.
+        #[arg(long = "case")]
+        only: Option<String>,
+        /// Modèle rapide (Mentor du langage), à la place de config.toml.
+        #[arg(long)]
+        fast: Option<String>,
+        /// Modèle fort (Architecte), à la place de config.toml.
+        #[arg(long)]
+        strong: Option<String>,
+        /// Même modèle pour les deux niveaux ; --fast et --strong l'emportent.
+        #[arg(long)]
+        model: Option<String>,
+        /// Dépense maximale de l'évaluation, en dollars.
+        #[arg(long, default_value_t = 3.0)]
+        max_cost: f64,
+        /// Dossier des rapports (par défaut <dir>/reports).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -60,11 +87,13 @@ enum MentorsAction {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    // Les commandes de mentors affichent elles-mêmes les fichiers en erreur.
+    // Par défaut : les messages de Hodegos en info, ceux des bibliothèques (hyper,
+    // reqwest…) à partir de warn. Les commandes affichent elles-mêmes leurs résultats.
+    // RUST_LOG remplace ce réglage (README, « Journaux »).
     let default_level = if cli.command.is_some() {
         "error"
     } else {
-        "info"
+        "warn,hodegos=info,hodegos_core=info,hodegos_mentors=info,hodegos_llm=info,hodegos_server=info"
     };
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -76,6 +105,30 @@ fn main() -> ExitCode {
 
     let result = match (cli.command, cli.projet) {
         (Some(Command::Mentors { action }), _) => mentors(action),
+        (
+            Some(Command::Eval {
+                dir,
+                only,
+                fast,
+                strong,
+                model,
+                max_cost,
+                out,
+            }),
+            _,
+        ) => match evaluate(eval::EvalArgs {
+            dir,
+            only,
+            fast,
+            strong,
+            model,
+            max_cost,
+            out,
+        }) {
+            // Un modèle non retenu : code de sortie 1, le rapport dit pourquoi.
+            Ok(false) => return ExitCode::FAILURE,
+            other => other.map(|_| ()),
+        },
         (None, Some(projet)) => run(projet, cli.port),
         (None, None) => Err(anyhow::anyhow!("indiquez le dossier du projet")),
     };
@@ -119,6 +172,17 @@ async fn run(projet: PathBuf, port: u16) -> anyhow::Result<()> {
     server.serve(shutdown_signal()).await?;
     tracing::info!("Hodegos arrêté");
     Ok(())
+}
+
+#[tokio::main]
+async fn evaluate(args: eval::EvalArgs) -> anyhow::Result<bool> {
+    let config_dir = dirs::config_dir()
+        .context("dossier de configuration introuvable")?
+        .join("hodegos");
+    let data_dir = dirs::data_dir()
+        .context("dossier de données introuvable")?
+        .join("hodegos");
+    eval::command(args, &config_dir, &data_dir).await
 }
 
 async fn shutdown_signal() {

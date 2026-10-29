@@ -1,0 +1,9 @@
+title = "Cache sans stratégie d'invalidation, renvoyée à plus tard"
+file = "docs/architecture/0004-cache.md"
+section = "h:decision"
+expected_mentor = "architecte"
+levels = ["indice", "question", "piste"]
+
+[expect]
+must_mention = ["invalid", "périmé", "fraîcheur", "obsolète", "critère", "données anciennes"]
+must_not = ["invalidez le cache à chaque écriture", "durée de vie de", "TTL de"]

@@ -4,18 +4,18 @@
 
 use std::sync::Arc;
 
-use hodegos_core::secrets::{exclusion, mask_secrets};
+use hodegos_core::secrets::exclusion;
 use hodegos_core::{RelPath, Session, sections};
 use hodegos_llm::{
     AskError, BudgetLevel, ChatMessage, LlmRequest, Role, Rules, ask_for_reply, reply_schema,
 };
 use hodegos_mentors::{
-    Author, FollowUp, FollowUpKind, Level, ModelTier, PromptInput, Registry, build_prompt,
+    Author, FollowUpKind, Level, ModelTier, Registry, SectionRequest, Thread, section_prompt,
 };
 use jiff::Timestamp;
 
 use crate::AppState;
-use crate::pass::{context, lines, locate_anchor, model_for, remark_level};
+use crate::pass::{locate_anchor, model_for, remark_level};
 use crate::protocol::{ErrorCode, Remark, ThreadEntry};
 
 /// Demande refusée avant ou pendant l'appel au modèle.
@@ -131,45 +131,36 @@ pub(crate) fn prepare(
         return Err(Refused::new(ErrorCode::ProviderError, message));
     };
 
-    let (masked, _) = mask_secrets(&file.content);
-    let masked_lines: Vec<&str> = masked.split('\n').collect();
-    // Une réponse de la personne peut contenir un secret collé par mégarde.
-    let masked_thread: Vec<(Author, String)> = remark
-        .thread
-        .iter()
-        .map(|entry| {
-            let author = if entry.author == "user" {
-                Author::Person
-            } else {
-                Author::Mentor
-            };
-            (author, mask_secrets(&entry.text).0)
-        })
-        .collect();
-    let (quote, _) = mask_secrets(&remark.anchor.quote);
-    let follow_up = FollowUp {
+    let thread = Thread {
         kind,
-        quote: &quote,
+        quote: &remark.anchor.quote,
         levels_given: remark
             .levels_given
             .iter()
             .filter_map(|l| Level::from_name(l))
             .collect(),
-        entries: masked_thread
+        entries: remark
+            .thread
             .iter()
-            .map(|(author, text)| (*author, text.as_str()))
+            .map(|entry| {
+                let author = if entry.author == "user" {
+                    Author::Person
+                } else {
+                    Author::Mentor
+                };
+                (author, entry.text.as_str())
+            })
             .collect(),
     };
-    let prompt = build_prompt(&PromptInput {
+    let prompt = section_prompt(&SectionRequest {
         mentor,
         level,
         path: path.as_str(),
         language: file.language.as_str(),
-        section_id: &section.id,
-        section_text: &lines(&masked_lines, section.start_line, section.end_line),
-        section_diff: "",
-        context: &context(&masked_lines, section),
-        follow_up: Some(&follow_up),
+        content: &file.content,
+        section,
+        diff: "",
+        thread: Some(&thread),
     });
     Ok(Job {
         remark_id: remark.id.clone(),
@@ -206,6 +197,7 @@ pub(crate) async fn run(state: Arc<AppState>, job: Job) -> Done {
         level: remark_level(job.level),
         max_remarks: 1,
     };
+    let started = std::time::Instant::now();
     let result = ask_for_reply(client.as_ref(), job.request.clone(), &rules).await;
     let cost = match &result {
         Ok(replied) => replied.cost_usd,
@@ -216,22 +208,40 @@ pub(crate) async fn run(state: Arc<AppState>, job: Job) -> Done {
             tracing::error!(error = %err, "coût de la demande non enregistré");
         }
     }
-    let outcome = match result {
+    let (outcome, issue) = match result {
         Ok(replied) => {
             state.set_provider(true, None);
-            if replied.reply.is_none() {
-                tracing::info!(rejetees = ?replied.rejected, "le mentor n'ajoute rien au fil");
-            }
-            Ok(replied.reply.map(|r| r.message))
+            let issue = if replied.reply.is_some() {
+                "ajoute"
+            } else {
+                tracing::debug!(rejetees = ?replied.rejected, "le mentor n'ajoute rien au fil");
+                "rien"
+            };
+            (Ok(replied.reply.map(|r| r.message)), issue)
         }
         Err(AskError::Provider { error, .. }) => {
             let message = error.to_string();
             tracing::warn!(%message, "demande abandonnée : erreur du fournisseur");
             state.set_provider(false, Some(message.clone()));
-            Err(Refused::new(ErrorCode::ProviderError, message))
+            (
+                Err(Refused::new(ErrorCode::ProviderError, message)),
+                "provider_error",
+            )
         }
-        Err(AskError::InvalidResponse { .. }) => Ok(None),
+        Err(AskError::InvalidResponse { .. }) => (Ok(None), "invalid_response"),
     };
+    tracing::info!(
+        remarque = %job.remark_id,
+        demande = match job.kind {
+            FollowUpKind::NextLevel => "palier_suivant",
+            FollowUpKind::Reply => "relance",
+        },
+        palier = job.level.as_str(),
+        issue,
+        duree_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        cout_usd = cost,
+        "reprise d'une remarque"
+    );
     done(outcome)
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "hodegos-cli"
-description = "Binaire hodegos : lancement de l'IDE."
+description = "Binaire hodegos : lancement de l'IDE, mentors et évaluation."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -21,9 +21,13 @@ dirs.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-
+jiff.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 tempfile.workspace = true
 
 [lints]

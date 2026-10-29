@@ -569,7 +569,13 @@ impl Connection {
         let registry = self.state.mentors.registry();
         match pass::prepare(&self.state, &registry, &request) {
             Prepared::Done(outcome) => {
-                self.record_pass(&request.path, outcome, 0, started.elapsed().as_millis());
+                self.record_pass(
+                    &request.path,
+                    outcome,
+                    0,
+                    started.elapsed().as_millis(),
+                    0.0,
+                );
                 vec![Outgoing::push(self.state.status())]
             }
             Prepared::Run(run) => {
@@ -598,12 +604,7 @@ impl Connection {
             result.outcome,
             result.remarks.len(),
             u128::from(result.duration_ms),
-        );
-        tracing::info!(
-            path = %result.path,
-            remarques = result.remarks.len(),
-            duree_ms = result.duration_ms,
-            "passe terminée"
+            result.cost_usd,
         );
         vec![
             Outgoing::push(ServerMessage::Remarks {
@@ -614,7 +615,23 @@ impl Connection {
         ]
     }
 
-    fn record_pass(&self, path: &RelPath, outcome: PassOutcome, remarks: usize, duration_ms: u128) {
+    /// Dernière passe, pour la barre d'état, et une ligne de journal par passe.
+    fn record_pass(
+        &self,
+        path: &RelPath,
+        outcome: PassOutcome,
+        remarks: usize,
+        duration_ms: u128,
+        cost_usd: f64,
+    ) {
+        tracing::info!(
+            %path,
+            issue = outcome.as_str(),
+            remarques = remarks,
+            duree_ms = u64::try_from(duration_ms).unwrap_or(u64::MAX),
+            cout_usd = cost_usd,
+            "passe"
+        );
         self.state.set_last_pass(LastPass {
             at: Timestamp::now().to_string(),
             path: path.to_string(),
