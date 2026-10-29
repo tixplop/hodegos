@@ -2,6 +2,10 @@
 import {
   EditorState,
   EditorView,
+  Decoration,
+  WidgetType,
+  StateField,
+  StateEffect,
   keymap,
   lineNumbers,
   highlightActiveLine,
@@ -83,9 +87,84 @@ const theme = EditorView.theme({
   '.cm-panels.cm-panels-bottom': { borderTop: '1px solid var(--border)' },
   '.cm-searchMatch': { backgroundColor: 'var(--surface-100)', outline: '1px solid var(--border-control)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--accent-soft)' },
+  '.app-anchor': { backgroundColor: 'var(--highlight)', borderBottom: '2px solid var(--highlight-edge)', color: 'var(--ink)', cursor: 'pointer' },
+  '.app-anchor--active': { outline: '2px solid var(--accent)', outlineOffset: '1px' },
+  '.app-marker': { display: 'inline-block', marginLeft: '3px', padding: '0 5px', borderRadius: '999px', backgroundColor: 'var(--ink)', color: 'var(--surface-0)', fontFamily: 'var(--font-sans)', fontSize: '10px', lineHeight: '15px', fontWeight: '600', verticalAlign: 'super' },
+  '.app-marker--active': { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
   '.cm-textfield': { font: 'inherit', border: '1px solid var(--border-control)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--surface-0)', color: 'var(--ink)' },
   '.cm-button': { font: 'inherit', border: '1px solid var(--border-control)', borderRadius: 'var(--radius-sm)', backgroundImage: 'none', backgroundColor: 'var(--surface-0)', color: 'var(--ink)' },
 });
+
+/* ---------- Ancres des remarques ---------- */
+
+/** Remplace les ancres affichées : `[{ id, number, from, to, active }]`. */
+const setAnchors = StateEffect.define();
+
+/** Numéro de la remarque, juste après le passage cité (hd-marker). */
+class MarkerWidget extends WidgetType {
+  constructor(number, active) {
+    super();
+    this.number = number;
+    this.active = active;
+  }
+
+  eq(other) {
+    return other.number === this.number && other.active === this.active;
+  }
+
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = this.active ? 'app-marker app-marker--active' : 'app-marker';
+    span.setAttribute('aria-hidden', 'true');
+    span.textContent = String(this.number);
+    return span;
+  }
+}
+
+function anchorDecorations(anchors) {
+  const ranges = [];
+  for (const anchor of anchors) {
+    if (anchor.to > anchor.from) {
+      ranges.push(Decoration.mark({
+        class: anchor.active ? 'app-anchor app-anchor--active' : 'app-anchor',
+        attributes: { 'data-remark': anchor.id },
+      }).range(anchor.from, anchor.to));
+    }
+    ranges.push(Decoration.widget({ widget: new MarkerWidget(anchor.number, anchor.active), side: 1 }).range(anchor.to));
+  }
+  return Decoration.set(ranges, true);
+}
+
+/** Les ancres suivent le texte pendant la frappe, jusqu'au prochain remplacement. */
+const anchorsField = StateField.define({
+  create: () => Decoration.none,
+  update(decorations, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setAnchors)) return anchorDecorations(effect.value);
+    }
+    return decorations.map(tr.changes);
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+/**
+ * Position d'une citation dans le document : l'occurrence la plus proche de `lineHint`.
+ * Sans citation (étape suivante), le début de la ligne. `null` si la citation a disparu.
+ */
+export function locate(doc, quote, lineHint) {
+  const hint = Math.min(Math.max(lineHint, 1), doc.lines);
+  if (!quote) {
+    const line = doc.line(hint);
+    return { from: line.from, to: line.from };
+  }
+  const text = doc.toString();
+  let best = null;
+  for (let index = text.indexOf(quote); index !== -1; index = text.indexOf(quote, index + 1)) {
+    const distance = Math.abs(doc.lineAt(index).number - hint);
+    if (!best || distance < best.distance) best = { from: index, to: index + quote.length, distance };
+  }
+  return best && { from: best.from, to: best.to };
+}
 
 function position(state) {
   const head = state.selection.main.head;
@@ -99,10 +178,11 @@ function position(state) {
  * qu'elle bloque. Les variables du design system traversent le shadow root.
  *
  * Chaque onglet garde son propre état (document, historique, sélection).
- * `onChange()` à chaque modification, `onCursor({ line, col })` à chaque déplacement.
+ * `onChange()` à chaque modification, `onCursor({ line, col })` à chaque déplacement,
+ * `onAnchor(remarkId)` au clic sur un passage cité.
  * Ctrl+S est géré par la page, pour fonctionner aussi hors de l'éditeur.
  */
-export function createEditor(parent, { onChange, onCursor }) {
+export function createEditor(parent, { onChange, onCursor, onAnchor }) {
   const root = parent.attachShadow({ mode: 'open' });
   const view = new EditorView({ parent: root, root });
 
@@ -131,6 +211,14 @@ export function createEditor(parent, { onChange, onCursor }) {
           indentWithTab,
         ]),
         theme,
+        anchorsField,
+        EditorView.domEventHandlers({
+          click(event) {
+            const anchor = event.target.closest?.('[data-remark]');
+            if (anchor) onAnchor(anchor.getAttribute('data-remark'));
+            return false;
+          },
+        }),
         languageSupport(language, path),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChange();
@@ -151,5 +239,14 @@ export function createEditor(parent, { onChange, onCursor }) {
       return view.state;
     },
     focus: () => view.focus(),
+    /** Affiche les ancres de l'onglet courant. */
+    showAnchors(anchors) {
+      view.dispatch({ effects: setAnchors.of(anchors) });
+    },
+    /** Place le curseur sur `pos` et l'amène à l'écran. */
+    reveal(pos) {
+      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+      view.focus();
+    },
   };
 }

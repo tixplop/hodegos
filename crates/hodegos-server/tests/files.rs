@@ -40,30 +40,37 @@ async fn request(socket: &mut Socket, id: &str, kind: &str, payload: Value) -> V
         json!({ "v": 1, "type": kind, "id": id, "payload": payload }),
     )
     .await;
-    while reply["type"] == "casting" && reply["re"] != id {
+    while BACKGROUND.contains(&reply["type"].as_str().unwrap_or_default()) && reply["re"] != id {
         reply = next(socket).await;
     }
     assert_eq!(reply["re"], id, "{reply}");
     reply
 }
 
-/// Prochain message autre qu'un `casting`.
+/// Messages spontanés étrangers aux fichiers : interlocuteurs, état, passes.
+const BACKGROUND: [&str; 4] = ["casting", "status", "pass_started", "remarks"];
+
+fn background(message: &Value) -> bool {
+    BACKGROUND.contains(&message["type"].as_str().unwrap_or_default())
+}
+
+/// Prochain message autre qu'un message d'arrière-plan.
 async fn next_event(socket: &mut Socket) -> Value {
     loop {
         let message = next(socket).await;
-        if message["type"] != "casting" {
+        if !background(&message) {
             return message;
         }
     }
 }
 
-/// Messages autres que `casting` reçus pendant `wait`.
+/// Messages autres que d'arrière-plan reçus pendant `wait`.
 async fn events_within(socket: &mut Socket, wait: Duration) -> Vec<Value> {
     let deadline = tokio::time::Instant::now() + wait;
     let mut events = Vec::new();
     while let Some(left) = deadline.checked_duration_since(tokio::time::Instant::now()) {
         match next_within(socket, left).await {
-            Some(message) if message["type"] != "casting" => events.push(message),
+            Some(message) if !background(&message) => events.push(message),
             Some(_) => {}
             None => break,
         }

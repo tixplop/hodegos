@@ -27,6 +27,8 @@ fn affiche_l_url_d_acces_et_ecoute_dessus() {
             .arg(project.path())
             .args(["--port", "0"])
             .env("XDG_CONFIG_HOME", config.path())
+            .env("XDG_DATA_HOME", config.path().join("donnees"))
+            .env_remove("OPENROUTER_API_KEY")
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -63,6 +65,7 @@ fn refuse_un_port_occupe_avec_un_message_clair() {
         .arg(project.path())
         .args(["--port", &port])
         .env("XDG_CONFIG_HOME", project.path().join("config"))
+        .env("XDG_DATA_HOME", project.path().join("donnees"))
         .output()
         .unwrap();
     assert!(!output.status.success());

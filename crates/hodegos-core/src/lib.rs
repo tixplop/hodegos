@@ -2,17 +2,20 @@
 //!
 //! Ne dépend d'aucun autre crate de Hodegos et ne connaît ni HTTP ni la WebSocket.
 
+mod diff;
 mod error;
 mod files;
 mod ignore_rules;
 mod language;
 mod paths;
 mod project;
+pub mod secrets;
 mod sections;
 mod session;
 mod tree;
 mod watch;
 
+pub use diff::{SectionChange, changed_sections};
 pub use error::FileError;
 pub use files::{MAX_TEXT_BYTES, TextFile, Version};
 pub use language::Language;

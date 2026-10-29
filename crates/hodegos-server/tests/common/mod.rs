@@ -1,6 +1,7 @@
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
@@ -8,8 +9,9 @@ use axum::body::Body;
 use axum::http::{Request, Response, header};
 use futures_util::{SinkExt, StreamExt};
 use hodegos_core::Project;
+use hodegos_llm::{FakeLlmClient, LlmConfig};
 use hodegos_mentors::MentorSources;
-use hodegos_server::Server;
+use hodegos_server::{Llm, Server, ServerOptions};
 use serde_json::Value;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -32,10 +34,45 @@ pub fn sources_in(dir: &Path) -> MentorSources {
     }
 }
 
+/// Sans fournisseur : chaque passe s'arrête sur `provider_error`.
+pub fn no_llm() -> Llm {
+    Llm {
+        client: Err("aucun fournisseur dans les tests".to_owned()),
+        config: LlmConfig::default(),
+    }
+}
+
+/// Faux fournisseur, modèles rapide et fort renseignés.
+pub fn fake_llm(fake: Arc<FakeLlmClient>) -> Llm {
+    Llm {
+        client: Ok(fake),
+        config: LlmConfig {
+            fast: Some("test/rapide".to_owned()),
+            strong: Some("test/fort".to_owned()),
+            ..LlmConfig::default()
+        },
+    }
+}
+
+/// Données de l'utilisateur rangées sous `.git/` du projet de test : invisibles dans
+/// l'arborescence, effacées avec le dossier temporaire, jamais dans ~/.local/share.
+pub fn data_dir(dir: &Path) -> std::path::PathBuf {
+    dir.join(".git").join("hodegos-donnees")
+}
+
+pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
+    ServerOptions {
+        port,
+        mentors: sources_in(dir),
+        data_dir: data_dir(dir),
+        llm,
+    }
+}
+
 /// Serveur sur un port libre, pour un projet vide.
 pub async fn bind() -> (tempfile::TempDir, Server) {
     let dir = tempfile::tempdir().unwrap();
-    let server = Server::bind(project_in(dir.path()), sources_in(dir.path()), 0)
+    let server = Server::bind(project_in(dir.path()), options(dir.path(), 0, no_llm()))
         .await
         .unwrap();
     (dir, server)
@@ -75,7 +112,11 @@ pub async fn session_cookie(server: &Server) -> String {
 
 /// Démarre un vrai serveur sur `dir` et renvoie son port et le cookie de session.
 pub async fn start_in(dir: &Path) -> (u16, String) {
-    let server = Server::bind(project_in(dir), sources_in(dir), 0)
+    start_with(dir, no_llm()).await
+}
+
+pub async fn start_with(dir: &Path, llm: Llm) -> (u16, String) {
+    let server = Server::bind(project_in(dir), options(dir, 0, llm))
         .await
         .unwrap();
     let port = server.port();
@@ -107,11 +148,18 @@ pub async fn connect(
         .map(|(socket, _)| socket)
 }
 
-/// Connexion acceptée : bonne Origin, bon cookie.
+/// Connexion acceptée : bonne Origin, bon cookie ; le `status` initial est consommé.
 pub async fn open_socket(dir: &Path) -> Socket {
-    let (port, cookie) = start_in(dir).await;
+    open_socket_with(dir, no_llm()).await
+}
+
+pub async fn open_socket_with(dir: &Path, llm: Llm) -> Socket {
+    let (port, cookie) = start_with(dir, llm).await;
     let origin = format!("http://127.0.0.1:{port}");
-    connect(port, Some(&origin), Some(&cookie)).await.unwrap()
+    let mut socket = connect(port, Some(&origin), Some(&cookie)).await.unwrap();
+    let status = next(&mut socket).await;
+    assert_eq!(status["type"], "status", "{status}");
+    socket
 }
 
 pub fn refused_with(result: Result<Socket, Error>) -> StatusCode {

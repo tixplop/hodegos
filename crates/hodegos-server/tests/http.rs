@@ -3,7 +3,7 @@
 mod common;
 
 use axum::http::{StatusCode, header};
-use common::{bind, get, host, project_in, session_cookie, sources_in, token};
+use common::{bind, get, host, no_llm, options, project_in, session_cookie, token};
 use hodegos_server::{Server, ServerError};
 use http_body_util::BodyExt;
 
@@ -27,7 +27,7 @@ async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
             .starts_with(&format!("http://127.0.0.1:{port}/"))
     );
 
-    let err = Server::bind(project_in(dir.path()), sources_in(dir.path()), port)
+    let err = Server::bind(project_in(dir.path()), options(dir.path(), port, no_llm()))
         .await
         .err()
         .expect("le port est déjà pris");
@@ -39,7 +39,7 @@ async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
 
     drop(server);
     assert_eq!(
-        Server::bind(project_in(dir.path()), sources_in(dir.path()), port)
+        Server::bind(project_in(dir.path()), options(dir.path(), port, no_llm()))
             .await
             .unwrap()
             .port(),

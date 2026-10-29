@@ -99,8 +99,8 @@ pub enum ServerMessage {
         version: String,
         language: String,
         sections: Vec<SectionInfo>,
-        /// Rempli à partir de la phase 4.
-        remarks: Vec<serde_json::Value>,
+        /// Remarques ouvertes du fichier.
+        remarks: Vec<Remark>,
     },
     Saved {
         path: String,
@@ -124,6 +124,25 @@ pub enum ServerMessage {
     },
     MentorsChanged {
         warnings: Vec<MentorWarning>,
+    },
+    PassStarted {
+        path: String,
+        /// Sections soumises aux mentors.
+        sections: Vec<String>,
+        mentors: Vec<MentorRef>,
+    },
+    Remarks {
+        path: String,
+        items: Vec<Remark>,
+    },
+    Status {
+        provider_ok: bool,
+        /// Texte affiché dans la barre d'état (« clé absente »…), si besoin.
+        provider_message: Option<String>,
+        budget_used: f64,
+        budget_cap: f64,
+        budget_level: BudgetLevel,
+        last_pass: Option<LastPass>,
     },
     Error {
         code: ErrorCode,
@@ -172,6 +191,70 @@ pub enum ForcedBy {
 pub struct MentorWarning {
     pub file: String,
     pub message: String,
+}
+
+/// Remarque complète (docs/cadrage.md, « Contrat : format d'une remarque »).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Remark {
+    pub id: String,
+    pub mentor_id: String,
+    pub path: String,
+    pub anchor: Anchor,
+    pub level: String,
+    /// `observation`, `question` ou `next_step`.
+    pub kind: String,
+    pub levels_given: Vec<String>,
+    /// `open`, `answered`, `resolved`, `ignored` ou `detached`.
+    pub status: String,
+    pub thread: Vec<ThreadEntry>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Anchor {
+    pub section_id: String,
+    /// Extrait cité ; vide pour une étape suivante sans citation.
+    pub quote: String,
+    /// Ligne (à partir de 1) pour l'affichage initial ; l'ancre fait foi par section et citation.
+    pub line_hint: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThreadEntry {
+    /// `mentor` ou `user`.
+    pub author: String,
+    pub text: String,
+    pub at: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BudgetLevel {
+    Ok,
+    Warning,
+    Exceeded,
+}
+
+/// Issue de la dernière passe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PassOutcome {
+    Ok,
+    NoChange,
+    NoMentor,
+    Excluded,
+    BudgetExceeded,
+    ProviderError,
+    InvalidResponse,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LastPass {
+    pub at: String,
+    pub path: String,
+    pub outcome: PassOutcome,
+    pub remarks: usize,
+    pub duration_ms: u64,
 }
 
 /// Mentor tel que le voit le front.
@@ -400,7 +483,49 @@ mod tests {
                     end_line: 3,
                     parents: vec![],
                 }],
-                remarks: vec![],
+                remarks: vec![Remark {
+                    id: "rm_01".to_owned(),
+                    mentor_id: "mentor-langage".to_owned(),
+                    path: "a.rs".to_owned(),
+                    anchor: Anchor {
+                        section_id: "fn:a".to_owned(),
+                        quote: "let x".to_owned(),
+                        line_hint: 2,
+                    },
+                    level: "indice".to_owned(),
+                    kind: "observation".to_owned(),
+                    levels_given: vec!["indice".to_owned()],
+                    status: "open".to_owned(),
+                    thread: vec![ThreadEntry {
+                        author: "mentor".to_owned(),
+                        text: "Regardez.".to_owned(),
+                        at: "2026-10-29T12:04:00Z".to_owned(),
+                    }],
+                    created_at: "2026-10-29T12:04:00Z".to_owned(),
+                }],
+            },
+            ServerMessage::PassStarted {
+                path: "a.rs".to_owned(),
+                sections: vec!["fn:a".to_owned()],
+                mentors: vec![],
+            },
+            ServerMessage::Remarks {
+                path: "a.rs".to_owned(),
+                items: vec![],
+            },
+            ServerMessage::Status {
+                provider_ok: false,
+                provider_message: Some("clé absente".to_owned()),
+                budget_used: 1.5,
+                budget_cap: 10.0,
+                budget_level: BudgetLevel::Ok,
+                last_pass: Some(LastPass {
+                    at: "2026-10-29T12:04:00Z".to_owned(),
+                    path: "a.rs".to_owned(),
+                    outcome: PassOutcome::ProviderError,
+                    remarks: 0,
+                    duration_ms: 120,
+                }),
             },
             ServerMessage::Casting {
                 path: "a.rs".to_owned(),

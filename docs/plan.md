@@ -50,11 +50,12 @@ Client OpenRouter derrière `LlmClient`, exclusions et masquage des secrets, pro
 en trois couches, validation des remarques, ancrage, persistance dans
 `~/.local/share/hodegos/`, affichage des ancres et des cartes, budget.
 
-- [ ] Tests avec `FakeLlmClient` : JSON invalide, relance unique, citation introuvable, garde « pas de solution », plafond
-- [ ] Test : un fichier `.env` ou ignoré par git n'est jamais envoyé ; un secret dans une section est masqué
+- [x] Tests avec `FakeLlmClient` : JSON invalide, relance unique, citation introuvable, garde « pas de solution », plafond
+- [x] Test : un fichier `.env` ou ignoré par git n'est jamais envoyé ; un secret dans une section est masqué
 - [ ] Enregistrer un fichier produit au plus deux remarques ancrées en moins de 10 secondes
-- [ ] Budget : avertissement à 80 %, arrêt des passes proactives à 100 %
-- [ ] Panne du fournisseur : passe abandonnée, état visible, aucune nouvelle tentative
+  (testé avec `FakeLlmClient` et un faux OpenRouter local ; délai à vérifier avec la vraie clé)
+- [x] Budget : avertissement à 80 %, arrêt des passes proactives à 100 %
+- [x] Panne du fournisseur : passe abandonnée, état visible, aucune nouvelle tentative
 
 ## Phase 5 — Paliers et conversation
 

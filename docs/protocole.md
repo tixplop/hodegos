@@ -36,7 +36,7 @@ connexion reste ouverte.
 | `ping` | — | Renvoie `pong` (phase 1) |
 | `list_dir` | `path` (`""` pour la racine) | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
 | `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) |
-| `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe (à partir de la phase 4) |
+| `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe : `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
 | `cursor` | `path`, `line`, `col` (à partir de 1) | Met à jour la section courante, envoie `casting` s'il change ; sans `id`, aucune autre réponse |
 | `hint_next` | `remark_id` | Demande le palier suivant ; renvoie `remark_update` |
 | `remark_reply` | `remark_id`, `text` | Ajoute votre réponse ; le mentor peut relancer au même palier |
@@ -52,12 +52,12 @@ connexion reste ouverte.
 | `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
-| `pass_started` | `path`, `sections`, `mentors` | dès qu'une passe démarre |
-| `remarks` | `path`, `items` (remarques complètes) | à la fin d'une passe |
+| `pass_started` | `path`, `sections` (identifiants), `mentors` (titulaires appelés) | dès qu'une passe appelle le modèle |
+| `remarks` | `path`, `items` (nouvelles remarques complètes, au plus 2) | à la fin d'une passe |
 | `remark_update` | une remarque complète | palier suivant, réponse, fermeture, détachement |
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
-| `status` | `provider_ok`, `budget_used`, `budget_cap`, `last_pass` | au démarrage puis à chaque passe |
+| `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass` | à la connexion, puis après chaque enregistrement |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -73,7 +73,22 @@ Détails des fichiers :
   rang ajouté aux homonymes (`fn:new-2`), `top:N` pour le reste.
 - `mentors` (dans `dir`) : titulaire et consultant du fichier, calculés sur son
   chemin et son langage seulement ; vide pour un dossier.
-- `remarks` (dans `file`) reste vide jusqu'à la phase 4.
+- `remarks` (dans `file`) : remarques ouvertes du fichier, persistées entre deux lancements.
+
+Détails des passes :
+
+- Une remarque suit le contrat de `docs/cadrage.md`, avec en plus `kind`
+  (`observation`, `question` ou `next_step`). `anchor.quote` est vide pour une
+  étape suivante sans citation, ancrée au début de la section.
+- `status.provider_message` : raison de l'indisponibilité du fournisseur (clé
+  absente, modèles non configurés, erreur de la dernière passe), `null` sinon.
+- `status.budget_level` : `ok`, `warning` (seuil `warn_at` atteint) ou `exceeded`
+  (plafond atteint, plus de passe proactive) ; montants en dollars, mois en UTC.
+- `status.last_pass` : `{ at, path, outcome, remarks, duration_ms }`, avec
+  `outcome` parmi `ok`, `no_change`, `no_mentor`, `excluded`, `budget_exceeded`,
+  `provider_error`, `invalid_response`.
+- Les codes `budget_exceeded` et `provider_error` servent aux demandes explicites
+  (phase 5) ; une passe proactive les signale par `status`, jamais par `error`.
 
 Détails du casting :
 

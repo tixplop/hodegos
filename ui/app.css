@@ -40,6 +40,9 @@ body.hd-app { height: 100vh; display: flex; flex-direction: column; overflow: hi
 .app-panel__note { margin: 0; }
 .app-mentor__head { gap: 6px; }
 .app-available__label { font-size: 12px; color: var(--ink-muted); }
+.app-marker-inline { vertical-align: baseline; margin: 0; }
+.app-remark__missing { font-size: 12px; }
+.app-provider { display: inline-flex; align-items: center; gap: 6px; }
 .app-tree__item .hd-nav__meta { margin-left: auto; font-family: var(--font-mono); }
 
 /* Écran étroit : les colonnes passent les unes sous les autres. */

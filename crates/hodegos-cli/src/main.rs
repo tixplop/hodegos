@@ -2,14 +2,16 @@
 //! gère aussi les mentors (`hodegos mentors list`, `hodegos mentors eject <id>`).
 
 use std::io::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hodegos_core::Project;
+use hodegos_llm::{LlmClient, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry, default_user_dir, eject};
-use hodegos_server::{DEFAULT_PORT, Server};
+use hodegos_server::{DEFAULT_PORT, Llm, Server, ServerOptions};
 use tracing_subscriber::EnvFilter;
 
 /// IDE personnel où des mentors IA vous guident sans écrire à votre place.
@@ -90,8 +92,22 @@ fn main() -> ExitCode {
 async fn run(projet: PathBuf, port: u16) -> anyhow::Result<()> {
     let project = Project::open(&projet)?;
     let root = project.root().to_path_buf();
-    let sources = MentorSources::for_project(&root);
-    let server = Server::bind(project, sources, port)
+    let config_dir = dirs::config_dir()
+        .context("dossier de configuration introuvable")?
+        .join("hodegos");
+    let data_dir = dirs::data_dir()
+        .context("dossier de données introuvable")?
+        .join("hodegos");
+    let options = ServerOptions {
+        port,
+        mentors: MentorSources::for_project(&root),
+        data_dir,
+        llm: llm(&config_dir),
+    };
+    if let Err(message) = &options.llm.client {
+        tracing::warn!(%message, "aucune passe tant que le fournisseur n'est pas configuré");
+    }
+    let server = Server::bind(project, options)
         .await
         .context("impossible de démarrer le serveur")?;
 
@@ -184,4 +200,33 @@ fn list(registry: &Registry, sources: &MentorSources) {
             println!("  {} : {}", warning.file, warning.message);
         }
     }
+}
+
+/// Client OpenRouter d'après `config.toml` et la clé ; sinon, la raison de son absence,
+/// affichée dans la barre d'état. Hodegos démarre dans tous les cas.
+fn llm(config_dir: &Path) -> Llm {
+    let config = match LlmConfig::load(config_dir) {
+        Ok(config) => config,
+        Err(err) => {
+            return Llm {
+                client: Err(format!("configuration invalide : {err}")),
+                config: LlmConfig::default(),
+            };
+        }
+    };
+    let client = match load_api_key(config_dir, std::env::var("OPENROUTER_API_KEY").ok()) {
+        Err(err) => Err(err.to_string()),
+        Ok(None) => Err(format!(
+            "clé OpenRouter absente : ajoutez-la à {} ou à OPENROUTER_API_KEY",
+            config_dir.join("credentials.toml").display()
+        )),
+        Ok(Some(_)) if config.fast.is_none() && config.strong.is_none() => Err(format!(
+            "modèles non configurés : renseignez fast et strong dans {}",
+            config_dir.join("config.toml").display()
+        )),
+        Ok(Some(key)) => OpenRouterClient::new(key, &config.base_url, config.timeout)
+            .map(|client| Arc::new(client) as Arc<dyn LlmClient>)
+            .map_err(|err| err.to_string()),
+    };
+    Llm { client, config }
 }

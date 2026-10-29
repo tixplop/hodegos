@@ -1,10 +1,11 @@
 /* Hodegos — application : arborescence, onglets, éditeur, enregistrement, modifications externes,
-   interlocuteurs de la section courante. */
+   interlocuteurs de la section courante, remarques et état des passes. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
-import { createEditor, LANGUAGE_NAMES } from './editor.js';
+import { createEditor, LANGUAGE_NAMES, locate } from './editor.js';
 import { icon } from './icons.js';
 import { createPanel } from './panel.js';
+import { renderRemarks } from './remarks.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -23,6 +24,10 @@ const ui = {
   titular: $('titulaire'),
   mentorErrors: $('mentors-erreurs'),
   mentors: $('interlocuteurs'),
+  remarks: $('remarques'),
+  pass: $('passe'),
+  budget: $('budget'),
+  provider: $('fournisseur'),
 };
 
 /** Délai de regroupement des déplacements du curseur avant envoi au serveur. */
@@ -38,6 +43,14 @@ let currentPath = null;
 let wasConnected = false;
 /** Dernier `casting` reçu, par chemin. */
 const castings = new Map();
+/** Remarques ouvertes, par chemin. */
+const remarksByPath = new Map();
+/** Remarque sélectionnée (carte et passage mis en avant). */
+let activeRemark = null;
+/** Noms des mentors connus, par `id`, pour signer les remarques. */
+const mentorNames = new Map();
+/** Dernier message d'indisponibilité du fournisseur affiché. */
+let shownProviderMessage = null;
 /** Dernier curseur envoyé : `{ path, line }`. */
 let sentCursor = null;
 let cursorTimer = null;
@@ -49,10 +62,14 @@ const editor = createEditor(ui.editor, {
     ui.position.textContent = `l.${line}, col. ${col}`;
     scheduleCursor(line, col);
   },
+  onAnchor: (id) => selectRemark(id, false),
 });
 const panel = createPanel(ui.mentors, { onForce: forceMentor });
 const tree = createTree(ui.tree, {
-  list: (path) => server.request('list_dir', { path }).then((reply) => reply.payload.entries),
+  list: (path) => server.request('list_dir', { path }).then((reply) => {
+    for (const entry of reply.payload.entries) rememberMentors(entry.mentors);
+    return reply.payload.entries;
+  }),
   onOpen: openFile,
   onError: showError,
 });
@@ -82,6 +99,22 @@ function onPush(message) {
   }
   if (message.type === 'mentors_changed') {
     showMentorWarnings(message.payload.warnings);
+    return;
+  }
+  if (message.type === 'pass_started') {
+    rememberMentors(message.payload.mentors);
+    const names = message.payload.mentors.map((m) => m.name).join(', ');
+    ui.pass.textContent = `Passe en cours : ${names}…`;
+    return;
+  }
+  if (message.type === 'remarks') {
+    const { path, items } = message.payload;
+    remarksByPath.set(path, [...(remarksByPath.get(path) ?? []), ...items]);
+    if (path === currentPath) renderRemarksPanel();
+    return;
+  }
+  if (message.type === 'status') {
+    applyStatus(message.payload);
     return;
   }
   if (message.type !== 'file_changed') return;
@@ -115,7 +148,12 @@ function resendCursor() {
   sendCursor(editor.state.doc.lineAt(head).number);
 }
 
+function rememberMentors(mentors) {
+  for (const mentor of mentors ?? []) mentorNames.set(mentor.id, mentor.name);
+}
+
 function applyCasting(casting) {
+  rememberMentors([casting.titular, ...casting.consultants, ...casting.available].filter(Boolean));
   castings.set(casting.path, casting);
   if (casting.path === currentPath) renderMentors();
 }
@@ -166,11 +204,112 @@ function showMentorWarnings(warnings) {
   showMessage(`Mentor ignoré : ${file} : ${warnings[0].message}`);
 }
 
+/* ---------- Remarques ---------- */
+
+/** Remarques ouvertes d'un fichier, numérotées dans l'ordre du texte, avec leur position. */
+function remarkItems(path) {
+  const tab = tabs.get(path);
+  if (!tab) return [];
+  const doc = path === currentPath ? editor.state.doc : tab.state.doc;
+  return (remarksByPath.get(path) ?? [])
+    .filter((remark) => remark.status === 'open')
+    .sort((a, b) => a.anchor.line_hint - b.anchor.line_hint)
+    .map((remark, index) => ({
+      remark,
+      number: index + 1,
+      position: locate(doc, remark.anchor.quote, remark.anchor.line_hint),
+    }));
+}
+
+function renderRemarksPanel() {
+  const items = currentPath ? remarkItems(currentPath) : [];
+  renderRemarks(ui.remarks, items.map(({ remark, number, position }) => ({ remark, number, located: Boolean(position) })), {
+    activeId: activeRemark,
+    mentorName: (id) => mentorNames.get(id) ?? id,
+    onSelect: (remark) => selectRemark(remark.id, true),
+  });
+  if (!currentPath) return;
+  editor.showAnchors(items
+    .filter((item) => item.position)
+    .map(({ remark, number, position }) => ({
+      id: remark.id,
+      number,
+      from: position.from,
+      to: position.to,
+      active: remark.id === activeRemark,
+    })));
+}
+
+/** Met en avant une remarque ; `reveal` amène aussi son passage à l'écran. */
+function selectRemark(id, reveal) {
+  activeRemark = id;
+  renderRemarksPanel();
+  if (!reveal) return;
+  const item = remarkItems(currentPath).find((i) => i.remark.id === id);
+  if (item?.position) editor.reveal(item.position.from);
+}
+
+/* ---------- État du fournisseur, du budget et des passes ---------- */
+
+const OUTCOMES = {
+  no_change: 'aucun changement',
+  no_mentor: 'aucun mentor pour les sections modifiées',
+  excluded: 'fichier sensible, rien n\'est envoyé',
+  budget_exceeded: 'budget du mois atteint, pas de passe',
+  provider_error: 'fournisseur indisponible, passe abandonnée',
+  invalid_response: 'réponse du mentor invalide, passe abandonnée',
+};
+
+const money = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' });
+
+function applyStatus(status) {
+  const last = status.last_pass;
+  if (last) {
+    let text = OUTCOMES[last.outcome];
+    if (last.outcome === 'ok') {
+      const count = last.remarks === 0 ? 'aucune remarque' : last.remarks === 1 ? '1 remarque' : `${last.remarks} remarques`;
+      text = `${count} en ${(last.duration_ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
+    }
+    ui.pass.textContent = `Dernière passe : ${text}`;
+  }
+
+  ui.provider.replaceChildren();
+  if (status.provider_ok) {
+    const dot = document.createElement('span');
+    dot.className = 'hd-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    ui.provider.className = 'app-provider';
+    ui.provider.append(dot, 'OpenRouter prêt');
+    ui.provider.title = '';
+    shownProviderMessage = null;
+  } else {
+    ui.provider.className = 'hd-badge hd-badge--danger';
+    ui.provider.textContent = 'OpenRouter indisponible';
+    ui.provider.title = status.provider_message ?? '';
+    if (status.provider_message && status.provider_message !== shownProviderMessage) {
+      shownProviderMessage = status.provider_message;
+      showMessage(`OpenRouter : ${status.provider_message}`);
+    }
+  }
+
+  const used = `${money.format(status.budget_used)} sur ${money.format(status.budget_cap)}`;
+  ui.budget.hidden = status.budget_level === 'ok';
+  ui.budget.title = `Budget du mois : ${used}`;
+  if (status.budget_level === 'warning') {
+    ui.budget.className = 'hd-badge hd-badge--warning';
+    ui.budget.textContent = `Budget : ${used}`;
+  } else if (status.budget_level === 'exceeded') {
+    ui.budget.className = 'hd-badge hd-badge--danger';
+    ui.budget.textContent = 'Budget du mois atteint';
+  }
+}
+
 /** Après une reconnexion, le serveur ne suit plus les fichiers : on les rouvre. */
 async function resync() {
   for (const tab of tabs.values()) {
     try {
       const reply = await server.request('open_file', { path: tab.path });
+      remarksByPath.set(tab.path, reply.payload.remarks);
       if (reply.payload.version !== tab.version) {
         tab.banner = { kind: 'changed', version: reply.payload.version };
       }
@@ -191,6 +330,7 @@ async function openFile(path) {
   }
   try {
     const { payload } = await server.request('open_file', { path });
+    remarksByPath.set(path, payload.remarks);
     const state = editor.createState(payload.content, payload.language, path);
     tabs.set(path, {
       path,
@@ -210,6 +350,7 @@ async function openFile(path) {
 async function reload(tab) {
   try {
     const { payload } = await server.request('open_file', { path: tab.path });
+    remarksByPath.set(tab.path, payload.remarks);
     tab.state = editor.createState(payload.content, payload.language, tab.path);
     tab.savedDoc = tab.state.doc;
     tab.version = payload.version;
@@ -289,6 +430,7 @@ function closeTab(path) {
   if (path === currentPath) tab.state = editor.state;
   tabs.delete(path);
   castings.delete(path);
+  remarksByPath.delete(path);
   if (path === currentPath) {
     currentPath = null;
     const next = [...tabs.keys()].pop();
@@ -315,6 +457,7 @@ function render() {
   document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
   tree.setCurrent(currentPath);
   renderMentors();
+  renderRemarksPanel();
 }
 
 function renderTabs() {

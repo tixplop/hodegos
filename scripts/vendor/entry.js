@@ -1,7 +1,9 @@
 // Point d'entrée du paquet ui/vendor/codemirror.js : seulement ce dont l'éditeur se sert.
-export { EditorState, Compartment } from '@codemirror/state';
+export { EditorState, Compartment, StateField, StateEffect } from '@codemirror/state';
 export {
   EditorView,
+  Decoration,
+  WidgetType,
   keymap,
   lineNumbers,
   highlightActiveLine,

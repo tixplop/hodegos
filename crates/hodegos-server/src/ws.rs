@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::Extension;
 use axum::extract::State;
@@ -10,13 +11,16 @@ use hodegos_core::{
     EntryKind, FileError, Language, RelPath, Section, Session, UserId, Version, section_at,
     sections,
 };
-use hodegos_mentors::{CastRequest, Forced, Registry, cast, frontmatter_mentor};
+use hodegos_mentors::{CastRequest, Registry, cast};
+use jiff::Timestamp;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::mpsc;
 
 use crate::AppState;
+use crate::pass::{self, PassRequest, PassResult, Prepared, cast_section, mentor_ref};
 use crate::protocol::{
-    self, ClientMessage, DirEntry, ErrorCode, ForcedBy, MentorRef, MentorWarning, Outgoing,
-    SectionInfo, ServerMessage,
+    self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
+    Outgoing, PassOutcome, SectionInfo, ServerMessage,
 };
 
 /// Mise à niveau WebSocket : le cookie est déjà vérifié par la garde, on vérifie ici `Origin`.
@@ -66,20 +70,28 @@ struct Connection {
     open: HashMap<RelPath, OpenFile>,
     cursor: Option<(RelPath, usize)>,
     last_casting: Option<ServerMessage>,
+    /// Les passes terminées reviennent par ce canal.
+    passes: mpsc::UnboundedSender<PassResult>,
+    /// Numéro de la dernière passe lancée par fichier : un résultat plus ancien est ignoré.
+    generations: HashMap<RelPath, u64>,
 }
 
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let mut changes = state.changes.subscribe();
     let mut reloaded = state.mentors.reloaded.subscribe();
     let session = state.project.session(user);
+    let (passes, mut finished) = mpsc::unbounded_channel();
     let mut connection = Connection {
         state,
         session,
         open: HashMap::new(),
         cursor: None,
         last_casting: None,
+        passes,
+        generations: HashMap::new(),
     };
-    let mut pending = connection.mentor_warnings(false);
+    let mut pending = vec![Outgoing::push(connection.state.status())];
+    pending.extend(connection.mentor_warnings(false));
     loop {
         for reply in pending.drain(..) {
             let text = match serde_json::to_string(&reply) {
@@ -111,6 +123,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
                 Ok(()) | Err(RecvError::Lagged(_)) => connection.mentor_warnings(true),
                 Err(RecvError::Closed) => break,
             },
+            Some(result) = finished.recv() => connection.pass_finished(result),
         };
     }
 }
@@ -176,7 +189,7 @@ impl Connection {
                     version: file.version.as_str().to_owned(),
                     language: file.language.as_str().to_owned(),
                     sections: open.sections.iter().map(section_info).collect(),
-                    remarks: Vec::new(),
+                    remarks: self.state.store.open_remarks(rel.as_str()),
                 };
                 self.open.insert(rel.clone(), open);
                 self.cursor = Some((rel, 1));
@@ -196,9 +209,14 @@ impl Connection {
                 let version = project.write_file(&self.session, &rel, &content, &base)?;
                 self.watch(&rel);
                 let language = Language::of(rel.as_str());
+                let old = self
+                    .open
+                    .get(&rel)
+                    .map(|f| f.content.clone())
+                    .unwrap_or_default();
                 self.open.insert(
                     rel.clone(),
-                    OpenFile::new(version.clone(), content, language),
+                    OpenFile::new(version.clone(), content.clone(), language),
                 );
                 let mut replies = vec![Outgoing::reply(
                     re,
@@ -208,6 +226,13 @@ impl Connection {
                     },
                 )];
                 replies.extend(self.casting_if_changed());
+                replies.extend(self.start_pass(PassRequest {
+                    path: rel,
+                    language,
+                    old,
+                    new: content,
+                    cursor_line: self.cursor.as_ref().map(|(_, line)| *line),
+                }));
                 Ok(replies)
             }
             ClientMessage::Cursor { path, line, .. } => {
@@ -279,39 +304,14 @@ impl Connection {
         let registry = self.state.mentors.registry();
         let file = &self.open[path];
         let section = section_at(&file.sections, line);
-        let text = section.map(|s| s.text(&file.content)).unwrap_or_default();
-        let mut headings = Vec::new();
-        if file.language == Language::Markdown {
-            if let Some(section) = section.filter(|s| s.kind == "h") {
-                headings.push(section.name.as_str());
-            }
-            headings.extend(
-                section
-                    .iter()
-                    .flat_map(|s| s.parents.iter().map(String::as_str)),
-            );
-        }
         let section_id = section.map(|s| s.id.clone());
-        let forced = self
-            .state
-            .mentors
-            .forced(path.as_str(), section_id.as_deref().unwrap_or_default())
-            .map(Forced::User)
-            .or_else(|| {
-                (file.language == Language::Markdown)
-                    .then(|| frontmatter_mentor(&file.content))
-                    .flatten()
-                    .map(Forced::Frontmatter)
-            });
-        let casting = cast(
+        let casting = cast_section(
+            &self.state,
             &registry,
-            &CastRequest {
-                path: path.as_str(),
-                language: file.language.as_str(),
-                headings,
-                text: &text,
-                forced,
-            },
+            path,
+            file.language,
+            &file.content,
+            section,
         );
         let refs = |ids: &[String]| -> Vec<MentorRef> {
             ids.iter()
@@ -354,6 +354,72 @@ impl Connection {
         }
         replies.extend(self.casting_if_changed());
         replies
+    }
+
+    /// Lance la passe qui suit un enregistrement, ou en donne l'issue tout de suite.
+    fn start_pass(&mut self, request: PassRequest) -> Vec<Outgoing> {
+        let started = Instant::now();
+        let generation = {
+            let counter = self.generations.entry(request.path.clone()).or_insert(0);
+            *counter += 1;
+            *counter
+        };
+        let registry = self.state.mentors.registry();
+        match pass::prepare(&self.state, &registry, &request) {
+            Prepared::Done(outcome) => {
+                self.record_pass(&request.path, outcome, 0, started.elapsed().as_millis());
+                vec![Outgoing::push(self.state.status())]
+            }
+            Prepared::Run(run) => {
+                let started_message = Outgoing::push(run.started.clone());
+                let state = self.state.clone();
+                let sender = self.passes.clone();
+                tokio::spawn(async move {
+                    let result = pass::run(state, run, generation, started).await;
+                    let _ = sender.send(result);
+                });
+                vec![started_message]
+            }
+        }
+    }
+
+    /// Remarques d'une passe terminée, persistées puis envoyées, et nouvel état.
+    fn pass_finished(&mut self, result: PassResult) -> Vec<Outgoing> {
+        let current = self.generations.get(&result.path) == Some(&result.generation);
+        if !current {
+            tracing::debug!(path = %result.path, "passe dépassée par un enregistrement plus récent");
+            return vec![Outgoing::push(self.state.status())];
+        }
+        self.state.store.add(&result.remarks);
+        self.record_pass(
+            &result.path,
+            result.outcome,
+            result.remarks.len(),
+            u128::from(result.duration_ms),
+        );
+        tracing::info!(
+            path = %result.path,
+            remarques = result.remarks.len(),
+            duree_ms = result.duration_ms,
+            "passe terminée"
+        );
+        vec![
+            Outgoing::push(ServerMessage::Remarks {
+                path: result.path.to_string(),
+                items: result.remarks,
+            }),
+            Outgoing::push(self.state.status()),
+        ]
+    }
+
+    fn record_pass(&self, path: &RelPath, outcome: PassOutcome, remarks: usize, duration_ms: u128) {
+        self.state.set_last_pass(LastPass {
+            at: Timestamp::now().to_string(),
+            path: path.to_string(),
+            outcome,
+            remarks,
+            duration_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        });
     }
 
     /// Relit les fichiers ouverts touchés ; `file_changed` si leur version a changé.
@@ -413,15 +479,6 @@ fn file_mentors(registry: &Registry, path: &str) -> Vec<MentorRef> {
         .chain(casting.consultants.iter())
         .filter_map(|id| mentor_ref(registry, id))
         .collect()
-}
-
-fn mentor_ref(registry: &Registry, id: &str) -> Option<MentorRef> {
-    registry.get(id).map(|m| MentorRef {
-        id: m.id.clone(),
-        name: m.name.clone(),
-        initials: m.initials.clone(),
-        role: m.role.clone(),
-    })
 }
 
 fn section_info(section: &Section) -> SectionInfo {

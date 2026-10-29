@@ -15,6 +15,31 @@ par phase (voir docs/plan.md).
 - Une clé OpenRouter, à partir de la phase 4 : `~/.config/hodegos/credentials.toml`
   (droits 600) ou variable `OPENROUTER_API_KEY`
 
+## Configurer OpenRouter
+
+```toml
+# ~/.config/hodegos/config.toml
+[llm]
+provider = "openrouter"
+fast   = "[identifiant OpenRouter du modèle rapide]"
+strong = "[identifiant OpenRouter du modèle fort]"
+timeout_secs = 30
+
+[budget]
+monthly_cap_usd = 10.0
+warn_at = 0.8
+```
+
+```sh
+printf 'openrouter_api_key = "sk-or-…"\n' > ~/.config/hodegos/credentials.toml
+chmod 600 ~/.config/hodegos/credentials.toml
+```
+
+Les modèles doivent accepter les sorties structurées (`structured_outputs` sur la
+page du modèle chez OpenRouter). Sans clé ou sans modèle, Hodegos démarre et
+l'indique dans la barre d'état. Le coût de chaque passe est cumulé par mois dans
+`~/.local/share/hodegos/usage.json`.
+
 Le dépôt et les projets ouverts dans Hodegos doivent vivre dans le système de
 fichiers Linux (`~/…`), pas sous `/mnt/c`.
 

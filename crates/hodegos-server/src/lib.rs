@@ -7,24 +7,31 @@ mod assets;
 mod auth;
 mod guard;
 mod mentors;
+mod pass;
 pub mod protocol;
 mod secret;
+mod store;
 mod ws;
 
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::routing::get;
 use hodegos_core::{FileError, FileWatcher, Project, RelPath};
+use hodegos_llm::{Budget, LlmClient, LlmConfig};
 use hodegos_mentors::MentorSources;
+use jiff::Timestamp;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
 
 use crate::mentors::Mentors;
+use crate::protocol::{BudgetLevel, LastPass, ServerMessage};
+use crate::store::Store;
 
 /// Port par défaut. Il est fixe : sous WSL2 en mode NAT, un port tiré au hasard peut
 /// tomber dans une plage réservée par Windows et rester injoignable depuis le navigateur.
@@ -51,6 +58,23 @@ pub enum ServerError {
     Watch(#[source] FileError),
 }
 
+/// Accès au modèle : un client prêt, ou la raison de son absence (clé absente…).
+pub struct Llm {
+    pub client: Result<Arc<dyn LlmClient>, String>,
+    pub config: LlmConfig,
+}
+
+/// Réglages du serveur.
+pub struct ServerOptions {
+    /// Port sur 127.0.0.1 ; `0` laisse le système choisir (tests).
+    pub port: u16,
+    /// Mentors personnels et du projet, en plus des mentors livrés.
+    pub mentors: MentorSources,
+    /// Données de l'utilisateur : `$XDG_DATA_HOME/hodegos` (budget, historique).
+    pub data_dir: PathBuf,
+    pub llm: Llm,
+}
+
 /// Chemins touchés sur le disque, diffusés à toutes les connexions.
 pub(crate) type Changes = Arc<Vec<RelPath>>;
 
@@ -62,6 +86,12 @@ struct AppState {
     watcher: FileWatcher,
     changes: broadcast::Sender<Changes>,
     mentors: Mentors,
+    llm: Llm,
+    budget: Budget,
+    store: Store,
+    /// Fournisseur joignable, et sinon pourquoi.
+    provider: Mutex<(bool, Option<String>)>,
+    last_pass: Mutex<Option<LastPass>>,
 }
 
 impl AppState {
@@ -76,6 +106,40 @@ impl AppState {
     fn cookie_name(&self) -> String {
         format!("hodegos_{}", self.port)
     }
+
+    fn set_provider(&self, ok: bool, message: Option<String>) {
+        if let Ok(mut provider) = self.provider.lock() {
+            *provider = (ok, message);
+        }
+    }
+
+    fn set_last_pass(&self, last: LastPass) {
+        if let Ok(mut last_pass) = self.last_pass.lock() {
+            *last_pass = Some(last);
+        }
+    }
+
+    /// État du fournisseur, du budget et de la dernière passe.
+    fn status(&self) -> ServerMessage {
+        let (provider_ok, provider_message) = self
+            .provider
+            .lock()
+            .map(|p| p.clone())
+            .unwrap_or((false, None));
+        let budget = self.budget.state(Timestamp::now());
+        ServerMessage::Status {
+            provider_ok,
+            provider_message,
+            budget_used: budget.used_usd,
+            budget_cap: budget.cap_usd,
+            budget_level: match budget.level {
+                hodegos_llm::BudgetLevel::Ok => BudgetLevel::Ok,
+                hodegos_llm::BudgetLevel::Warning => BudgetLevel::Warning,
+                hodegos_llm::BudgetLevel::Exceeded => BudgetLevel::Exceeded,
+            },
+            last_pass: self.last_pass.lock().ok().and_then(|l| l.clone()),
+        }
+    }
 }
 
 /// Serveur lié à un port libre de `127.0.0.1`, prêt à servir.
@@ -86,15 +150,14 @@ pub struct Server {
 }
 
 impl Server {
-    /// Ouvre `port` sur `127.0.0.1` pour `project` et génère le jeton de lancement.
-    /// Les mentors sont lus depuis `sources`, en plus des mentors livrés.
-    ///
-    /// `0` laisse le système choisir un port libre (utile aux tests).
-    pub async fn bind(
-        project: Project,
-        sources: MentorSources,
-        port: u16,
-    ) -> Result<Self, ServerError> {
+    /// Ouvre le port demandé sur `127.0.0.1` pour `project` et génère le jeton de lancement.
+    pub async fn bind(project: Project, options: ServerOptions) -> Result<Self, ServerError> {
+        let ServerOptions {
+            port,
+            mentors: sources,
+            data_dir,
+            llm,
+        } = options;
         let bind_error = |source: std::io::Error| match source.kind() {
             std::io::ErrorKind::AddrInUse => ServerError::PortInUse(port),
             _ => ServerError::Bind { port, source },
@@ -112,7 +175,15 @@ impl Server {
                 let _ = sender.send(Arc::new(paths));
             })
             .map_err(ServerError::Watch)?;
-        let (mentors, mut mentor_changes) = Mentors::start(sources);
+        let project_dir = data_dir.join(project.id().as_str());
+        let (mentors, mut mentor_changes) =
+            Mentors::start(sources, Some(project_dir.join("overrides.json")));
+        let store = Store::open(Some(project_dir), project.root());
+        let budget = Budget::open(data_dir.join("usage.json"), llm.config.budget.clone());
+        let provider = match &llm.client {
+            Ok(_) => (true, None),
+            Err(message) => (false, Some(message.clone())),
+        };
         let state = Arc::new(AppState {
             port,
             auth: Arc::new(auth),
@@ -120,6 +191,11 @@ impl Server {
             watcher,
             changes,
             mentors,
+            llm,
+            budget,
+            store,
+            provider: Mutex::new(provider),
+            last_pass: Mutex::new(None),
         });
         let reload_state = state.clone();
         tokio::spawn(async move {

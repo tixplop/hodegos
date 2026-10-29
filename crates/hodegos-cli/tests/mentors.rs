@@ -31,6 +31,7 @@ impl Sandbox {
             .args(args)
             .current_dir(&self.project)
             .env("XDG_CONFIG_HOME", &self.config)
+            .env("XDG_DATA_HOME", self.config.join("donnees"))
             .output()
             .unwrap()
     }
