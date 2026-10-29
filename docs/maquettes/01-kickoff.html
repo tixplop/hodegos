@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos —kihd-off de projet</title>
+<link rel="stylesheet" href="../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../ui/styles/components.css">
+<script src="../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Troc</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">Nouveau projet</span>
+<ol class="hd-stepper" aria-label="Étapes du projet" style="margin-left: 16px;">
+<li><span class="hd-step hd-step--done">idée ✓</span></li>
+<li><span class="hd-step hd-step--current" aria-current="step">cadrage</span></li>
+<li><span class="hd-step">architecture</span></li>
+<li><span class="hd-step">premier incrément</span></li>
+</ol>
+<div class="hd-row" style="margin-left: auto;">
+<span class="hd-badge hd-badge--mentor">Mentors proactifs</span>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Réglages</button>
+</div>
+</header>
+
+<div class="hd-columns">
+
+<main class="hd-main" style="align-items: center;">
+<article class="hd-document" style="width: 100%;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);">Votre idée</span>
+<h1 style="margin: 0; font-size: 26px; line-height: 32px; font-weight: 700;">Une appli pour prêter des objets entre voisins</h1>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Saisie il y a 2 min · reformulée par le Mentor produit</p>
+</div>
+
+<blockquote style="margin: 0; padding: 14px 16px; background: var(--surface-50); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: 14px; line-height: 21px;">Dans mon immeuble, chacun achète sa perceuse ou son appareil à raclette. Je voudrais une petite appli où l'on déclare ce qu'on peut prêter, et où l'on réserve un objet pour quelques jours. Je veux surtout progresser en TypeScript et en conception.</blockquote>
+
+<div class="hd-callout hd-callout--mentor">
+<div class="hd-callout__title">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">PR</span>
+<span style="color: var(--mentor);">Mentor produit</span>
+<span style="font-weight: 400; color: var(--ink-muted); font-size: 13px;">Ce que j'ai compris</span>
+</div>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px;">
+<li>Un catalogue d'objets prêtables, limité à un immeuble.</li>
+<li>Des réservations sur une période, avec un prêteur et un emprunteur.</li>
+<li>Votre objectif est d'apprendre, pas de livrer vite.</li>
+</ul>
+<p style="margin: 0;">Je vous laisse donc écrire le cœur métier vous-même. J'interviendrai surtout sur la conception et sur les cas limites.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600;">Trois points de départ</h2>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Choisissez-en un. Je ne génère pas le code : je prépare le terrain et je vous accompagne pendant que vous écrivez.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+
+<section class="hd-card hd-card--active" style="flex: 1 1 220px; min-width: 0;">
+<div class="hd-card__head">
+<span class="hd-id hd-id--active">A</span>
+<span class="hd-badge hd-badge--info hd-card__end">Conseillé</span>
+</div>
+<h3 class="hd-card__title" style="font-size: 15px;">Le modèle de données d'abord</h3>
+<p style="font-size: 13px; line-height: 19px; color: var(--ink-muted);">Vous écrivez les types Membre, Objet et Emprunt, puis une première règle : un objet ne se prête pas deux fois en même temps.</p>
+<p style="font-size: 13px; line-height: 19px;"><strong>J'interviens sur</strong> les relations, les dates et les cas limites.</p>
+<div class="hd-row"><span class="hd-badge">Apprend : modélisation</span><span class="hd-badge">Environ 2 h</span></div>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true" style="align-self: flex-start;">Choisi</button>
+</section>
+
+<section class="hd-card" style="flex: 1 1 220px; min-width: 0;">
+<div class="hd-card__head">
+<span class="hd-id">B</span>
+</div>
+<h3 class="hd-card__title" style="font-size: 15px;">Un parcours de bout en bout</h3>
+<p style="font-size: 13px; line-height: 19px; color: var(--ink-muted);">Vous décrivez le parcours « emprunter une perceuse », puis vous codez ce seul écran, de l'interface jusqu'au stockage.</p>
+<p style="font-size: 13px; line-height: 19px;"><strong>J'interviens sur</strong> le découpage et l'ordre des étapes.</p>
+<div class="hd-row"><span class="hd-badge">Apprend : découpage vertical</span><span class="hd-badge">Environ 3 h</span></div>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false" style="align-self: flex-start;">Choisir B</button>
+</section>
+
+<section class="hd-card" style="flex: 1 1 220px; min-width: 0;">
+<div class="hd-card__head">
+<span class="hd-id">C</span>
+</div>
+<h3 class="hd-card__title" style="font-size: 15px;">Un prototype jetable</h3>
+<p style="font-size: 13px; line-height: 19px; color: var(--ink-muted);">Vous écrivez un script qui simule 3 voisins et 10 emprunts, pour découvrir les vraies règles avant de figer quoi que ce soit.</p>
+<p style="font-size: 13px; line-height: 19px;"><strong>J'interviens sur</strong> les questions que le prototype fait émerger.</p>
+<div class="hd-row"><span class="hd-badge">Apprend : explorer avant de figer</span><span class="hd-badge">Environ 1 h</span></div>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false" style="align-self: flex-start;">Choisir C</button>
+</section>
+
+</div>
+
+<div class="hd-row">
+<button class="hd-btn hd-btn--primary" type="button">Démarrer avec le point de départ A</button>
+<button class="hd-btn hd-btn--ghost" type="button">Proposer d'autres pistes</button>
+</div>
+</article>
+</main>
+
+<aside class="hd-panel" aria-label="Table de travail">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border);">
+<div>
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Table de travail</h2>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Composée d'après votre idée et votre objectif.</p>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">PR</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Mentor produit</strong><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Signal : idée de projet, aucun fichier encore</span>
+</div>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">AR</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Architecte</strong><span class="hd-badge">Consultant</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Signal : objectif « progresser en conception »</span>
+</div>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">UX</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">UX designer</strong><span class="hd-badge">Consultant</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Signal : utilisateurs non techniques</span>
+</div>
+</div>
+</div>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+<div>
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Avant de commencer</h2>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Trois questions du Mentor produit. Vos réponses ajustent les pistes et le casting.</p>
+</div>
+
+<article class="hd-card">
+<div class="hd-card__head"><span class="hd-id">Q1</span><span class="hd-badge hd-badge--success hd-card__end">Répondu</span></div>
+<p class="hd-msg"><span class="hd-msg__author--mentor">Mentor produit</span> · Qui seront vos premiers utilisateurs ?</p>
+<p class="hd-msg hd-msg--reply"><span class="hd-msg__author">Vous</span> · Les 40 logements de mon immeuble.</p>
+</article>
+
+<article class="hd-card hd-card--active">
+<div class="hd-card__head"><span class="hd-id hd-id--active">Q2</span><span class="hd-badge hd-badge--warning hd-card__end">En attente de vous</span></div>
+<p class="hd-msg"><span class="hd-msg__author--mentor">Mentor produit</span> · Web, mobile, ou les deux ? Cela change ce que l'UX designer regardera en premier.</p>
+<div class="hd-row">
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Web</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Mobile</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Les deux</button>
+</div>
+</article>
+
+<article class="hd-card">
+<div class="hd-card__head"><span class="hd-id">Q3</span><span class="hd-badge hd-card__end">À venir</span></div>
+<p class="hd-msg"><span class="hd-msg__author--mentor">Mentor produit</span> · Dans un mois, qu'est-ce qui vous ferait dire que vous avez progressé ?</p>
+</article>
+
+<form class="hd-composer" style="margin-top: auto;">
+<label class="hd-label" for="reponse-kickoff">Répondre au Mentor produit</label>
+<div class="hd-composer__row">
+<input class="hd-input" id="reponse-kickoff" type="text" placeholder="Ex. : web d'abord, mobile plus tard">
+<button class="hd-btn hd-btn--strong" type="button" style="height: 40px;">Envoyer</button>
+</div>
+</form>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Mentor produit</strong></span>
+<span>Consultants : Architecte, UX designer</span>
+<span style="margin-left: auto;">Palier d'aide par défaut : Question</span>
+<span>Modèle rapide pour les passes, modèle fort pour le cadrage</span>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos —doc d'architecture</title>
+<link rel="stylesheet" href="../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../ui/styles/components.css">
+<script src="../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Troc</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">docs/architecture/0001-stockage.md</span>
+<div class="hd-row" style="margin-left: auto;">
+<span class="hd-badge">Enregistré</span>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Table ronde</button>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Réglages</button>
+</div>
+</header>
+
+<div class="hd-columns">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 240px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Docs</span>
+<a class="hd-nav__item hd-mono" href="#" aria-current="page" style="font-size: 13px;">0001-stockage.md <span class="hd-nav__meta">AR</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">0002-synchro.md <span class="hd-nav__meta">AR</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">emprunter.md <span class="hd-nav__meta">UX</span></a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">Code</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">modele.ts <span class="hd-nav__meta">TS</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">reserver.ts <span class="hd-nav__meta">TS · TE</span></a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">Mémoire</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">progression.md</a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">mentors/</a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">À traiter</span>
+<a class="hd-nav__item" href="#">Remarques ouvertes <span class="hd-count">3</span></a>
+</div>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div role="tablist" aria-label="Fichiers ouverts" style="display: flex; gap: 0; background: var(--surface-0); border-bottom: 1px solid var(--border);">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">0001-stockage.md</button>
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="false" style="font-size: 13px; padding: 10px 16px;">reserver.ts</button>
+<span style="margin-left: auto; align-self: center; padding-right: 16px; font-size: 12px; color: var(--ink-muted);">Mode écriture · Markdown</span>
+</div>
+
+<div style="padding: 28px 40px; display: flex; flex-direction: column; gap: 0; flex: 1;">
+<article class="hd-document" style="width: 100%; gap: 22px;">
+
+<div style="display: flex; gap: 16px;">
+<div style="width: 44px; flex: none;"></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+<h1 style="margin: 0; font-size: 26px; line-height: 32px; font-weight: 700;">ADR 0001 — Stockage des données</h1>
+<div class="hd-row"><span class="hd-badge hd-badge--warning">Proposé</span><span style="font-size: 13px; color: var(--ink-muted);">Type détecté : ADR (titres Contexte, Décision, Conséquences)</span></div>
+</div>
+</div>
+
+<section style="display: flex; gap: 16px;">
+<div style="width: 44px; flex: none; padding-top: 2px;"><span class="hd-avatar hd-avatar--mentor" title="Section suivie par l'Architecte" style="width: 28px; height: 28px; font-size: 11px;">AR</span></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600;">Contexte</h2>
+<p style="margin: 0; line-height: 23px;">Troc sert un seul immeuble, de 40 à 200 logements. Les voisins consultent le catalogue depuis leur téléphone, souvent dans la cage d'escalier ou à la cave. <span class="hd-anchor">Les données doivent rester disponibles hors ligne.</span><span class="hd-marker">1</span></p>
+</div>
+</section>
+
+<section style="display: flex; gap: 16px;">
+<div style="width: 44px; flex: none; padding-top: 2px;"><span class="hd-avatar hd-avatar--mentor" title="Section suivie par l'Architecte" style="width: 28px; height: 28px; font-size: 11px;">AR</span></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600;">Décision</h2>
+<p style="margin: 0; line-height: 23px;">Nous stockons toutes les données dans <span class="hd-anchor hd-anchor--active">une base PostgreSQL hébergée</span><span class="hd-marker hd-marker--active">2</span>, interrogée par une API REST.</p>
+</div>
+</section>
+
+<section style="display: flex; gap: 16px;">
+<div style="width: 44px; flex: none; padding-top: 2px;"><span class="hd-avatar hd-avatar--mentor" title="Section suivie par l'Architecte" style="width: 28px; height: 28px; font-size: 11px;">AR</span></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600;">Conséquences</h2>
+<ul style="margin: 0; padding-left: 20px; line-height: 23px; display: flex; flex-direction: column; gap: 2px;">
+<li>Une seule base à sauvegarder.</li>
+<li><span class="hd-anchor">Chaque membre a un profil avec son nom et son numéro d'appartement.</span><span class="hd-marker">3</span></li>
+<li>Les voisins devront<span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; margin-left: 1px; background: var(--accent); vertical-align: text-bottom;"></span></li>
+</ul>
+<div class="hd-row" style="gap: 6px;"><span class="hd-badge hd-badge--mentor">Architecte relira cette section à la prochaine pause</span></div>
+</div>
+</section>
+
+<section style="display: flex; gap: 16px;">
+<div style="width: 44px; flex: none; padding-top: 2px;"><span class="hd-avatar hd-avatar--mentor" title="Section suivie par l'UX designer" style="width: 28px; height: 28px; font-size: 11px;">UX</span></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600;">Impact sur les parcours</h2>
+<p style="margin: 0; line-height: 23px; color: var(--ink-muted);">[à rédiger]</p>
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Section rattachée à l'UX designer : le curseur ici change d'interlocuteur.</p>
+</div>
+</section>
+
+</article>
+</div>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 420px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">AR</span>
+<div style="flex: 1; min-width: 0;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Architecte</strong><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Chemin <span class="hd-mono">docs/architecture/**</span> · titres d'ADR</span>
+</div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">SE</span>
+<div style="flex: 1; min-width: 0;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Sécurité</strong><span class="hd-badge">Consultant</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Signal fort : données personnelles mentionnées</span>
+</div>
+</div>
+<div class="hd-row">
+<span style="font-size: 12px; color: var(--ink-muted);">Disponibles :</span>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Demander à l'UX</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Demander au rédacteur</button>
+</div>
+</div>
+
+<div class="hd-tabs" role="tablist" aria-label="Panneau des mentors" style="padding-top: 8px;">
+<button class="hd-tab" type="button" role="tab" aria-selected="true">Remarques (3)</button>
+<button class="hd-tab" type="button" role="tab" aria-selected="false">Discussion</button>
+<button class="hd-tab" type="button" role="tab" aria-selected="false">Historique</button>
+</div>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+<article class="hd-card">
+<div class="hd-card__head">
+<span class="hd-marker" style="vertical-align: baseline; margin: 0;">1</span>
+<span class="hd-msg__author--mentor">Architecte</span>
+<span class="hd-badge hd-card__end">Indice</span>
+</div>
+<p class="hd-msg">Relisez ensemble la dernière phrase du contexte et la décision. Tiennent-elles toutes les deux ?</p>
+<div class="hd-row" style="gap: 4px;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Palier suivant</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Discuter</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ignorer</button>
+</div>
+</article>
+
+<article class="hd-card hd-card--active">
+<div class="hd-card__head">
+<span class="hd-marker hd-marker--active" style="vertical-align: baseline; margin: 0;">2</span>
+<span class="hd-msg__author--mentor">Architecte</span>
+<span class="hd-badge hd-badge--info hd-card__end">Question</span>
+</div>
+<ol class="hd-stepper" aria-label="Paliers d'aide">
+<li><span class="hd-step hd-step--done">Indice ✓</span></li>
+<li><span class="hd-step hd-step--current" aria-current="step">Question</span></li>
+<li><span class="hd-step">Piste</span></li>
+<li><span class="hd-step">Exemple</span></li>
+</ol>
+<p class="hd-msg">Quelles autres options avez-vous envisagées, et pourquoi les avez-vous écartées ? Sans alternatives écrites, vous ne saurez pas quand revenir sur cette décision.</p>
+<p class="hd-msg hd-msg--reply"><span class="hd-msg__author">Vous</span> · J'avais pensé à SQLite, mais je ne vois pas comment synchroniser.</p>
+<div class="hd-row" style="gap: 4px;">
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Passer à la piste</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Je réfléchis</button>
+</div>
+</article>
+
+<article class="hd-card">
+<div class="hd-card__head">
+<span class="hd-marker" style="vertical-align: baseline; margin: 0;">3</span>
+<span class="hd-msg__author--mentor">Sécurité</span>
+<span class="hd-badge hd-card__end">Indice</span>
+</div>
+<p class="hd-msg">Un nom et un numéro d'appartement, c'est une adresse. Qui pourra les voir ?</p>
+</article>
+
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span>Section : <strong style="color: var(--ink);">Conséquences</strong></span>
+<span>Titulaire : <strong style="color: var(--mentor);">Architecte</strong> · consultant : Sécurité</span>
+<span>3 remarques ouvertes</span>
+<span style="margin-left: auto;">Dernière passe à l'enregistrement, il y a 12 s</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,72 @@
+/* Hodegos — variables CSS dérivées de tokens.json (clair par défaut, sombre via data-theme="dark"). */
+:root, [data-theme="light"] {
+  --surface-0: #ffffff;
+  --surface-50: #f6f7f9;
+  --surface-100: #eef0f3;
+  --border: #dde1e6;
+  --border-control: #7d8590;
+  --ink: #1b1f24;
+  --ink-muted: #57606a;
+  --accent: #2f5bd3;
+  --accent-hover: #1e3f9e;
+  --on-accent: #ffffff;
+  --accent-soft: #eaf0ff;
+  --accent-ink: #1e3f9e;
+  --mentor: #6b4fbb;
+  --mentor-soft: #efeafb;
+  --success: #1f7a3f;
+  --success-soft: #e6f4ea;
+  --warning: #9a5b00;
+  --warning-soft: #fff4e0;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --on-danger: #ffffff;
+  --highlight: #fff1c2;
+  --highlight-edge: #b58f00;
+  --focus: #2f5bd3;
+  --shadow-popover: 0 8px 24px rgba(15, 17, 20, 0.12);
+}
+[data-theme="dark"] {
+  --surface-0: #16191d;
+  --surface-50: #0f1114;
+  --surface-100: #20242a;
+  --border: #2c3138;
+  --border-control: #6e7781;
+  --ink: #e6e9ed;
+  --ink-muted: #9ba4ae;
+  --accent: #7c9cf4;
+  --accent-hover: #a3baf7;
+  --on-accent: #0f1114;
+  --accent-soft: #1c2a4d;
+  --accent-ink: #a9c0fa;
+  --mentor: #b39df0;
+  --mentor-soft: #2a2340;
+  --success: #5fc27f;
+  --success-soft: #15301f;
+  --warning: #e8a93c;
+  --warning-soft: #33260f;
+  --danger: #f07b70;
+  --danger-soft: #3a1714;
+  --on-danger: #0f1114;
+  --highlight: #4a3d0f;
+  --highlight-edge: #d4ae2e;
+  --focus: #a9c0fa;
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+:root {
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-logo: 7px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+}

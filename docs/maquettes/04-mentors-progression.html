@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos —mentors et progression</title>
+<link rel="stylesheet" href="../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../ui/styles/components.css">
+<script src="../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Troc</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Mentors et progression</span>
+<div class="hd-row" style="margin-left: auto;">
+<span class="hd-mono" style="font-size: 12px; color: var(--ink-muted);">.hodegos/mentors/*.md</span>
+<button class="hd-btn hd-btn--primary hd-btn--sm" type="button">Nouveau mentor</button>
+</div>
+</header>
+
+<div class="hd-columns">
+
+<nav class="hd-sidebar" aria-label="Réglages" style="max-width: 240px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Réglages</span>
+<a class="hd-nav__item" href="#" aria-current="page">Mentors <span class="hd-nav__meta">7</span></a>
+<a class="hd-nav__item" href="#">Proactivité</a>
+<a class="hd-nav__item" href="#">Modèles OpenRouter</a>
+<a class="hd-nav__item" href="#">Paliers d'aide</a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">Vous</span>
+<a class="hd-nav__item" href="#">Progression <span class="hd-badge hd-badge--mentor">1 proposition</span></a>
+<a class="hd-nav__item" href="#">Historique des remarques</a>
+</div>
+</div>
+</nav>
+
+<main class="hd-main">
+<section class="hd-document" style="width: 100%; max-width: none; padding: 28px 32px; gap: 16px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h1 style="margin: 0; font-size: 26px; line-height: 32px; font-weight: 700;">Mentors</h1>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Un fichier par mentor. Le casting compare ces déclencheurs au document ouvert et à la section sous le curseur.</p>
+</div>
+
+<div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg);">
+<table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 19px;">
+<thead>
+<tr style="background: var(--surface-50); text-align: left; color: var(--ink-muted);">
+<th scope="col" style="padding: 10px 14px; font-weight: 600;">Mentor</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600;">Déclencheurs</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600;">Intervention</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600;">Modèle</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600;">Sollicité cette semaine</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">AR</span><strong style="color: var(--mentor);">Architecte</strong></div></td>
+<td style="padding: 10px 14px;"><span class="hd-mono" style="font-size: 12px;">docs/architecture/**</span>, ADR, frontières de modules</td>
+<td style="padding: 10px 14px;"><span class="hd-badge hd-badge--info">Proactif</span></td>
+<td style="padding: 10px 14px;">Fort</td>
+<td style="padding: 10px 14px;">14 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">TS</span><strong style="color: var(--mentor);">Mentor TypeScript</strong></div></td>
+<td style="padding: 10px 14px;">Langage typescript, <span class="hd-mono" style="font-size: 12px;">*.ts</span></td>
+<td style="padding: 10px 14px;"><span class="hd-badge hd-badge--info">Proactif</span></td>
+<td style="padding: 10px 14px;">Rapide</td>
+<td style="padding: 10px 14px;">31 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">TE</span><strong style="color: var(--mentor);">Testeur</strong></div></td>
+<td style="padding: 10px 14px;">Règle métier sans test, <span class="hd-mono" style="font-size: 12px;">*.test.ts</span></td>
+<td style="padding: 10px 14px;"><span class="hd-badge hd-badge--info">Proactif</span></td>
+<td style="padding: 10px 14px;">Rapide</td>
+<td style="padding: 10px 14px;">9 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">UX</span><strong style="color: var(--mentor);">UX designer</strong></div></td>
+<td style="padding: 10px 14px;"><span class="hd-mono" style="font-size: 12px;">docs/parcours/**</span>, sections « parcours », écrans</td>
+<td style="padding: 10px 14px;"><span class="hd-badge hd-badge--info">Proactif</span></td>
+<td style="padding: 10px 14px;">Fort</td>
+<td style="padding: 10px 14px;">5 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">SE</span><strong style="color: var(--mentor);">Sécurité</strong></div></td>
+<td style="padding: 10px 14px;">Données personnelles, authentification</td>
+<td style="padding: 10px 14px;"><span class="hd-badge">Signal fort seulement</span></td>
+<td style="padding: 10px 14px;">Fort</td>
+<td style="padding: 10px 14px;">2 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">RE</span><strong style="color: var(--mentor);">Rédacteur technique</strong></div></td>
+<td style="padding: 10px 14px;"><span class="hd-mono" style="font-size: 12px;">README.md</span>, guides, docs hors ADR</td>
+<td style="padding: 10px 14px;"><span class="hd-badge">À la demande</span></td>
+<td style="padding: 10px 14px;">Rapide</td>
+<td style="padding: 10px 14px;">1 fois</td>
+</tr>
+<tr style="border-top: 1px solid var(--border);">
+<td style="padding: 10px 14px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="hd-avatar hd-avatar--mentor" aria-hidden="true">PR</span><strong style="color: var(--mentor);">Mentor produit</strong></div></td>
+<td style="padding: 10px 14px;">Nouveau projet, cadrage, <span class="hd-mono" style="font-size: 12px;">docs/vision.md</span></td>
+<td style="padding: 10px 14px;"><span class="hd-badge hd-badge--info">Proactif</span></td>
+<td style="padding: 10px 14px;">Fort</td>
+<td style="padding: 10px 14px;">3 fois</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<div class="hd-card" style="flex: 1 1 260px; min-width: 0;">
+<h2 class="hd-card__title" style="font-size: 15px;">Déclencheur des passes</h2>
+<div class="hd-row">
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">À l'enregistrement</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Pause de 4 s</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Au commit</button>
+</div>
+</div>
+<div class="hd-card" style="flex: 1 1 260px; min-width: 0;">
+<h2 class="hd-card__title" style="font-size: 15px;">Limites</h2>
+<p style="font-size: 13px;">2 remarques au plus par passe · 1 titulaire et 2 consultants par section</p>
+<p style="font-size: 13px; color: var(--ink-muted);">Budget mensuel OpenRouter : [budget]</p>
+</div>
+</div>
+</section>
+</main>
+
+<aside class="hd-panel" aria-label="Progression" style="max-width: 420px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+<div>
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Votre progression</h2>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Les mentors insistent sur ce qui revient, et lâchent du lest sur ce qui est acquis.</p>
+</div>
+
+<div class="hd-callout hd-callout--mentor">
+<div class="hd-callout__title">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">TE</span>
+<span style="color: var(--mentor);">Testeur</span>
+<span class="hd-badge hd-badge--warning">Proposition</span>
+</div>
+<p style="margin: 0;">Vous écrivez désormais le test avant le code dans 3 fichiers sur 4. Je propose de passer en mode « à la demande » sur ce projet.</p>
+<div class="hd-row">
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Accepter</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Rester proactif</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);">Points récurrents</span>
+</div>
+
+<article class="hd-card">
+<div class="hd-card__head"><strong style="font-size: 14px;">Comparer des dates</strong><span class="hd-badge hd-badge--warning hd-card__end">Revient souvent</span></div>
+<p style="font-size: 13px; color: var(--ink-muted);">Relevé 3 fois en 2 semaines · Mentor TypeScript</p>
+<div class="hd-progress" role="img" aria-label="Maîtrise estimée : 30 %"><div class="hd-progress__bar" style="width: 30%;"></div></div>
+<p style="font-size: 12px; color: var(--ink-muted);">Palier d'entrée : Question</p>
+</article>
+
+<article class="hd-card">
+<div class="hd-card__head"><strong style="font-size: 14px;">Alternatives dans les ADR</strong><span class="hd-badge hd-badge--info hd-card__end">En progrès</span></div>
+<p style="font-size: 13px; color: var(--ink-muted);">Absentes dans 2 ADR sur 3 · Architecte</p>
+<div class="hd-progress" role="img" aria-label="Maîtrise estimée : 55 %"><div class="hd-progress__bar" style="width: 55%;"></div></div>
+<p style="font-size: 12px; color: var(--ink-muted);">Palier d'entrée : Indice</p>
+</article>
+
+<article class="hd-card">
+<div class="hd-card__head"><strong style="font-size: 14px;">Tests avant le code</strong><span class="hd-badge hd-badge--success hd-card__end">Presque acquis</span></div>
+<p style="font-size: 13px; color: var(--ink-muted);">3 fichiers sur 4 cette semaine · Testeur</p>
+<div class="hd-progress" role="img" aria-label="Maîtrise estimée : 80 %"><div class="hd-progress__bar" style="width: 80%;"></div></div>
+<p style="font-size: 12px; color: var(--ink-muted);">Palier d'entrée : Indice</p>
+</article>
+
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);">Acquis</span>
+<div class="hd-row"><span class="hd-badge hd-badge--success">Gestion des erreurs async</span><span class="hd-badge hd-badge--success">Types union</span></div>
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Plus de remarque proactive sur ces sujets, sauf erreur manifeste.</p>
+</div>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span>7 mentors · 5 proactifs</span>
+<span>Mémoire de progression : <span class="hd-mono">.hodegos/progression.md</span></span>
+<span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</footer>
+
+</div>
+</body>
+</html>

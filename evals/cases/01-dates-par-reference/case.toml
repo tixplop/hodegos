@@ -1,0 +1,9 @@
+title = "Comparaison de dates par référence et chevauchement non détecté"
+file = "src/emprunts/reserver.ts"
+section = "fn:reserver"
+expected_mentor = "mentor-langage"
+levels = ["indice", "question", "piste", "exemple"]
+
+[expect]
+must_mention = ["référence", "valeur", "chevauch", "getTime"]
+must_not = ["e.debut.getTime() === debut.getTime()", "debut < e.fin && fin > e.debut", "e.debut < fin && e.fin > debut"]

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos —code accompagné</title>
+<link rel="stylesheet" href="../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../ui/styles/components.css">
+<script src="../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Troc</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">src/emprunts/reserver.ts</span>
+<div class="hd-row" style="margin-left: auto;">
+<span class="hd-badge">Modifié</span>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Lancer les tests</button>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Réglages</button>
+</div>
+</header>
+
+<div class="hd-columns">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 240px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Docs</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">0001-stockage.md <span class="hd-nav__meta">AR</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">emprunter.md <span class="hd-nav__meta">UX</span></a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">Code</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px;">modele.ts <span class="hd-nav__meta">TS</span></a>
+<a class="hd-nav__item hd-mono" href="#" aria-current="page" style="font-size: 13px;">reserver.ts <span class="hd-nav__meta">TS · TE</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px; color: var(--ink-muted);">reserver.test.ts <span class="hd-badge hd-badge--warning" style="font-family: var(--font-sans);">Absent</span></a>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">À traiter</span>
+<a class="hd-nav__item" href="#">Remarques ouvertes <span class="hd-count">2</span></a>
+</div>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div role="tablist" aria-label="Fichiers ouverts" style="display: flex; background: var(--surface-0); border-bottom: 1px solid var(--border);">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="false" style="font-size: 13px; padding: 10px 16px;">0001-stockage.md</button>
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">reserver.ts</button>
+<span style="margin-left: auto; align-self: center; padding-right: 16px; font-size: 12px; color: var(--ink-muted);">TypeScript · LSP actif</span>
+</div>
+
+<div style="flex: 1; background: var(--surface-0); padding: 16px 0; font-family: var(--font-mono); font-size: 13px; line-height: 24px; overflow-x: auto;">
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">1</span><span style="white-space: pre;"><strong>import</strong> { Emprunt, Objet } <strong>from</strong> "../modele";</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">2</span><span style="white-space: pre;"> </span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">3</span><span style="white-space: pre;"><strong>export function</strong> reserver(</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">4</span><span style="white-space: pre;">  objet: Objet, debut: Date, fin: Date, emprunts: Emprunt[]</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">5</span><span style="white-space: pre;">) {</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">6</span><span style="white-space: pre;">  <strong>const</strong> dejaPris = <span class="hd-anchor">emprunts.find(</span><span class="hd-marker hd-marker--active">2</span></span></div>
+<div style="display: flex; background: var(--accent-soft);"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--accent-ink); font-weight: 600;">7</span><span style="white-space: pre;">    (e) =&gt; e.objetId === objet.id &amp;&amp; <span class="hd-anchor">e.debut === debut</span><span class="hd-marker">1</span></span><span style="margin-left: 16px; font-family: var(--font-sans); font-size: 12px; color: var(--ink-muted);">— 2 remarques, aucune correction proposée</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">8</span><span style="white-space: pre;">  );</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">9</span><span style="white-space: pre;">  <strong>if</strong> (dejaPris) {</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">10</span><span style="white-space: pre;">    <strong>throw new</strong> Error("Objet indisponible");</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">11</span><span style="white-space: pre;">  }</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">12</span><span style="white-space: pre;">  <strong>return</strong> { objetId: objet.id, debut, fin };</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">13</span><span style="white-space: pre;">}</span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">14</span><span style="white-space: pre;"> </span></div>
+<div style="display: flex;"><span style="width: 52px; flex: none; padding-right: 16px; text-align: right; color: var(--ink-muted);">15</span><span style="white-space: pre; color: var(--ink-muted);">// TODO(vous) : refuser une date de fin antérieure au début</span><span class="hd-marker">3</span></div>
+</div>
+
+<section aria-label="Tests" style="background: var(--surface-0); border-top: 1px solid var(--border); padding: 12px 20px; display: flex; flex-direction: column; gap: 6px;">
+<div class="hd-row"><strong style="font-size: 13px;">Tests</strong><span class="hd-badge hd-badge--warning">Aucun test pour reserver()</span></div>
+<p style="margin: 0; font-family: var(--font-mono); font-size: 12px; line-height: 18px; color: var(--ink-muted);">0 test · dernière exécution il y a 25 min sur modele.ts · 4 réussis</p>
+</section>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 420px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de ce fichier</h2>
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">TS</span>
+<div style="flex: 1; min-width: 0;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Mentor TypeScript</strong><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Langage du fichier : typescript</span>
+</div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">TE</span>
+<div style="flex: 1; min-width: 0;">
+<div class="hd-row" style="gap: 6px;"><strong style="color: var(--mentor);">Testeur</strong><span class="hd-badge">Consultant</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Signal : règle métier sans test associé</span>
+</div>
+</div>
+<div class="hd-row"><span style="font-size: 12px; color: var(--ink-muted);">En veille : Architecte</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Changer d'interlocuteur</button></div>
+</div>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+<article class="hd-card">
+<div class="hd-card__head">
+<span class="hd-marker" style="vertical-align: baseline; margin: 0;">1</span>
+<span class="hd-msg__author--mentor">Mentor TypeScript</span>
+<span class="hd-mono hd-muted">l.7</span>
+<span class="hd-badge hd-card__end">Indice</span>
+</div>
+<p class="hd-msg">Que renvoie <span class="hd-mono" style="font-size: 13px;">new Date(2026, 0, 5) === new Date(2026, 0, 5)</span> ? Essayez-le avant de lire la suite.</p>
+<div class="hd-row" style="gap: 4px;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Palier suivant</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ouvrir une console</button>
+</div>
+</article>
+
+<article class="hd-card hd-card--active">
+<div class="hd-card__head">
+<span class="hd-marker hd-marker--active" style="vertical-align: baseline; margin: 0;">2</span>
+<span class="hd-msg__author--mentor">Testeur</span>
+<span class="hd-mono hd-muted">l.6–8</span>
+<span class="hd-badge hd-badge--info hd-card__end">Question</span>
+</div>
+<ol class="hd-stepper" aria-label="Paliers d'aide">
+<li><span class="hd-step hd-step--done">Indice ✓</span></li>
+<li><span class="hd-step hd-step--current" aria-current="step">Question</span></li>
+<li><span class="hd-step">Piste</span></li>
+<li><span class="hd-step">Exemple</span></li>
+</ol>
+<p class="hd-msg">Une perceuse est prêtée du 3 au 7. Une demande arrive pour le 5 au 9. Votre condition la refuse-t-elle ? Écrivez d'abord le test qui le prouve.</p>
+<p class="hd-msg hd-msg--reply">Je peux créer <span class="hd-mono" style="font-size: 13px;">reserver.test.ts</span> avec le nom du test et le scénario en commentaire. L'assertion reste à vous.</p>
+<div class="hd-row" style="gap: 4px;">
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Créer le squelette du test</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Plus tard</button>
+</div>
+</article>
+
+<div class="hd-callout hd-callout--mentor">
+<div class="hd-callout__title">
+<span class="hd-marker" style="vertical-align: baseline; margin: 0;">3</span>
+<span>Étape suivante</span>
+</div>
+<p style="margin: 0;">Une fois ces deux points réglés, le TODO de la ligne 15 est un bon exercice : il ressemble au cas du chevauchement. Ensuite viendra l'annulation d'un emprunt.</p>
+<span style="font-size: 12px; line-height: 16px; color: var(--mentor); font-weight: 600;">Mentor TypeScript</span>
+</div>
+
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Aucun code complet n'est proposé sans votre demande. Le palier « Exemple » montre un cas voisin, jamais votre fonction.</p>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span class="hd-mono">l.7, col. 42</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Mentor TypeScript</strong> · consultant : Testeur</span>
+<span>Passe déclenchée après 4 s de pause</span>
+<span style="margin-left: auto;">2 remarques au plus par passe</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</footer>
+
+</div>
+</body>
+</html>

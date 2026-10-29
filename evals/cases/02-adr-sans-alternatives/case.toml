@@ -1,0 +1,9 @@
+title = "ADR incohérent : hors ligne exigé, base hébergée choisie, aucune alternative"
+file = "docs/architecture/0001-stockage.md"
+section = "h:decision"
+expected_mentor = "architecte"
+levels = ["indice", "question", "piste"]
+
+[expect]
+must_mention = ["hors ligne", "alternative", "écart"]
+must_not = ["utilisez SQLite", "remplacez PostgreSQL", "choisissez SQLite"]
