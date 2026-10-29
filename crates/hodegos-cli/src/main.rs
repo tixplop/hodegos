@@ -44,11 +44,12 @@ fn main() -> ExitCode {
 #[tokio::main]
 async fn run(cli: Cli) -> anyhow::Result<()> {
     let project = Project::open(&cli.projet)?;
-    let server = Server::bind(cli.port)
+    let root = project.root().to_path_buf();
+    let server = Server::bind(project, cli.port)
         .await
         .context("impossible de démarrer le serveur")?;
 
-    println!("Hodegos est prêt pour {}", project.root().display());
+    println!("Hodegos est prêt pour {}", root.display());
     println!("Ouvrez cette adresse dans votre navigateur (Ctrl+clic) :");
     println!("{}", server.access_url());
     println!("Ctrl+C pour arrêter.");

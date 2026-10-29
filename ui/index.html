@@ -5,22 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hodegos</title>
 <link rel="icon" href="/hodegos-mark.svg" type="image/svg+xml">
+<script src="/js/app/theme.js"></script>
 <link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/fonts.css">
 <link rel="stylesheet" href="/styles/components.css">
 <link rel="stylesheet" href="/app.css">
 <script src="/js/hodegos.js" defer></script>
-<script src="/app.js" defer></script>
+<script src="/js/app/main.js" type="module"></script>
 </head>
 <body class="hd-app">
 <header class="hd-header">
 <span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
 <span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span id="chemin" class="hd-mono app-path"></span>
+<button id="theme" class="hd-btn hd-btn--ghost hd-btn--sm app-header__end" type="button">Thème sombre</button>
 </header>
-<main class="hd-main">
-<p class="hd-muted">L'éditeur arrive en phase 2.</p>
+<div class="hd-columns app-columns">
+<nav class="hd-sidebar app-sidebar" aria-label="Fichiers du projet">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Fichiers</span>
+<ul id="arborescence" class="app-tree"></ul>
+</div>
+</div>
+</nav>
+<main class="hd-main app-main">
+<div id="onglets" class="hd-tabs app-tabs" role="tablist" aria-label="Fichiers ouverts" hidden></div>
+<div id="bandeau" class="app-banner" hidden></div>
+<p id="vide" class="hd-muted app-empty">Choisissez un fichier dans l'arborescence.</p>
+<div id="editeur" class="app-editor" role="tabpanel" hidden></div>
 </main>
+</div>
 <footer class="hd-statusbar">
-<span class="hd-statusbar__end">Serveur : <span id="connexion" class="hd-badge" role="status">Connexion…</span></span>
+<span id="position" class="hd-mono"></span>
+<span id="langage"></span>
+<span id="etat"></span>
+<span id="message" role="status"></span>
+<span class="hd-statusbar__end">Serveur : <span id="connexion" class="hd-badge">Connexion…</span></span>
 </footer>
 </body>
 </html>

@@ -10,7 +10,7 @@ par phase (voir docs/plan.md).
 
 - Rust stable : `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - Outils de compilation : `sudo apt install build-essential pkg-config libssl-dev git`
-- Node.js et npm, uniquement pour empaqueter CodeMirror en phase 2
+- Node.js et npm, uniquement pour régénérer `ui/vendor/` et `ui/fonts/` (`scripts/vendor-codemirror.sh`) ; les fichiers produits sont commités
 - Un navigateur côté Windows (Edge ou Chrome)
 - Une clé OpenRouter, à partir de la phase 4 : `~/.config/hodegos/credentials.toml`
   (droits 600) ou variable `OPENROUTER_API_KEY`

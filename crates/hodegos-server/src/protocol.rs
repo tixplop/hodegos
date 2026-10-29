@@ -33,57 +33,146 @@ impl Outgoing {
             message,
         }
     }
+
+    /// Message spontané, qui ne répond à aucune demande.
+    pub fn push(message: ServerMessage) -> Self {
+        Self::reply(None, message)
+    }
+
+    pub fn error(re: Option<String>, code: ErrorCode, message: impl Into<String>) -> Self {
+        Self::reply(
+            re,
+            ServerMessage::Error {
+                code,
+                message: message.into(),
+                version: None,
+            },
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
     Ping,
+    ListDir {
+        path: String,
+    },
+    OpenFile {
+        path: String,
+    },
+    Save {
+        path: String,
+        content: String,
+        base_version: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ServerMessage {
     Pong,
-    Error { code: ErrorCode, message: String },
+    Dir {
+        path: String,
+        entries: Vec<DirEntry>,
+    },
+    File {
+        path: String,
+        content: String,
+        version: String,
+        language: String,
+        /// Rempli à partir de la phase 3.
+        sections: Vec<serde_json::Value>,
+        /// Rempli à partir de la phase 4.
+        remarks: Vec<serde_json::Value>,
+    },
+    Saved {
+        path: String,
+        version: String,
+    },
+    FileChanged {
+        path: String,
+        /// `None` (`null`) si le fichier a été supprimé.
+        version: Option<String>,
+    },
+    Error {
+        code: ErrorCode,
+        message: String,
+        /// Version sur disque, pour `version_conflict`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        version: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DirEntry {
+    pub name: String,
+    pub kind: EntryKind,
+    /// Rempli à partir de la phase 3.
+    pub mentors: Vec<MentorRef>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EntryKind {
+    Dir,
+    File,
+}
+
+/// Mentor tel que le voit le front.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MentorRef {
+    pub id: String,
+    pub name: String,
+    pub initials: String,
+    pub role: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     BadMessage,
+    PathForbidden,
+    NotFound,
+    VersionConflict,
+    NotText,
+    Internal,
 }
 
-/// Traite un message texte reçu et renvoie la réponse à envoyer.
-pub fn handle_text(text: &str) -> Outgoing {
-    let value: serde_json::Value = match serde_json::from_str(text) {
-        Ok(value) => value,
-        Err(_) => return bad_message(None, "JSON invalide"),
-    };
+/// Message illisible : la réponse sera `error` avec le code `bad_message`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseError {
+    pub re: Option<String>,
+    pub message: &'static str,
+}
+
+impl From<ParseError> for Outgoing {
+    fn from(err: ParseError) -> Self {
+        Outgoing::error(err.re, ErrorCode::BadMessage, err.message)
+    }
+}
+
+/// Lit un message texte et renvoie l'`id` de la demande avec son contenu.
+pub fn parse(text: &str) -> Result<(Option<String>, ClientMessage), ParseError> {
+    let value: serde_json::Value = serde_json::from_str(text).map_err(|_| ParseError {
+        re: None,
+        message: "JSON invalide",
+    })?;
     let id = value
         .get("id")
         .and_then(|id| id.as_str())
         .map(str::to_owned);
-    let incoming: Incoming = match serde_json::from_value(value) {
-        Ok(incoming) => incoming,
-        Err(_) => return bad_message(id, "type inconnu ou charge utile incorrecte"),
-    };
+    let incoming: Incoming = serde_json::from_value(value).map_err(|_| ParseError {
+        re: id.clone(),
+        message: "type inconnu ou charge utile incorrecte",
+    })?;
     if incoming.v != VERSION {
-        return bad_message(id, "version du protocole non prise en charge");
+        return Err(ParseError {
+            re: id,
+            message: "version du protocole non prise en charge",
+        });
     }
-    match incoming.message {
-        ClientMessage::Ping => Outgoing::reply(id, ServerMessage::Pong),
-    }
-}
-
-fn bad_message(re: Option<String>, message: &str) -> Outgoing {
-    Outgoing::reply(
-        re,
-        ServerMessage::Error {
-            code: ErrorCode::BadMessage,
-            message: message.to_owned(),
-        },
-    )
+    Ok((id, incoming.message))
 }
 
 #[cfg(test)]
@@ -92,72 +181,155 @@ mod tests {
 
     use super::*;
 
-    fn reply(input: serde_json::Value) -> serde_json::Value {
-        serde_json::to_value(handle_text(&input.to_string())).unwrap()
+    fn parse_value(
+        input: serde_json::Value,
+    ) -> Result<(Option<String>, ClientMessage), ParseError> {
+        parse(&input.to_string())
+    }
+
+    fn error_code(
+        result: Result<(Option<String>, ClientMessage), ParseError>,
+    ) -> serde_json::Value {
+        serde_json::to_value(Outgoing::from(result.unwrap_err())).unwrap()
     }
 
     #[test]
-    fn ping_renvoie_pong_avec_re() {
+    fn lit_un_ping_avec_ou_sans_charge_utile() {
         assert_eq!(
-            reply(json!({ "v": 1, "type": "ping", "id": "c-1" })),
-            json!({ "v": 1, "type": "pong", "re": "c-1" })
+            parse_value(json!({ "v": 1, "type": "ping", "id": "c-1" })).unwrap(),
+            (Some("c-1".to_owned()), ClientMessage::Ping)
+        );
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "ping", "payload": null })).unwrap(),
+            (None, ClientMessage::Ping)
         );
     }
 
     #[test]
-    fn ping_accepte_une_charge_utile_vide_et_l_absence_d_id() {
+    fn lit_les_messages_de_fichiers() {
         assert_eq!(
-            reply(json!({ "v": 1, "type": "ping", "payload": null })),
-            json!({ "v": 1, "type": "pong" })
-        );
-    }
-
-    #[test]
-    fn json_invalide_donne_bad_message() {
-        let out = handle_text("{ pas du json");
-        assert!(matches!(
-            out.message,
-            ServerMessage::Error {
-                code: ErrorCode::BadMessage,
-                ..
+            parse_value(json!({ "v": 1, "type": "save", "id": "c-2",
+                "payload": { "path": "a.rs", "content": "x", "base_version": "v" } }))
+            .unwrap()
+            .1,
+            ClientMessage::Save {
+                path: "a.rs".to_owned(),
+                content: "x".to_owned(),
+                base_version: "v".to_owned()
             }
-        ));
-        assert_eq!(out.re, None);
+        );
     }
 
     #[test]
-    fn type_inconnu_donne_bad_message_avec_re() {
-        let out = reply(json!({ "v": 1, "type": "inconnu", "id": "c-2" }));
-        assert_eq!(out["type"], "error");
-        assert_eq!(out["re"], "c-2");
+    fn json_invalide_donne_bad_message_sans_re() {
+        let out = error_code(parse("{ pas du json"));
         assert_eq!(out["payload"]["code"], "bad_message");
+        assert!(out.get("re").is_none());
+    }
+
+    #[test]
+    fn type_inconnu_ou_charge_incorrecte_donne_bad_message_avec_re() {
+        for input in [
+            json!({ "v": 1, "type": "inconnu", "id": "c-3" }),
+            json!({ "v": 1, "type": "open_file", "id": "c-3", "payload": {} }),
+        ] {
+            let out = error_code(parse_value(input));
+            assert_eq!(out["type"], "error");
+            assert_eq!(out["re"], "c-3");
+            assert_eq!(out["payload"]["code"], "bad_message");
+        }
     }
 
     #[test]
     fn version_inconnue_donne_bad_message() {
-        let out = reply(json!({ "v": 2, "type": "ping", "id": "c-3" }));
+        let out = error_code(parse_value(json!({ "v": 2, "type": "ping", "id": "c-4" })));
         assert_eq!(out["payload"]["code"], "bad_message");
-        assert_eq!(out["re"], "c-3");
+        assert_eq!(out["re"], "c-4");
+    }
+
+    #[test]
+    fn forme_des_messages_envoyes() {
+        let changed = Outgoing::push(ServerMessage::FileChanged {
+            path: "a.rs".to_owned(),
+            version: None,
+        });
+        assert_eq!(
+            serde_json::to_value(&changed).unwrap(),
+            json!({ "v": 1, "type": "file_changed", "payload": { "path": "a.rs", "version": null } })
+        );
+        let conflict = Outgoing::reply(
+            Some("c-5".to_owned()),
+            ServerMessage::Error {
+                code: ErrorCode::VersionConflict,
+                message: "x".to_owned(),
+                version: Some("abc".to_owned()),
+            },
+        );
+        assert_eq!(
+            serde_json::to_value(&conflict).unwrap(),
+            json!({ "v": 1, "type": "error", "re": "c-5",
+                "payload": { "code": "version_conflict", "message": "x", "version": "abc" } })
+        );
     }
 
     #[test]
     fn aller_retour_des_messages() {
-        let incoming = Incoming {
-            v: VERSION,
-            id: Some("c-4".to_owned()),
-            message: ClientMessage::Ping,
-        };
-        let text = serde_json::to_string(&incoming).unwrap();
-        assert_eq!(serde_json::from_str::<Incoming>(&text).unwrap(), incoming);
+        for message in [
+            ClientMessage::Ping,
+            ClientMessage::ListDir {
+                path: "src".to_owned(),
+            },
+            ClientMessage::OpenFile {
+                path: "a.rs".to_owned(),
+            },
+            ClientMessage::Save {
+                path: "a.rs".to_owned(),
+                content: "x".to_owned(),
+                base_version: "v".to_owned(),
+            },
+        ] {
+            let incoming = Incoming {
+                v: VERSION,
+                id: Some("c-6".to_owned()),
+                message,
+            };
+            let text = serde_json::to_string(&incoming).unwrap();
+            assert_eq!(serde_json::from_str::<Incoming>(&text).unwrap(), incoming);
+        }
 
         for message in [
             ServerMessage::Pong,
+            ServerMessage::Dir {
+                path: String::new(),
+                entries: vec![DirEntry {
+                    name: "src".to_owned(),
+                    kind: EntryKind::Dir,
+                    mentors: vec![],
+                }],
+            },
+            ServerMessage::File {
+                path: "a.rs".to_owned(),
+                content: "x".to_owned(),
+                version: "v".to_owned(),
+                language: "rust".to_owned(),
+                sections: vec![],
+                remarks: vec![],
+            },
+            ServerMessage::Saved {
+                path: "a.rs".to_owned(),
+                version: "v".to_owned(),
+            },
+            ServerMessage::FileChanged {
+                path: "a.rs".to_owned(),
+                version: Some("v".to_owned()),
+            },
             ServerMessage::Error {
                 code: ErrorCode::BadMessage,
                 message: "x".to_owned(),
+                version: None,
             },
         ] {
-            let outgoing = Outgoing::reply(Some("c-5".to_owned()), message);
+            let outgoing = Outgoing::reply(Some("c-7".to_owned()), message);
             let text = serde_json::to_string(&outgoing).unwrap();
             assert_eq!(serde_json::from_str::<Outgoing>(&text).unwrap(), outgoing);
         }

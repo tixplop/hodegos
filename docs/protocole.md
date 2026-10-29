@@ -34,9 +34,9 @@ connexion reste ouverte.
 | Type | Charge utile | Effet |
 | --- | --- | --- |
 | `ping` | — | Renvoie `pong` (phase 1) |
-| `list_dir` | `path` | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
+| `list_dir` | `path` (`""` pour la racine) | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
 | `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes) |
-| `save` | `path`, `content`, `base_version` | Écrit sur disque, renvoie `saved`, puis déclenche une passe |
+| `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe (à partir de la phase 4) |
 | `cursor` | `path`, `line`, `col` | Met à jour la section courante, renvoie `casting` si elle change |
 | `hint_next` | `remark_id` | Demande le palier suivant ; renvoie `remark_update` |
 | `remark_reply` | `remark_id`, `text` | Ajoute votre réponse ; le mentor peut relancer au même palier |
@@ -48,17 +48,30 @@ connexion reste ouverte.
 | Type | Charge utile | Quand |
 | --- | --- | --- |
 | `pong` | — | réponse à `ping` |
-| `dir` | `path`, `entries` (`name`, `kind`, `mentors`) | réponse à `list_dir` |
+| `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` |
 | `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `titular`, `consultants`, `available`, `reasons` | ouverture, changement de section, choix forcé |
 | `pass_started` | `path`, `sections`, `mentors` | dès qu'une passe démarre |
 | `remarks` | `path`, `items` (remarques complètes) | à la fin d'une passe |
 | `remark_update` | une remarque complète | palier suivant, réponse, fermeture, détachement |
-| `file_changed` | `path`, `version` | fichier modifié hors de Hodegos |
+| `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (fichiers invalides) | rechargement à chaud des mentors |
 | `status` | `provider_ok`, `budget_used`, `budget_cap`, `last_pass` | au démarrage puis à chaque passe |
-| `error` | `code`, `message` (`re` dans l'enveloppe si l'erreur répond à une demande) | erreur liée ou non à une demande |
+| `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
+
+Détails des fichiers :
+
+- `path` est relatif à la racine du projet, séparé par `/`.
+- `version` est l'empreinte SHA-256 du contenu (16 caractères hexadécimaux) : elle
+  change dès que le contenu change, quel qu'en soit l'auteur.
+- `language` vaut `rust`, `typescript`, `javascript`, `python`, `markdown` ou `text`.
+- Les entrées de `dir` viennent dossiers d'abord, puis par ordre alphabétique.
+- En phase 2, `mentors` (dans `dir`), `sections` et `remarks` (dans `file`) sont
+  des listes vides ; ils se remplissent aux phases 3 et 4.
+- `file_changed` ne concerne que les fichiers ouverts ou enregistrés par la fenêtre,
+  et seulement si la version sur disque diffère de la dernière connue : un
+  enregistrement fait par Hodegos ne le déclenche pas.
 
 Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 « Contrat : format d'une remarque ». Un mentor dans `titular`, `consultants` et
@@ -69,13 +82,20 @@ Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 | Code | Sens |
 | --- | --- |
 | `bad_message` | JSON invalide, type inconnu ou charge utile incorrecte |
-| `path_forbidden` | chemin hors de la racine du projet ou exclu |
+| `path_forbidden` | chemin absolu, avec `..`, hors de la racine (lien symbolique compris), sous `.git` ou exclu par `.gitignore` |
 | `not_found` | fichier ou remarque introuvable |
 | `version_conflict` | `base_version` ne correspond plus à la version sur disque |
+| `not_text` | fichier qui n'est pas un texte UTF-8 de 2 Mo au plus |
 | `budget_exceeded` | budget mensuel atteint, passe proactive refusée |
 | `provider_error` | erreur ou délai dépassé chez le fournisseur de modèles |
 | `internal` | erreur inattendue (détail dans le journal du serveur) |
 
 Conflit : si `base_version` ne correspond plus à la version sur disque, le serveur
-refuse `save` avec `version_conflict` ; le front propose de recharger ou d'écraser
-(un nouvel envoi de `save` avec la version courante).
+refuse `save` avec `version_conflict` et la version sur disque dans `version` ; le
+front propose de recharger (`open_file`) ou d'écraser (un nouvel envoi de `save`
+avec cette version comme `base_version`).
+
+```json
+{ "v": 1, "type": "error", "re": "c-7",
+  "payload": { "code": "version_conflict", "message": "…", "version": "3f2a9c0d1e4b5a67" } }
+```

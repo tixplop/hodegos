@@ -55,8 +55,17 @@ WSL2 · binaire hodegos
 Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, avec la section modifiée et son diff.
 
 - **Backend** : Rust stable, `tokio`, `axum` (HTTP et WebSocket), `notify` (fichiers), `similar` (diffs), `tree-sitter` avec les grammaires Rust, TypeScript, JavaScript, Python et Markdown (sections), `reqwest` (OpenRouter, en streaming), `serde`, `tracing`, `rust-embed` (front intégré au binaire).
-- **Front** : HTML, CSS et JavaScript sans framework ; CodeMirror 6 empaqueté une fois dans `ui/vendor/` (aucune étape de build pour le reste du front) ; design system Hodegos (préfixe `hd-`, voir `ui/styles/README.md`).
-- **Polices** : Inter et JetBrains Mono servies par le binaire (fichiers woff2 dans `ui/fonts/`, par exemple depuis les paquets npm `@fontsource`), jamais chargées depuis Google Fonts ; repli sur les polices système tant qu'elles ne sont pas en place.
+- **Front** : HTML, CSS et JavaScript sans framework, en modules ES natifs (`ui/js/app/`) ; CodeMirror 6 empaqueté une fois dans `ui/vendor/codemirror.js` par `scripts/vendor-codemirror.sh` (versions figées dans `scripts/vendor/package-lock.json`, fichier produit commité avec ses licences : `cargo build` n'a jamais besoin de npm) ; design system Hodegos (préfixe `hd-`, voir `ui/styles/README.md`).
+- **Polices** : Inter et JetBrains Mono servies par le binaire (woff2 du sous-ensemble latin dans `ui/fonts/`, copiés depuis les paquets npm `@fontsource` par le même script, licence OFL), jamais chargées depuis Google Fonts. Ligatures désactivées dans l'éditeur : `===` et `=>` se lisent tels qu'ils sont écrits.
+- **Éditeur** (décisions du 29 octobre 2026) :
+  - CodeMirror est monté dans un shadow root : il y pose ses styles par `adoptedStyleSheets`, que la CSP stricte autorise, alors qu'elle bloque les balises `<style>` qu'il insère dans un document.
+  - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP).
+  - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2.
+  - Version d'un fichier : empreinte SHA-256 du contenu (16 caractères hexadécimaux).
+  - Écriture par fichier temporaire renommé, droits conservés, contenu écrit tel quel (fins de ligne, BOM).
+  - Modifications externes : seuls les dossiers des fichiers ouverts sont observés (sans récursion, pour ménager inotify) ; `file_changed` n'est envoyé que si la version sur disque diffère de la dernière connue, ce qui écarte les enregistrements faits par Hodegos.
+  - Arborescence chargée dossier par dossier, sans rafraîchissement automatique en phase 2 ; plusieurs onglets.
+  - Thème : préférence du système, bascule dans l'en-tête, choix mémorisé dans le `localStorage` du navigateur (rien dans le dépôt).
 - **Lancement** : `hodegos ~/projets/troc` démarre le serveur sur le port 7420 (ou celui de `--port`), génère un jeton, puis affiche dans le terminal l'URL d'accès (`http://127.0.0.1:PORT/?token=…`) ; un Ctrl+clic l'ouvre dans le navigateur Windows. L'ouverture automatique viendra plus tard.
 - **Port fixe** (décidé le 29 octobre 2026) : 7420 par défaut, `--port N` pour en changer. Un port tiré au hasard ne convient pas sous WSL2 en mode NAT : la redirection de `localhost` vers Windows échoue sans message si le port tombe dans une plage réservée par Windows (Hyper-V, WinNAT ; voir `netsh interface ipv4 show excludedportrange protocol=tcp`), et le navigateur répond `ERR_CONNECTION_REFUSED`. Si le port est occupé, le lancement échoue avec un message qui renvoie à `--port`. `--port 0` laisse le système choisir (tests).
 - **Adresse canonique** : `127.0.0.1`. Une requête reçue sur `localhost:PORT` est redirigée vers `127.0.0.1:PORT` avant toute vérification de `Host` et d'`Origin`.
@@ -119,6 +128,7 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 - L'en-tête `Host` doit être `127.0.0.1:<port>`, contre le rebinding DNS, sinon 421 ; `localhost:<port>` est d'abord redirigé (307, chemin et requête conservés) vers l'adresse canonique.
 - Un chemin de projet sous `/mnt/`, avant ou après résolution des liens symboliques, est refusé au lancement, de même qu'un chemin inexistant ou qui n'est pas un dossier.
 - Aucun chemin hors de la racine du projet : chaque chemin reçu est normalisé, puis refusé s'il sort de la racine (y compris par lien symbolique).
+- `.git` et ce qu'exclut `.gitignore` (fichiers `.gitignore` de chaque dossier et `.git/info/exclude`, lus même hors d'un dépôt git, sans les règles globales de git) sont absents de l'arborescence et refusés à l'ouverture comme à l'écriture (`path_forbidden`). Un fichier sensible non ignoré (`.env` absent du `.gitignore`) reste éditable localement ; la règle d'envoi au modèle (ci-dessous) s'applique de toute façon.
 - `Content-Security-Policy` stricte sur le front : scripts, styles et polices servis par le binaire uniquement, aucune source externe.
 
 **Ce qui part vers OpenRouter**
@@ -382,6 +392,6 @@ Questions ouvertes :
 - [ ] Faut-il un raccourci clavier pour déclencher une passe sans enregistrer ?
 - [ ] Consultants : un au plus (ce dossier) ou deux au plus (`ui/styles/README.md`) ? À trancher en phase 3.
 - [ ] Un mentor `strong-signal` peut-il être titulaire, ou seulement consultant ? Phase 3.
-- [ ] Comment dériver `<id-projet>` de `~/.local/share/hodegos/<id-projet>/` (et donc `ProjectId`) ? Phase 4.
+- [x] `<id-projet>` de `~/.local/share/hodegos/<id-projet>/` : `ProjectId`, empreinte SHA-256 du chemin résolu de la racine (16 caractères hexadécimaux), décidé en phase 2.
 - [ ] Budget à 100 % : quelle « confirmation » rouvre les passes proactives ? Phase 4.
 - [ ] Garde au palier exemple : les mots-clés du langage comptent-ils parmi les « identifiants de la section » ? Phase 5.

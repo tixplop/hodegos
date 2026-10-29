@@ -16,7 +16,9 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::routing::get;
+use hodegos_core::{FileError, FileWatcher, Project, RelPath};
 use tokio::net::TcpListener;
+use tokio::sync::broadcast;
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
 
@@ -41,12 +43,20 @@ pub enum ServerError {
     Serve(#[source] std::io::Error),
     #[error("impossible de générer un secret aléatoire : {0}")]
     Random(String),
+    #[error("impossible d'observer les fichiers du projet : {0}")]
+    Watch(#[source] FileError),
 }
+
+/// Chemins touchés sur le disque, diffusés à toutes les connexions.
+pub(crate) type Changes = Arc<Vec<RelPath>>;
 
 /// État partagé par toutes les requêtes.
 struct AppState {
     port: u16,
     auth: Arc<dyn Authenticator>,
+    project: Project,
+    watcher: FileWatcher,
+    changes: broadcast::Sender<Changes>,
 }
 
 impl AppState {
@@ -71,10 +81,10 @@ pub struct Server {
 }
 
 impl Server {
-    /// Ouvre `port` sur `127.0.0.1` et génère le jeton de lancement.
+    /// Ouvre `port` sur `127.0.0.1` pour `project` et génère le jeton de lancement.
     ///
     /// `0` laisse le système choisir un port libre (utile aux tests).
-    pub async fn bind(port: u16) -> Result<Self, ServerError> {
+    pub async fn bind(project: Project, port: u16) -> Result<Self, ServerError> {
         let bind_error = |source: std::io::Error| match source.kind() {
             std::io::ErrorKind::AddrInUse => ServerError::PortInUse(port),
             _ => ServerError::Bind { port, source },
@@ -85,9 +95,19 @@ impl Server {
         let port = listener.local_addr().map_err(bind_error)?.port();
         let auth = LaunchTokenAuthenticator::generate()?;
         let access_url = format!("http://127.0.0.1:{port}/?token={}", auth.launch_token());
+        let (changes, _) = broadcast::channel(64);
+        let sender = changes.clone();
+        let watcher = project
+            .watch(move |paths| {
+                let _ = sender.send(Arc::new(paths));
+            })
+            .map_err(ServerError::Watch)?;
         let state = Arc::new(AppState {
             port,
             auth: Arc::new(auth),
+            project,
+            watcher,
+            changes,
         });
         Ok(Self {
             listener,

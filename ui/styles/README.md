@@ -42,10 +42,11 @@ Deux thèmes, `light` (par défaut) et `dark`, posés sur `data-theme="…"`.
 - Mentors : nom et avatar en `mentor` sur `mentor-soft` ou `surface-0` ; encarts de proposition sur `mentor-soft`.
 - Statuts : `success`, `warning`, `danger`, chacun avec son fond `-soft`. Le mot du badge est obligatoire.
 - Passage visé : fond `highlight`, soulignement `highlight-edge`, texte `ink`.
+- Coloration du code : `syntax-keyword`, `syntax-string`, `syntax-number`, `syntax-comment`, `syntax-type`, `syntax-function`, dans l'éditeur seulement. Chacune reste au-dessus de 4.5:1 sur `surface-0`, `surface-50` et `accent-soft` (ligne courante) dans les deux thèmes. Elles n'empruntent ni `accent`, ni `mentor`, ni `highlight`, réservées à leur rôle.
 
 ## Typographie
 
-Inter pour l'interface (famille `sans`), JetBrains Mono pour le code (famille `mono`). Elles sont servies par le binaire depuis `ui/fonts/` (woff2, déclarées par `@font-face` dans `ui/styles/fonts.css`, à créer en phase 2) ; jamais depuis Google Fonts, à cause de la CSP. Tant qu'elles manquent, les piles de repli s'appliquent.
+Inter pour l'interface (famille `sans`), JetBrains Mono pour le code (famille `mono`). Elles sont servies par le binaire depuis `ui/fonts/` (woff2 du sous-ensemble latin, copiés par `scripts/vendor-codemirror.sh`, déclarés par `@font-face` dans `ui/styles/fonts.css`) ; jamais depuis Google Fonts, à cause de la CSP. Les piles de repli s'appliquent tant qu'elles se chargent.
 
 - `text-display` : titre du document ouvert, un par écran.
 - `text-title` / `text-subtitle` : sections et panneaux.

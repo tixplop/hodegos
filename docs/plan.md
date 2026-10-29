@@ -23,13 +23,13 @@ Arborescence, ouverture et enregistrement par le protocole, CodeMirror 6 avec
 coloration des cinq langages, mise en page et thèmes du design system, polices
 servies par le binaire, détection des modifications externes.
 
-- [ ] `scripts/vendor-codemirror.sh` produit `ui/vendor/codemirror.js` (versions épinglées)
-- [ ] L'arborescence n'affiche ni `.git` ni les fichiers ignorés
-- [ ] On ouvre, modifie et enregistre un fichier ; `saved` renvoie la nouvelle version
-- [ ] Une modification hors de Hodegos produit `file_changed` et un bandeau dans l'éditeur
-- [ ] Conflit de version : `version_conflict` et choix « Recharger » ou « Écraser »
-- [ ] Thèmes clair et sombre conformes à `docs/maquettes/`, aucune ressource externe chargée
-- [ ] Vérification manuelle : un fichier de 5 000 lignes reste fluide
+- [x] `scripts/vendor-codemirror.sh` produit `ui/vendor/codemirror.js` (versions épinglées)
+- [x] L'arborescence n'affiche ni `.git` ni les fichiers ignorés
+- [x] On ouvre, modifie et enregistre un fichier ; `saved` renvoie la nouvelle version
+- [x] Une modification hors de Hodegos produit `file_changed` et un bandeau dans l'éditeur
+- [x] Conflit de version : `version_conflict` et choix « Recharger » ou « Écraser »
+- [x] Thèmes clair et sombre conformes à `docs/maquettes/`, aucune ressource externe chargée
+- [x] Vérification manuelle : un fichier de 5 000 lignes reste fluide
 
 ## Phase 3 — Sections et casting
 

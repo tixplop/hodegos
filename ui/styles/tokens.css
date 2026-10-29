@@ -25,6 +25,12 @@
   --highlight-edge: #b58f00;
   --focus: #2f5bd3;
   --shadow-popover: 0 8px 24px rgba(15, 17, 20, 0.12);
+  --syntax-keyword: #a0306e;
+  --syntax-string: #0b6b66;
+  --syntax-number: #a8461a;
+  --syntax-comment: #57606a;
+  --syntax-type: #1d5f8a;
+  --syntax-function: #6b4f00;
 }
 [data-theme="dark"] {
   --surface-0: #16191d;
@@ -52,6 +58,12 @@
   --highlight-edge: #d4ae2e;
   --focus: #a9c0fa;
   --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --syntax-keyword: #f08cc0;
+  --syntax-string: #5fcfc6;
+  --syntax-number: #f3a172;
+  --syntax-comment: #9ba4ae;
+  --syntax-type: #7cc4f0;
+  --syntax-function: #e3c46b;
 }
 :root {
   --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;

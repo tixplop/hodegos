@@ -25,7 +25,7 @@ pub(crate) async fn guard(
     response
 }
 
-async fn check(state: &AppState, request: Request, next: Next) -> Response {
+async fn check(state: &AppState, mut request: Request, next: Next) -> Response {
     let host = request
         .headers()
         .get(header::HOST)
@@ -65,12 +65,12 @@ async fn check(state: &AppState, request: Request, next: Next) -> Response {
         return response;
     }
 
-    let authenticated = session_cookie(request.headers(), &state.cookie_name())
+    let Some(user) = session_cookie(request.headers(), &state.cookie_name())
         .and_then(|session| state.auth.authenticate(session))
-        .is_some();
-    if !authenticated {
+    else {
         return unauthorized();
-    }
+    };
+    request.extensions_mut().insert(user);
     next.run(request).await
 }
 

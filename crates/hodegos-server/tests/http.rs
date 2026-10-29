@@ -3,13 +3,13 @@
 mod common;
 
 use axum::http::{StatusCode, header};
-use common::{get, host, session_cookie, token};
+use common::{bind, get, host, project_in, session_cookie, token};
 use hodegos_server::{Server, ServerError};
 use http_body_util::BodyExt;
 
 #[tokio::test]
 async fn l_url_d_acces_vise_127_0_0_1_avec_un_jeton_de_256_bits() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let prefix = format!("http://127.0.0.1:{}/?token=", server.port());
     assert!(server.access_url().starts_with(&prefix));
     let token = token(&server);
@@ -19,7 +19,7 @@ async fn l_url_d_acces_vise_127_0_0_1_avec_un_jeton_de_256_bits() {
 
 #[tokio::test]
 async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
-    let server = Server::bind(0).await.unwrap();
+    let (dir, server) = bind().await;
     let port = server.port();
     assert!(
         server
@@ -27,7 +27,7 @@ async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
             .starts_with(&format!("http://127.0.0.1:{port}/"))
     );
 
-    let err = Server::bind(port)
+    let err = Server::bind(project_in(dir.path()), port)
         .await
         .err()
         .expect("le port est déjà pris");
@@ -38,12 +38,18 @@ async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
     assert!(err.to_string().contains("--port"), "{err}");
 
     drop(server);
-    assert_eq!(Server::bind(port).await.unwrap().port(), port);
+    assert_eq!(
+        Server::bind(project_in(dir.path()), port)
+            .await
+            .unwrap()
+            .port(),
+        port
+    );
 }
 
 #[tokio::test]
 async fn refuse_sans_jeton_ni_cookie() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     for uri in ["/", "/index.html", "/styles/tokens.css", "/ws"] {
         let response = get(server.router(), &host(&server), uri, None).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
@@ -52,7 +58,7 @@ async fn refuse_sans_jeton_ni_cookie() {
 
 #[tokio::test]
 async fn refuse_un_mauvais_jeton_ou_un_mauvais_cookie() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let response = get(server.router(), &host(&server), "/?token=faux", None).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
@@ -63,7 +69,7 @@ async fn refuse_un_mauvais_jeton_ou_un_mauvais_cookie() {
 
 #[tokio::test]
 async fn le_jeton_s_echange_contre_un_cookie_et_disparait_de_l_url() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let uri = format!("/?token={}", token(&server));
     let response = get(server.router(), &host(&server), &uri, None).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -91,13 +97,13 @@ async fn le_jeton_s_echange_contre_un_cookie_et_disparait_de_l_url() {
 
 #[tokio::test]
 async fn le_jeton_reste_valable_tant_que_le_serveur_tourne() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     assert_eq!(session_cookie(&server).await, session_cookie(&server).await);
 }
 
 #[tokio::test]
 async fn toutes_les_reponses_portent_une_csp_stricte() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let cookie = session_cookie(&server).await;
     for (uri, cookie) in [("/", Some(cookie.as_str())), ("/", None)] {
         let response = get(server.router(), &host(&server), uri, cookie).await;
@@ -120,7 +126,7 @@ async fn toutes_les_reponses_portent_une_csp_stricte() {
 
 #[tokio::test]
 async fn refuse_un_host_etranger() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let cookie = session_cookie(&server).await;
     let other_port = format!("127.0.0.1:{}", server.port().wrapping_add(1));
     let foreign = format!("evil.test:{}", server.port());
@@ -136,7 +142,7 @@ async fn refuse_un_host_etranger() {
 
 #[tokio::test]
 async fn localhost_est_redirige_vers_127_0_0_1_avec_chemin_et_requete() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let host = format!("localhost:{}", server.port());
     let response = get(server.router(), &host, "/a/b?token=x", None).await;
     assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
@@ -149,12 +155,18 @@ async fn localhost_est_redirige_vers_127_0_0_1_avec_chemin_et_requete() {
 
 #[tokio::test]
 async fn sert_les_fichiers_du_design_system() {
-    let server = Server::bind(0).await.unwrap();
+    let (_dir, server) = bind().await;
     let cookie = session_cookie(&server).await;
     for (uri, mime) in [
         ("/styles/tokens.css", "text/css"),
+        ("/styles/fonts.css", "text/css"),
+        ("/app.css", "text/css"),
         ("/js/hodegos.js", "text/javascript"),
-        ("/app.js", "text/javascript"),
+        ("/js/app/main.js", "text/javascript"),
+        ("/vendor/codemirror.js", "text/javascript"),
+        ("/fonts/inter-latin-400-normal.woff2", "font/woff2"),
+        ("/fonts/jetbrains-mono-latin-400-normal.woff2", "font/woff2"),
+        ("/hodegos-mark.svg", "image/svg+xml"),
     ] {
         let response = get(server.router(), &host(&server), uri, Some(&cookie)).await;
         assert_eq!(response.status(), StatusCode::OK, "{uri}");
