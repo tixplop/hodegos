@@ -7,7 +7,7 @@
 Un projet démarre comme un document : `hodegos new` crée le dossier et un
 `docs/vision.md` à remplir, et un Mentor produit pose les questions de cadrage
 pendant que vous l'écrivez. Aucun écran spécifique : on réutilise le casting par
-chemin, les remarques ancrées et les paliers (voir docs/adr/0003-kickoff-par-document.md).
+chemin, les remarques ancrées et les paliers (voir docs/adr/0004-kickoff-par-document.md).
 
 ## Dans la phase 7
 

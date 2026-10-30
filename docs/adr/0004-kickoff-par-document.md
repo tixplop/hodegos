@@ -1,4 +1,4 @@
-# ADR 0003 — Kick-off d'un projet par un document accompagné
+# ADR 0004 — Kick-off d'un projet par un document accompagné
 
 Statut : accepté · 30 octobre 2026
 
