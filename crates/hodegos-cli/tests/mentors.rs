@@ -60,8 +60,8 @@ fn line_of<'a>(text: &'a str, id: &str) -> &'a str {
 fn list_affiche_les_mentors_livres_avec_leur_origine() {
     let sandbox = Sandbox::new();
     let text = stdout(&sandbox.run(&["mentors", "list"]));
-    assert!(text.contains("Mentors actifs (2)"), "{text}");
-    for id in ["architecte", "mentor-langage"] {
+    assert!(text.contains("Mentors actifs (3)"), "{text}");
+    for id in ["architecte", "mentor-langage", "mentor-produit"] {
         let line = line_of(&text, id);
         assert!(
             line.contains("livré") && line.contains("proactive"),
@@ -85,7 +85,7 @@ fn list_signale_les_fichiers_en_erreur_et_les_desactivations() {
     .unwrap();
 
     let text = stdout(&sandbox.run(&["mentors", "list"]));
-    assert!(text.contains("Mentors actifs (1)"), "{text}");
+    assert!(text.contains("Mentors actifs (2)"), "{text}");
     assert!(text.contains("Mentors désactivés"), "{text}");
     assert!(
         line_of(&text, "mentor-langage").contains("projet"),

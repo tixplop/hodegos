@@ -363,6 +363,6 @@ fn les_cas_livres_sont_coherents() {
     );
     assert_eq!(
         mentors.into_iter().collect::<Vec<_>>(),
-        ["architecte", "mentor-langage"]
+        ["architecte", "mentor-langage", "mentor-produit"]
     );
 }

@@ -248,7 +248,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path().join("project");
         fs::create_dir_all(&project).unwrap();
-        for builtin in ["architecte", "mentor-langage"] {
+        for builtin in ["architecte", "mentor-langage", "mentor-produit"] {
             fs::write(
                 project.join(format!("off-{builtin}.md")),
                 format!("---\nid: {builtin}\nenabled: false\n---\n"),
@@ -363,7 +363,10 @@ mod tests {
         let casting = cast(&registry, &request("Cargo.toml", "text"));
         assert_eq!(casting.titular, None);
         assert!(casting.consultants.is_empty());
-        assert_eq!(casting.available, ["architecte", "mentor-langage"]);
+        assert_eq!(
+            casting.available,
+            ["architecte", "mentor-langage", "mentor-produit"]
+        );
         assert!(casting.reasons.is_empty());
     }
 
@@ -458,7 +461,7 @@ mod tests {
         assert_eq!(casting.titular.as_deref(), Some("architecte"));
         assert_eq!(casting.forced, Some(ForcedBy::User));
         assert_eq!(casting.reasons["architecte"], ["choisi par vous"]);
-        assert_eq!(casting.available, ["mentor-langage"]);
+        assert_eq!(casting.available, ["mentor-langage", "mentor-produit"]);
 
         let content = "---\nmentors: [mentor-langage]\n---\n# Notes\n";
         let id = frontmatter_mentor(content).unwrap();

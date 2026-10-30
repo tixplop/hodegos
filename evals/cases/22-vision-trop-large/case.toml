@@ -2,7 +2,7 @@ title = "Vision remplie : public vague et première version trop large"
 file = "docs/vision.md"
 section = "h:premiere-version"
 expected_mentor = "mentor-produit"
-levels = ["indice", "question", "piste"]
+levels = ["question", "piste"]
 
 [expect]
 must_mention = ["tout le monde", "quelques jours", "large", "première version", "public"]

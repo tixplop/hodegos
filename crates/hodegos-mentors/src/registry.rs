@@ -219,7 +219,7 @@ mod tests {
     fn charge_les_mentors_livres() {
         let registry = Registry::load(&MentorSources::default());
         let ids: Vec<_> = registry.active().map(|m| m.id.as_str()).collect();
-        assert_eq!(ids, ["architecte", "mentor-langage"]);
+        assert_eq!(ids, ["architecte", "mentor-langage", "mentor-produit"]);
         assert!(registry.warnings().is_empty());
         assert_eq!(registry.get("architecte").unwrap().origin, Origin::Builtin);
     }
@@ -271,7 +271,7 @@ mod tests {
         write(&user, "b.md", PERSONNEL);
         write(&user, "notes.txt", "pas un mentor");
         let registry = Registry::load(&sources);
-        assert_eq!(registry.active().count(), 2);
+        assert_eq!(registry.active().count(), 3);
         let warnings = registry.warnings();
         assert_eq!(warnings.len(), 2, "{warnings:?}");
         assert!(warnings[0].file.ends_with("b.md"));

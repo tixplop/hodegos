@@ -6,5 +6,5 @@ levels = ["question"]
 
 [expect]
 # Une question de cadrage sur le problème ou le public, pas une idée de produit.
-must_mention = ["problème", "pour qui", "qui ", "?"]
+must_mention = ["problème", "pour qui", "qui "]
 must_not = ["fonctionnalité", "je vous propose", "vous pourriez créer", "par exemple une application"]

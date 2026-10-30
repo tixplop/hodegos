@@ -141,7 +141,7 @@ async fn aucun_mentor_pour_un_fichier_sans_langage_connu() {
     let (_, casting) = open(&mut socket, "Cargo.toml").await;
     assert_eq!(casting["payload"]["titular"], Value::Null);
     assert_eq!(casting["payload"]["consultants"], json!([]));
-    assert_eq!(casting["payload"]["available"].as_array().unwrap().len(), 2);
+    assert_eq!(casting["payload"]["available"].as_array().unwrap().len(), 3);
 }
 
 #[tokio::test]

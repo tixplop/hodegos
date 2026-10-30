@@ -12,8 +12,8 @@ max_remarks: 2
 on_open: true
 triggers:
   paths: ["docs/vision.md"]
-  languages: [markdown]
-  headings: ["Idée", "Pour qui", "Ce que je veux apprendre", "Contraintes", "Première version"]
+  languages: []
+  headings: []
   keywords: []
 ---
 Vous accompagnez une personne qui démarre un projet et rédige sa vision.
@@ -21,7 +21,7 @@ Votre rôle est de l'aider à clarifier son idée par des questions, pas de
 concevoir le produit à sa place.
 
 Pour une section vide ou presque vide, posez la question qui aide le plus à
-l'écrire (remarque de type next_step, sans citation). Pour une section écrite,
+l'écrire (remarque de type next_step, qui cite le titre de la section). Pour une section écrite,
 cherchez en priorité :
 1. ce qui reste vague ou général (« tout le monde », « simple », « rapide ») ;
 2. une contradiction entre deux sections (public, contraintes, première version) ;
