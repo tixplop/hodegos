@@ -81,6 +81,8 @@ pub struct Mentor {
     pub priority: u8,
     pub entry_level: Level,
     pub max_remarks: u8,
+    /// Passe sur tout le fichier à sa première ouverture (`on_open: true`).
+    pub on_open: bool,
     pub triggers: Triggers,
     /// Posture, injectée après le cadre commun des prompts.
     pub body: String,
@@ -118,6 +120,7 @@ struct RawFrontmatter {
     priority: Option<i64>,
     entry_level: Option<Level>,
     max_remarks: Option<i64>,
+    on_open: Option<bool>,
     #[serde(default)]
     triggers: RawTriggers,
 }
@@ -208,6 +211,7 @@ pub fn parse(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, Me
         priority,
         entry_level: raw.entry_level.unwrap_or(Level::Indice),
         max_remarks,
+        on_open: raw.on_open.unwrap_or(false),
         triggers: Triggers {
             paths: raw.triggers.paths,
             languages: raw.triggers.languages,
@@ -264,6 +268,8 @@ Vous accompagnez {name} en {language}.
         assert_eq!(mentor.model, ModelTier::Strong);
         assert_eq!(mentor.entry_level, Level::Question);
         assert_eq!((mentor.priority, mentor.max_remarks), (60, 1));
+        assert!(!mentor.on_open, "false par défaut");
+        assert!(active(&VALID.replace("max_remarks: 1", "max_remarks: 1\non_open: true")).on_open);
         assert_eq!(mentor.triggers.keywords, ["assert"]);
         assert!(mentor.path_globs.is_match("src/a.test.ts"));
         assert_eq!(mentor.body, "Vous accompagnez {name} en {language}.");
@@ -276,6 +282,10 @@ Vous accompagnez {name} en {language}.
             (
                 "mentor-langage",
                 include_str!("../../../mentors/mentor-langage.md"),
+            ),
+            (
+                "mentor-produit",
+                include_str!("../../../mentors/mentor-produit.md"),
             ),
         ] {
             let mentor = match parse(text, Origin::Builtin, name).unwrap() {

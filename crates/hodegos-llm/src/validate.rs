@@ -762,6 +762,17 @@ mod tests {
     }
 
     #[test]
+    fn citation_vide_refusee_hors_next_step() {
+        for kind in [RemarkKind::Observation, RemarkKind::Question] {
+            let mut empty = draft("", "Que renvoie cette comparaison ?", 0.9);
+            empty.kind = kind;
+            let result = validate(vec![empty], &rules());
+            assert!(result.kept.is_empty(), "{kind:?}");
+            assert_eq!(result.rejected, ["citation trop courte ou trop longue"]);
+        }
+    }
+
+    #[test]
     fn ecarte_palier_confiance_et_message() {
         let mut wrong_level = draft("e.debut === debut", "Que renvoie cette comparaison ?", 0.9);
         wrong_level.level = RemarkLevel::Question;

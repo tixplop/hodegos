@@ -494,6 +494,67 @@ mod tests {
         assert!(casting.available.is_empty());
     }
 
+    /// Mentor produit : titulaire de chaque section de `docs/vision.md`, absent ailleurs.
+    #[test]
+    fn mentor_produit_seulement_sur_la_vision() {
+        let registry = Registry::load(&MentorSources::default());
+        let vision = include_str!("../../../templates/vision.md");
+        let cast_all = |path: &str, content: &str| -> Vec<(String, Option<String>)> {
+            sections(Language::Markdown, content)
+                .iter()
+                .map(|section| {
+                    let text = section.text(content);
+                    let casting = cast(
+                        &registry,
+                        &CastRequest {
+                            path,
+                            language: "markdown",
+                            headings: section_headings(Language::Markdown, Some(section)),
+                            text: &text,
+                            forced: None,
+                        },
+                    );
+                    (section.id.clone(), casting.titular)
+                })
+                .collect()
+        };
+
+        let on_vision = cast_all("docs/vision.md", vision);
+        assert_eq!(on_vision.len(), 6, "{on_vision:?}");
+        for (id, titular) in &on_vision {
+            assert_eq!(titular.as_deref(), Some("mentor-produit"), "{id}");
+        }
+        let reasons = cast(
+            &registry,
+            &CastRequest {
+                headings: vec!["Idée"],
+                ..request("docs/vision.md", "markdown")
+            },
+        )
+        .reasons;
+        assert_eq!(reasons["mentor-produit"], ["chemin docs/vision.md"]);
+
+        for path in [
+            "README.md",
+            "docs/notes.md",
+            "vision.md",
+            "docs/architecture/0001-stockage.md",
+            "docs/adr/0002-vision.md",
+        ] {
+            for (id, titular) in cast_all(path, vision) {
+                assert_ne!(titular.as_deref(), Some("mentor-produit"), "{path} {id}");
+            }
+        }
+        let adr = cast_all(
+            "docs/architecture/0001-stockage.md",
+            "# Stockage\n\n## Contexte\n\nTexte.\n\n## Décision\n\nTexte.\n",
+        );
+        assert!(
+            adr.iter().all(|(_, t)| t.as_deref() == Some("architecte")),
+            "{adr:?}"
+        );
+    }
+
     /// Les deux cas d'évaluation fournis, avec les vrais mentors livrés.
     #[test]
     fn cas_d_evaluation_avec_les_mentors_livres() {

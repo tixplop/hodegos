@@ -2,8 +2,8 @@
 //! diff, 20 lignes de contexte et fil éventuel. Partagé par la passe proactive, les
 //! reprises d'une remarque et l'évaluation.
 
-use hodegos_core::Section;
 use hodegos_core::secrets::mask_secrets;
+use hodegos_core::{Section, strip_html_comments, strip_html_comments_in_diff};
 
 use crate::prompt::{Author, FollowUp, FollowUpKind, Prompt, PromptInput, build_prompt};
 use crate::{Level, Mentor};
@@ -37,12 +37,26 @@ pub struct SectionRequest<'a> {
 }
 
 /// Construit le prompt ; rien de ce qui part n'échappe au masquage des secrets
-/// (section, contexte, diff, citation et messages du fil).
+/// (section, contexte, diff, citation et messages du fil). En Markdown, les
+/// commentaires HTML sont retirés de la section, du contexte et du diff.
 pub fn section_prompt(request: &SectionRequest<'_>) -> Prompt {
     let (masked, _) = mask_secrets(request.content);
     let all: Vec<&str> = masked.split('\n').collect();
     let section = request.section;
     let (diff, _) = mask_secrets(request.diff);
+    let markdown = request.language == "markdown";
+    let visible = |text: String| {
+        if markdown {
+            strip_html_comments(&text)
+        } else {
+            text
+        }
+    };
+    let diff = if markdown {
+        strip_html_comments_in_diff(&diff)
+    } else {
+        diff
+    };
 
     let masked_thread = request.thread.map(|thread| {
         let quote = mask_secrets(thread.quote).0;
@@ -71,9 +85,9 @@ pub fn section_prompt(request: &SectionRequest<'_>) -> Prompt {
         path: request.path,
         language: request.language,
         section_id: &section.id,
-        section_text: &lines(&all, section.start_line, section.end_line),
+        section_text: &visible(lines(&all, section.start_line, section.end_line)),
         section_diff: &diff,
-        context: &context(&all, section),
+        context: &visible(context(&all, section)),
         follow_up: follow_up.as_ref(),
     })
 }
@@ -181,5 +195,42 @@ mod tests {
                 .user
                 .contains("<contexte>\nconst k = 1;\n</contexte>")
         );
+    }
+
+    #[test]
+    fn les_commentaires_html_ne_partent_pas() {
+        let mentor = match parse(
+            "---\nid: m\nname: M\ninitials: MM\nrole: R\n---\nPosture.\n",
+            Origin::User,
+            "m.md",
+        )
+        .unwrap()
+        {
+            Parsed::Active(m) => *m,
+            Parsed::Disabled { .. } => unreachable!(),
+        };
+        let content = "# essai\n<!-- avant -->\n\n## Idée\n\n<!-- consigne\nsur deux lignes -->\nMon idée\n\n## Pour qui\n\n<!-- après -->\n";
+        let mut idee = section(4, 9);
+        idee.id = "h:idee".to_owned();
+        let prompt = section_prompt(&SectionRequest {
+            mentor: &mentor,
+            level: Level::Question,
+            path: "docs/vision.md",
+            language: "markdown",
+            content,
+            section: &idee,
+            diff: "--- avant\n+++ après\n@@ -0,0 +1,4 @@\n+## Idée\n+<!-- consigne\n+sur deux lignes -->\n+Mon idée\n",
+            thread: None,
+        });
+        assert!(!prompt.user.contains("<!--"), "{}", prompt.user);
+        for hidden in ["avant -->", "consigne", "sur deux lignes", "après -->"] {
+            assert!(!prompt.user.contains(hidden), "{hidden} : {}", prompt.user);
+        }
+        assert!(
+            prompt.user.contains("## Idée\n\nMon idée"),
+            "{}",
+            prompt.user
+        );
+        assert!(prompt.user.contains("+Mon idée"), "{}", prompt.user);
     }
 }
