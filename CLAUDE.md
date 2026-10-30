@@ -61,7 +61,7 @@ Seul server connaît HTTP et la WebSocket.
 - Une décision structurante = un ADR court dans docs/adr/NNNN-titre.md.
 - Textes de l'interface en français, vouvoiement (voir ui/styles/README.md).
 - Messages de commit : Conventional Commits, description en français à l'impératif
-  (`type(portée): description`, types feat, fix, docs, test, refactor, chore ;
+  (`type(portée): description`, types feat, fix, docs, test, refactor, ci, chore ;
   portées : core, mentors, llm, server, cli, ui, editor, eval, adr, plan).
 
 ## Façon de travailler
