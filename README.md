@@ -186,8 +186,16 @@ Aucun test n'appelle le réseau. Avant toute contribution, lire `CLAUDE.md`,
 | mentors/ | Mentors livrés par défaut |
 | evals/ | Cas d'évaluation des mentors et rapports |
 | docs/cadrage.md | Dossier de cadrage complet |
-| docs/plan.md | Six phases et critères de fin |
+| docs/plan.md | Sept phases et critères de fin |
 | docs/protocole.md | Messages WebSocket |
 | docs/adr/ | Décisions d'architecture |
 | docs/maquettes/ | Écrans en HTML statique |
 | CLAUDE.md, PROMPT.md | Instructions pour Claude Code |
+
+## Licence
+
+Hodegos est distribué sous la double licence MIT ou Apache 2.0, au choix :
+voir [LICENSE-MIT](LICENSE-MIT) et [LICENSE-APACHE](LICENSE-APACHE). Les
+composants tiers servis par le binaire gardent leur propre licence : CodeMirror
+(MIT, `ui/vendor/LICENSES.md`), Inter et JetBrains Mono (SIL Open Font License,
+`ui/fonts/`).

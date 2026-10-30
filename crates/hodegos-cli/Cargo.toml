@@ -4,6 +4,7 @@ description = "Binaire hodegos : lancement de l'IDE, mentors et évaluation."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 publish.workspace = true
 
 [[bin]]
