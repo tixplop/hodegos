@@ -35,7 +35,7 @@ connexion reste ouverte.
 | --- | --- | --- |
 | `ping` | — | Renvoie `pong` (phase 1) |
 | `list_dir` | `path` (`""` pour la racine) | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
-| `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) |
+| `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) ; si une passe d'ouverture est due (phase 7), `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
 | `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe : `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
 | `cursor` | `path`, `line`, `col` (à partir de 1) | Met à jour la section courante, envoie `casting` s'il change ; sans `id`, aucune autre réponse |
 | `hint_next` | `remark_id`, `confirm_over_budget` (facultatif, `false`) | Demande le palier suivant au mentor de la remarque ; renvoie `remark_update` quand il a répondu, puis `status` |
@@ -57,7 +57,7 @@ connexion reste ouverte.
 | `remark_update` | une remarque complète | réponse à `hint_next`, `remark_reply` et `remark_dismiss` ; relance après une réponse ; détachement après un enregistrement ou une modification externe |
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
-| `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass` | à la connexion, puis après chaque enregistrement |
+| `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass`, `initial_file` | à la connexion, puis après chaque passe (enregistrement ou ouverture) |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -79,8 +79,19 @@ Détails des fichiers :
 Détails des passes :
 
 - Une remarque suit le contrat de `docs/cadrage.md`, avec en plus `kind`
-  (`observation`, `question` ou `next_step`). `anchor.quote` est vide pour une
-  étape suivante sans citation, ancrée au début de la section.
+  (`observation`, `question` ou `next_step`). `anchor.quote` peut être vide pour
+  une étape suivante (`next_step`) seulement : elle est alors ancrée au début de
+  la section (`line_hint` = `start_line`), c'est-à-dire sur son titre en Markdown,
+  et l'interface marque cette ligne.
+- Passe d'ouverture (phase 7) : à l'`open_file` d'un fichier dont le titulaire
+  d'au moins une section a `on_open: true`, si aucune remarque n'a encore été faite
+  sur ce fichier et qu'aucune passe d'ouverture n'y a abouti. Elle porte sur les
+  sections dont le titulaire a `on_open` (8 au plus, dans l'ordre du fichier), le
+  fichier étant traité comme créé ; budget, exclusions et plafond de 2 remarques
+  comme une autre passe. Une seule à la fois par fichier et par fenêtre.
+- `status.initial_file` : chemin relatif du fichier que le front ouvre à la
+  connexion (`docs/vision.md` après `hodegos new`), dans le premier `status` de la
+  connexion seulement ; `null` partout ailleurs.
 - `status.provider_message` : raison de l'indisponibilité du fournisseur (clé
   absente, modèles non configurés, erreur de la dernière passe), `null` sinon.
 - `status.budget_level` : `ok`, `warning` (seuil `warn_at` atteint) ou `exceeded`

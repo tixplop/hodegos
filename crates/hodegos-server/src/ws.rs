@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 use crate::AppState;
 use crate::followup;
 use crate::pass::{
-    self, PassRequest, PassResult, Prepared, cast_section, locate_anchor, mentor_ref,
+    self, PassRequest, PassResult, Prepared, Trigger, cast_section, locate_anchor, mentor_ref,
 };
 use crate::protocol::{
     self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
@@ -91,6 +91,8 @@ struct Connection {
     followups: mpsc::UnboundedSender<FollowUpDone>,
     /// Remarques dont une reprise est en cours : une seule à la fois.
     busy: HashSet<String>,
+    /// Fichiers dont la passe d'ouverture est en cours : une seule à la fois.
+    opening: HashSet<RelPath>,
 }
 
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
@@ -109,8 +111,9 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         generations: HashMap::new(),
         followups,
         busy: HashSet::new(),
+        opening: HashSet::new(),
     };
-    let mut pending = vec![Outgoing::push(connection.state.status())];
+    let mut pending = vec![Outgoing::push(connection.state.connection_status())];
     pending.extend(connection.mentor_warnings(false));
     loop {
         for reply in pending.drain(..) {
@@ -204,6 +207,7 @@ impl Connection {
                 let file = project.read_file(&self.session, &rel)?;
                 self.watch(&rel);
                 let open = OpenFile::new(file.version.clone(), file.content.clone(), file.language);
+                let content = file.content.clone();
                 // Le fichier a pu changer pendant que Hodegos était arrêté ; les remarques
                 // détachées partent avec `file`, sans `remark_update`.
                 self.state.store.reanchor(rel.as_str(), |anchor| {
@@ -218,11 +222,12 @@ impl Connection {
                     remarks: self.state.store.visible_remarks(rel.as_str()),
                 };
                 self.open.insert(rel.clone(), open);
-                self.cursor = Some((rel, 1));
+                self.cursor = Some((rel.clone(), 1));
                 // Toujours un casting à l'ouverture, même identique au précédent.
                 self.last_casting = None;
                 let mut replies = vec![Outgoing::reply(re, reply)];
                 replies.extend(self.casting_if_changed());
+                replies.extend(self.open_pass(rel, file.language, content));
                 Ok(replies)
             }
             ClientMessage::Save {
@@ -259,6 +264,7 @@ impl Connection {
                     old,
                     new: content,
                     cursor_line: self.cursor.as_ref().map(|(_, line)| *line),
+                    trigger: Trigger::Save,
                 }));
                 Ok(replies)
             }
@@ -558,7 +564,33 @@ impl Connection {
         replies
     }
 
-    /// Lance la passe qui suit un enregistrement, ou en donne l'issue tout de suite.
+    /// Passe d'ouverture, si elle est due et qu'aucune n'est déjà en cours pour ce fichier.
+    fn open_pass(&mut self, rel: RelPath, language: Language, content: String) -> Vec<Outgoing> {
+        let registry = self.state.mentors.registry();
+        if self.opening.contains(&rel)
+            || !pass::wants_open_pass(&self.state, &registry, &rel, language, &content)
+        {
+            return Vec::new();
+        }
+        let replies = self.start_pass(PassRequest {
+            path: rel.clone(),
+            language,
+            old: String::new(),
+            new: content,
+            cursor_line: None,
+            trigger: Trigger::Open,
+        });
+        if replies
+            .iter()
+            .any(|r| matches!(r.message, ServerMessage::PassStarted { .. }))
+        {
+            self.opening.insert(rel);
+        }
+        replies
+    }
+
+    /// Lance la passe qui suit un enregistrement ou une ouverture, ou en donne l'issue
+    /// tout de suite.
     fn start_pass(&mut self, request: PassRequest) -> Vec<Outgoing> {
         let started = Instant::now();
         let generation = {
@@ -571,6 +603,7 @@ impl Connection {
             Prepared::Done(outcome) => {
                 self.record_pass(
                     &request.path,
+                    request.trigger,
                     outcome,
                     0,
                     started.elapsed().as_millis(),
@@ -593,14 +626,23 @@ impl Connection {
 
     /// Remarques d'une passe terminée, persistées puis envoyées, et nouvel état.
     fn pass_finished(&mut self, result: PassResult) -> Vec<Outgoing> {
+        if result.trigger == Trigger::Open {
+            self.opening.remove(&result.path);
+        }
         let current = self.generations.get(&result.path) == Some(&result.generation);
         if !current {
             tracing::debug!(path = %result.path, "passe dépassée par un enregistrement plus récent");
             return vec![Outgoing::push(self.state.status())];
         }
         self.state.store.add(&result.remarks);
+        // Une passe d'ouverture aboutie, même sans remarque, ne se refait pas ; après
+        // une panne ou un budget atteint, elle sera retentée à la prochaine ouverture.
+        if result.trigger == Trigger::Open && result.outcome == PassOutcome::Ok {
+            self.state.store.mark_opened(result.path.as_str());
+        }
         self.record_pass(
             &result.path,
+            result.trigger,
             result.outcome,
             result.remarks.len(),
             u128::from(result.duration_ms),
@@ -619,6 +661,7 @@ impl Connection {
     fn record_pass(
         &self,
         path: &RelPath,
+        trigger: Trigger,
         outcome: PassOutcome,
         remarks: usize,
         duration_ms: u128,
@@ -626,6 +669,7 @@ impl Connection {
     ) {
         tracing::info!(
             %path,
+            declencheur = trigger.as_str(),
             issue = outcome.as_str(),
             remarques = remarks,
             duree_ms = u64::try_from(duration_ms).unwrap_or(u64::MAX),

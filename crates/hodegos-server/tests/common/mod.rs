@@ -66,6 +66,7 @@ pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
         mentors: sources_in(dir),
         data_dir: data_dir(dir),
         llm,
+        initial_file: None,
     }
 }
 

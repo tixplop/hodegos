@@ -1,6 +1,8 @@
 //! Données de l'utilisateur pour un projet, sous `$XDG_DATA_HOME/hodegos/<id-projet>/` :
-//! historique des remarques. Rien n'est jamais écrit dans le dépôt.
+//! historique des remarques et fichiers déjà vus par une passe d'ouverture. Rien
+//! n'est jamais écrit dans le dépôt.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -16,10 +18,18 @@ struct RemarksFile {
     remarks: Vec<Remark>,
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct OpenedFile {
+    version: u32,
+    paths: BTreeSet<String>,
+}
+
 pub(crate) struct Store {
     /// `None` : rien n'est persisté (dossier de données introuvable).
     dir: Option<PathBuf>,
     remarks: Mutex<Vec<Remark>>,
+    /// Fichiers dont la passe d'ouverture s'est terminée (`opened.json`).
+    opened: Mutex<BTreeSet<String>>,
 }
 
 impl Store {
@@ -37,6 +47,17 @@ impl Store {
                 }
             })
             .unwrap_or_default();
+        let opened = dir
+            .as_ref()
+            .and_then(|dir| fs::read_to_string(dir.join("opened.json")).ok())
+            .and_then(|text| match serde_json::from_str::<OpenedFile>(&text) {
+                Ok(file) => Some(file.paths),
+                Err(err) => {
+                    tracing::warn!(error = %err, "opened.json illisible, ignoré");
+                    None
+                }
+            })
+            .unwrap_or_default();
         if let Some(dir) = &dir {
             let project = serde_json::json!({ "root": root.display().to_string() });
             if let Err(err) = write_json(&dir.join("project.json"), &project) {
@@ -46,6 +67,42 @@ impl Store {
         Self {
             dir,
             remarks: Mutex::new(remarks),
+            opened: Mutex::new(opened),
+        }
+    }
+
+    /// Une remarque, quel que soit son statut, a déjà été faite sur ce fichier.
+    pub(crate) fn has_remarks(&self, path: &str) -> bool {
+        self.remarks
+            .lock()
+            .map(|remarks| remarks.iter().any(|r| r.path == path))
+            .unwrap_or(true)
+    }
+
+    /// La passe d'ouverture de ce fichier a déjà abouti.
+    pub(crate) fn was_opened(&self, path: &str) -> bool {
+        self.opened
+            .lock()
+            .map(|opened| opened.contains(path))
+            .unwrap_or(true)
+    }
+
+    pub(crate) fn mark_opened(&self, path: &str) {
+        let Ok(mut opened) = self.opened.lock() else {
+            return;
+        };
+        if !opened.insert(path.to_owned()) {
+            return;
+        }
+        let Some(dir) = &self.dir else {
+            return;
+        };
+        let file = OpenedFile {
+            version: 1,
+            paths: opened.clone(),
+        };
+        if let Err(err) = write_json(&dir.join("opened.json"), &file) {
+            tracing::error!(error = %err, "opened.json non écrit");
         }
     }
 

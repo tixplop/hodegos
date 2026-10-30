@@ -179,6 +179,8 @@ pub enum ServerMessage {
         budget_cap: f64,
         budget_level: BudgetLevel,
         last_pass: Option<LastPass>,
+        /// Fichier à ouvrir, dans le premier `status` d'une connexion seulement.
+        initial_file: Option<String>,
     },
     Error {
         code: ErrorCode,
@@ -638,6 +640,7 @@ mod tests {
                     remarks: 0,
                     duration_ms: 120,
                 }),
+                initial_file: Some("docs/vision.md".to_owned()),
             },
             ServerMessage::Casting {
                 path: "a.rs".to_owned(),

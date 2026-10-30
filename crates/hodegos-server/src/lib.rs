@@ -74,6 +74,8 @@ pub struct ServerOptions {
     /// Données de l'utilisateur : `$XDG_DATA_HOME/hodegos` (budget, historique).
     pub data_dir: PathBuf,
     pub llm: Llm,
+    /// Fichier que le front ouvre à la connexion (`hodegos new` : `docs/vision.md`).
+    pub initial_file: Option<String>,
 }
 
 /// Chemins touchés sur le disque, diffusés à toutes les connexions.
@@ -93,6 +95,7 @@ struct AppState {
     /// Fournisseur joignable, et sinon pourquoi.
     provider: Mutex<(bool, Option<String>)>,
     last_pass: Mutex<Option<LastPass>>,
+    initial_file: Option<String>,
 }
 
 impl AppState {
@@ -122,6 +125,15 @@ impl AppState {
 
     /// État du fournisseur, du budget et de la dernière passe.
     fn status(&self) -> ServerMessage {
+        self.status_with(None)
+    }
+
+    /// Premier `status` d'une connexion : il porte aussi le fichier à ouvrir.
+    fn connection_status(&self) -> ServerMessage {
+        self.status_with(self.initial_file.clone())
+    }
+
+    fn status_with(&self, initial_file: Option<String>) -> ServerMessage {
         let (provider_ok, provider_message) = self
             .provider
             .lock()
@@ -139,6 +151,7 @@ impl AppState {
                 hodegos_llm::BudgetLevel::Exceeded => BudgetLevel::Exceeded,
             },
             last_pass: self.last_pass.lock().ok().and_then(|l| l.clone()),
+            initial_file,
         }
     }
 }
@@ -158,6 +171,7 @@ impl Server {
             mentors: sources,
             data_dir,
             llm,
+            initial_file,
         } = options;
         let bind_error = |source: std::io::Error| match source.kind() {
             std::io::ErrorKind::AddrInUse => ServerError::PortInUse(port),
@@ -197,6 +211,7 @@ impl Server {
             store,
             provider: Mutex::new(provider),
             last_pass: Mutex::new(None),
+            initial_file,
         });
         let reload_state = state.clone();
         tokio::spawn(async move {

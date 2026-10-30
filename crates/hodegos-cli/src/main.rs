@@ -156,6 +156,7 @@ async fn run(projet: PathBuf, port: u16) -> anyhow::Result<()> {
         mentors: MentorSources::for_project(&root),
         data_dir,
         llm: llm(&config_dir),
+        initial_file: None,
     };
     if let Err(message) = &options.llm.client {
         tracing::warn!(%message, "aucune passe tant que le fournisseur n'est pas configuré");

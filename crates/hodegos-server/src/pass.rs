@@ -1,11 +1,12 @@
-//! Passe proactive après un enregistrement : sections modifiées, casting, exclusion
-//! des secrets, budget, appel au titulaire, validation et ancrage des remarques.
+//! Passe proactive après un enregistrement, ou à la première ouverture d'un fichier
+//! dont un titulaire a `on_open` : sections, casting, exclusion des secrets, budget,
+//! appel au titulaire, validation et ancrage des remarques.
 
 use std::sync::Arc;
 use std::time::Instant;
 
 use hodegos_core::secrets::exclusion;
-use hodegos_core::{Language, RelPath, Section, changed_sections};
+use hodegos_core::{Language, RelPath, Section, changed_sections, sections};
 use hodegos_llm::{
     AskError, BudgetLevel, ChatMessage, LlmRequest, RemarkDraft, RemarkLevel, Role, Rules,
     ask_for_remarks, remarks_schema,
@@ -22,16 +23,39 @@ use crate::protocol::{Anchor, MentorRef, PassOutcome, Remark, ServerMessage, Thr
 
 /// Sections soumises aux mentors par passe, au plus.
 const MAX_SECTIONS: usize = 2;
+/// Sections soumises par une passe d'ouverture, au plus.
+const MAX_OPEN_SECTIONS: usize = 8;
 /// Remarques gardées par passe, au plus, toutes sections confondues.
 const MAX_REMARKS: usize = 2;
 
-/// Ce qu'un enregistrement apporte à la passe.
+/// Ce qui déclenche une passe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Trigger {
+    /// Enregistrement : les sections modifiées, deux au plus.
+    Save,
+    /// Première ouverture : toutes les sections dont le titulaire a `on_open`, dans
+    /// l'ordre du fichier, le fichier étant traité comme créé.
+    Open,
+}
+
+impl Trigger {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Save => "enregistrement",
+            Self::Open => "ouverture",
+        }
+    }
+}
+
+/// Ce qu'un enregistrement ou une ouverture apporte à la passe.
 pub(crate) struct PassRequest {
     pub(crate) path: RelPath,
     pub(crate) language: Language,
+    /// Contenu précédent ; vide pour une passe d'ouverture.
     pub(crate) old: String,
     pub(crate) new: String,
     pub(crate) cursor_line: Option<usize>,
+    pub(crate) trigger: Trigger,
 }
 
 /// Appel à préparer pour une section.
@@ -54,12 +78,14 @@ pub(crate) enum Prepared {
 pub(crate) struct Run {
     pub(crate) started: ServerMessage,
     path: RelPath,
+    trigger: Trigger,
     jobs: Vec<Job>,
 }
 
 /// Résultat d'une passe, renvoyé à la connexion qui l'a lancée.
 pub(crate) struct PassResult {
     pub(crate) path: RelPath,
+    pub(crate) trigger: Trigger,
     pub(crate) generation: u64,
     pub(crate) remarks: Vec<Remark>,
     pub(crate) outcome: PassOutcome,
@@ -109,6 +135,40 @@ pub(crate) fn mentor_ref(registry: &Registry, id: &str) -> Option<MentorRef> {
     })
 }
 
+/// Une passe d'ouverture est due : un titulaire d'au moins une section a `on_open`,
+/// aucune remarque n'a encore été faite sur le fichier, et aucune passe d'ouverture
+/// n'y a abouti.
+pub(crate) fn wants_open_pass(
+    state: &AppState,
+    registry: &Registry,
+    path: &RelPath,
+    language: Language,
+    content: &str,
+) -> bool {
+    if state.store.has_remarks(path.as_str()) || state.store.was_opened(path.as_str()) {
+        return false;
+    }
+    sections(language, content)
+        .iter()
+        .any(|section| open_titular(state, registry, path, language, content, section).is_some())
+}
+
+/// Titulaire de la section, s'il intervient à l'ouverture.
+fn open_titular(
+    state: &AppState,
+    registry: &Registry,
+    path: &RelPath,
+    language: Language,
+    content: &str,
+    section: &Section,
+) -> Option<Mentor> {
+    let casting = cast_section(state, registry, path, language, content, Some(section));
+    registry
+        .get(casting.titular.as_deref()?)
+        .filter(|m| m.on_open)
+        .cloned()
+}
+
 /// Décide, sans appel au modèle, si la passe a lieu et prépare ses appels.
 pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassRequest) -> Prepared {
     let path = request.path.as_str();
@@ -120,30 +180,49 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
     if changes.is_empty() {
         return Prepared::Done(PassOutcome::NoChange);
     }
-    // La section du curseur d'abord, puis les plus modifiées.
-    changes.sort_by_key(|c| {
-        let at_cursor = request
-            .cursor_line
-            .is_some_and(|line| c.section.contains(line));
-        (!at_cursor, std::cmp::Reverse(c.changed_lines))
-    });
 
-    let cast_changes: Vec<_> = changes
-        .into_iter()
-        .filter_map(|change| {
-            let casting = cast_section(
-                state,
-                registry,
-                &request.path,
-                request.language,
-                &request.new,
-                Some(&change.section),
-            );
-            let mentor = registry.get(casting.titular.as_deref()?)?.clone();
-            Some((change, mentor))
-        })
-        .take(MAX_SECTIONS)
-        .collect();
+    let cast_changes: Vec<_> = match request.trigger {
+        Trigger::Save => {
+            // La section du curseur d'abord, puis les plus modifiées.
+            changes.sort_by_key(|c| {
+                let at_cursor = request
+                    .cursor_line
+                    .is_some_and(|line| c.section.contains(line));
+                (!at_cursor, std::cmp::Reverse(c.changed_lines))
+            });
+            changes
+                .into_iter()
+                .filter_map(|change| {
+                    let casting = cast_section(
+                        state,
+                        registry,
+                        &request.path,
+                        request.language,
+                        &request.new,
+                        Some(&change.section),
+                    );
+                    let mentor = registry.get(casting.titular.as_deref()?)?.clone();
+                    Some((change, mentor))
+                })
+                .take(MAX_SECTIONS)
+                .collect()
+        }
+        Trigger::Open => changes
+            .into_iter()
+            .filter_map(|change| {
+                let mentor = open_titular(
+                    state,
+                    registry,
+                    &request.path,
+                    request.language,
+                    &request.new,
+                    &change.section,
+                )?;
+                Some((change, mentor))
+            })
+            .take(MAX_OPEN_SECTIONS)
+            .collect(),
+    };
     if cast_changes.is_empty() {
         return Prepared::Done(PassOutcome::NoMentor);
     }
@@ -209,6 +288,7 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
     Prepared::Run(Box::new(Run {
         started,
         path: request.path.clone(),
+        trigger: request.trigger,
         jobs,
     }))
 }
@@ -239,6 +319,7 @@ pub(crate) async fn run(
     let Ok(client) = state.llm.client.clone() else {
         return finish(
             run.path,
+            run.trigger,
             generation,
             Vec::new(),
             PassOutcome::ProviderError,
@@ -317,11 +398,20 @@ pub(crate) async fn run(
     } else {
         PassOutcome::Ok
     };
-    finish(run.path, generation, remarks, outcome, cost, started)
+    finish(
+        run.path,
+        run.trigger,
+        generation,
+        remarks,
+        outcome,
+        cost,
+        started,
+    )
 }
 
 fn finish(
     path: RelPath,
+    trigger: Trigger,
     generation: u64,
     remarks: Vec<Remark>,
     outcome: PassOutcome,
@@ -330,6 +420,7 @@ fn finish(
 ) -> PassResult {
     PassResult {
         path,
+        trigger,
         generation,
         remarks,
         outcome,
