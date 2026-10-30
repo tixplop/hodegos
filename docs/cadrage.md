@@ -21,11 +21,11 @@ Le MVP prouve une seule boucle : vous enregistrez un fichier, le bon mentor est 
 | | Dans le MVP | Hors MVP (plus tard) |
 | --- | --- | --- |
 | Contenus | Code Rust, TypeScript/JavaScript, Python ; documents Markdown | Autres langages, configuration, images |
-| Mentors | Mentor du langage (un seul, paramétré par langage), Architecte | Testeur, UX designer, Sécurité, Rédacteur technique, Mentor produit |
-| Déclencheur | Enregistrement du fichier | Pause de frappe, commit, déclenchement manuel par section |
+| Mentors | Mentor du langage (un seul, paramétré par langage), Architecte ; Mentor produit (phase 7) | Testeur, UX designer, Sécurité, Rédacteur technique |
+| Déclencheur | Enregistrement du fichier ; première ouverture pour un mentor `on_open` (phase 7) | Pause de frappe, commit, déclenchement manuel par section |
 | Casting | Par fichier et par section ; un titulaire, un consultant au plus ; choix forcé par l'utilisateur | Table ronde, apprentissage des préférences de casting |
 | Paliers | Indice, question, piste, exemple ; montée à la demande | Palier d'entrée adapté à la progression, demande explicite de solution |
-| Interface | Arborescence, éditeur, panneau des mentors, ancres, barre d'état, thèmes clair et sombre | Kick-off de projet, écran de progression, réglages graphiques |
+| Interface | Arborescence, éditeur, panneau des mentors, ancres, barre d'état, thèmes clair et sombre ; kick-off par document, `hodegos new` (phase 7) | Écran de kick-off et ses trois points de départ, écran de progression, réglages graphiques |
 | Gestion des mentors | Trois niveaux de fichiers, rechargement à chaud, `mentors list`, `mentors eject`, `enabled: false` | Éditeur graphique de mentors, mentor « Rédacteur de mentors » |
 | Mémoire | Historique des remarques par projet et par utilisateur | Mémoire de progression, propositions des mentors sur leur propre rôle |
 | Outillage | — | Client des serveurs de langage, terminal intégré, git dans l'interface |
@@ -33,7 +33,7 @@ Le MVP prouve une seule boucle : vous enregistrez un fichier, le bon mentor est 
 
 Critère de fin : sur un projet réel de 50 fichiers, une passe complète (casting, appel au modèle, remarques affichées) prend moins de 10 secondes, et aucune remarque ne contient le code attendu.
 
-Les maquettes de `docs/maquettes/` montrent la cible au-delà du MVP (kick-off, progression) : seuls les écrans « Doc d'architecture » et « Code » relèvent du MVP, sans les mentors hors périmètre.
+Les maquettes de `docs/maquettes/` montrent la cible au-delà du MVP (kick-off, progression) : seuls les écrans « Doc d'architecture » et « Code » relèvent du MVP, sans les mentors hors périmètre. Le kick-off de la maquette 01 est servi en phase 7 par un document, `docs/vision.md`, sans écran dédié ; ses trois points de départ restent à concevoir (voir « Kick-off d'un projet » et `docs/adr/0004-kickoff-par-document.md`).
 
 ## Architecture
 
@@ -135,6 +135,7 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 **Ce qui part vers OpenRouter**
 
 - Seulement : la section modifiée, le diff de cette section, le chemin relatif du fichier, son langage, et au plus 40 lignes de contexte autour.
+- En Markdown, les commentaires HTML (`<!-- … -->`, consignes du gabarit comprises) sont retirés de la section, du contexte et du diff avant l'envoi (phase 7) ; une ligne qui ne contenait qu'un commentaire disparaît, un commentaire non fermé court jusqu'à la fin.
 - Jamais (décidé en phase 4) : les fichiers ignorés par git, les noms `.env*`, `*.pem`, `*.key`, les clés SSH (`id_*` sans extension ou en `.pub`), et tout fichier contenant un bloc `-----BEGIN … PRIVATE KEY-----`. La passe s'arrête alors avec l'issue `excluded`.
 - Avant chaque envoi, les lignes qui ressemblent à un secret sont remplacées par `[secret masqué]` : jetons reconnaissables (`AKIA…`, `ghp_…`, `github_pat_…`, `sk-…`, `xox…`) et affectations d'une valeur littérale à `password`, `secret`, `token`, `api_key`… (`password = "…"`, `API_KEY=…` en majuscules). Le reste part tel quel.
 - La clé vient de `OPENROUTER_API_KEY` si elle est définie, sinon de `credentials.toml` (`openrouter_api_key = "…"`), refusé s'il est lisible par le groupe ou les autres.
@@ -156,6 +157,7 @@ model: strong               # fast | strong
 priority: 80                # 0-100, départage les égalités
 entry_level: indice         # palier de départ
 max_remarks: 2              # par passe
+on_open: false              # passe sur tout le fichier à sa première ouverture (phase 7)
 triggers:
   paths: ["docs/architecture/**", "**/adr/*.md"]
   languages: [markdown]
@@ -179,6 +181,7 @@ Gestion :
 - **Personnaliser** un mentor livré : `hodegos mentors eject <id>` copie son fichier dans `~/.config/hodegos/mentors/` (ou `--project` pour `.hodegos/mentors/`), prêt à être modifié ; refus si le fichier existe déjà.
 - **Lister** : `hodegos mentors list` affiche chaque mentor actif, son niveau d'origine, son mode, et les fichiers en erreur avec la raison.
 - **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est jamais créé dans le projet par Hodegos, qui en observe les parents pour le voir apparaître.
+- **`on_open`** (phase 7, `false` par défaut) : un fichier dont le titulaire d'au moins une section a `on_open: true` reçoit une passe d'ouverture (voir « Déroulé d'une passe »). Le Mentor produit l'utilise sur `docs/vision.md`.
 - **Validation** : `id` en `[a-z0-9-]`, `initials` de deux caractères, `priority` de 0 à 100, `max_remarks` de 1 à 2, `mode`, `model` et `entry_level` parmi les valeurs connues ; deux fichiers de même `id` au même niveau : le second est signalé. Les frontmatters sont lus avec `serde-saphyr` (`serde_yaml` n'est plus maintenu).
 - Un fichier invalide est ignoré, avec un avertissement dans la barre d'état et le journal ; il ne bloque jamais le démarrage. Un champ inconnu est ignoré, pour permettre d'ajouter des champs plus tard.
 
@@ -204,7 +207,7 @@ Ce que le modèle doit produire :
 }
 ```
 
-- `quote` : un extrait copié mot pour mot de la section, de 3 à 120 caractères.
+- `quote` : un extrait copié mot pour mot de la section, de 3 à 120 caractères ; une chaîne vide est permise **seulement** pour `kind: next_step` (phase 7) : l'ancre porte alors le `section_id` et une citation vide, `line_hint` est la première ligne de la section (son titre en Markdown) et l'interface marque cette ligne.
 - `level` : `indice`, `question`, `piste` ou `exemple` ; égal au palier demandé.
 - `kind` : `observation`, `question` ou `next_step` (étape suivante, sans citation obligatoire).
 - `message` : 400 caractères au plus aux paliers indice et question, 800 aux paliers piste et exemple (décidé en phase 6 : l'évaluation montrait des pistes et des exemples utiles écartés à 400), vouvoiement, pas de jugement de valeur.
@@ -237,7 +240,7 @@ Cycle de vie (décidé en phase 5) :
 Règles de validation, dans l'ordre :
 
 1. JSON invalide ou schéma non respecté : une seule relance en renvoyant l'erreur au modèle, puis abandon silencieux (journalisé).
-2. `quote` introuvable telle quelle dans la section : remarque écartée.
+2. `quote` introuvable telle quelle dans la section : remarque écartée. Ne s'applique pas à la citation vide d'un `next_step` ; une citation vide pour un autre type est écartée (« citation trop courte »). La citation est cherchée dans le texte réel de la section, commentaires HTML compris : une citation qui chevauche un commentaire retiré à l'envoi est écartée.
 3. **Garde « pas de solution »** : aux paliers indice, question et piste, toute remarque contenant un bloc de code (entre ``` ou indenté) ou plus de 2 lignes d'apparence code est écartée ; le code en ligne (entre backticks) reste permis, comme dans l'exemple du palier question. Au palier exemple, le code est permis (12 lignes au plus) mais ne doit pas reprendre plus de 3 identifiants de la section de l'utilisateur.
    Précisions de la phase 5 : au palier exemple, on compte comme code les lignes des blocs entre ```, les lignes indentées et les lignes d'apparence code ; on y cherche les identifiants, ainsi que dans le code en ligne. Les mots-clés et littéraux des cinq langages (`if`, `return`, `const`, `self`, `None`…) et les noms d'un seul caractère ne comptent pas parmi les identifiants repris.
    Renforcement (après la phase 6) : au palier exemple, une ligne de code (ou un code en ligne) qui partage avec une ligne de la section plus de deux jetons consécutifs, dont un **nom propre au code de la personne**, est écartée (« exemple qui recopie un fragment de la section »), même si elle reprend moins de 3 identifiants. Un nom propre à la personne est un identifiant de la section, hors mots-clés, noms d'un caractère et noms courants des bibliothèques standard (`Math`, `console`, `len`, `Vec`, `Some`…), employé au moins une fois ailleurs qu'après `.` ou `::`. Les méthodes d'une bibliothèque (`find`, `trim().parse().unwrap()`) restent donc permises dans un cas voisin ; `e.debut.getTime() === debut.getTime()` ou `for tache in taches[:]` ne le sont plus. Les chaînes littérales comptent comme un seul jeton et ne sont jamais des noms propres.
@@ -339,9 +342,10 @@ warn_at = 0.8               # avertissement à 80 %
 
 - Rien ne part si le contenu n'a pas changé (`no_change`), si le fichier est exclu (`excluded`), si aucune section modifiée n'a de titulaire (`no_mentor`), sans fournisseur (`provider_error`) ou au-delà du budget (`budget_exceeded`).
 - Au plus 2 sections par passe : celle du curseur, puis les plus modifiées. Un appel par section, au titulaire seulement (le consultant reste affiché), en parallèle. Au plus 2 remarques au total, les plus confiantes.
+- **Passe d'ouverture** (phase 7) : à l'ouverture d'un fichier dont le titulaire d'au moins une section a `on_open: true`, si aucune remarque n'a jamais été faite sur ce fichier (quel que soit son statut) et qu'aucune passe d'ouverture n'y a abouti. Elle porte sur les sections dont le titulaire a `on_open`, dans l'ordre du fichier, 8 au plus (la limite de 2 sections ne s'applique pas), le fichier étant traité comme créé (diff depuis un fichier vide). Budget, exclusions, fournisseur et plafond de 2 remarques comme une autre passe. Une passe aboutie (`ok`), même sans remarque, est notée dans `<id-projet>/opened.json` et ne se refait pas ; après une panne, un budget atteint ou une passe rendue caduque par un enregistrement, elle est retentée à l'ouverture suivante. Une seule à la fois par fichier et par fenêtre.
 - Contexte envoyé : 20 lignes de part et d'autre de la section, secrets masqués.
 - Un nouvel enregistrement du même fichier rend la passe en cours caduque : son coût est compté, ses remarques sont ignorées.
-- Données de l'utilisateur sous `$XDG_DATA_HOME/hodegos/` (par défaut `~/.local/share/hodegos/`) : `usage.json` (coût par mois, en UTC), `<id-projet>/remarks.json` (historique), `<id-projet>/overrides.json` (choix forcés), `<id-projet>/project.json` (racine du projet, pour s'y retrouver). Écriture par fichier temporaire renommé.
+- Données de l'utilisateur sous `$XDG_DATA_HOME/hodegos/` (par défaut `~/.local/share/hodegos/`) : `usage.json` (coût par mois, en UTC), `<id-projet>/remarks.json` (historique), `<id-projet>/overrides.json` (choix forcés), `<id-projet>/opened.json` (fichiers dont la passe d'ouverture a abouti, phase 7), `<id-projet>/project.json` (racine du projet, pour s'y retrouver). Écriture par fichier temporaire renommé.
 - Une citation qui n'existe plus reste affichée dans sa carte, sans surlignage ; depuis la phase 5, la remarque passe en `detached` (voir « Contrat : format d'une remarque »).
 
 ## Prompts
@@ -438,7 +442,7 @@ Tout ce qui est déterministe est testé sans réseau ; le comportement des ment
 Décisions de la phase 6 (détail dans `evals/README.md`) :
 
 - « Divulguer » se juge sur tout ce que le modèle propose, **brouillons écartés par la garde compris** : la garde est un filet de sécurité, pas une qualité du modèle. Le rapport donne aussi la solution affichée.
-- Chaque modèle est jugé sur les cas de son niveau (`fast` : Mentor du langage, 15 cas ; `strong` : Architecte, 5 cas). `--fast`, `--strong` et `--model` remplacent la configuration pour comparer des candidats.
+- Chaque modèle est jugé sur les cas de son niveau (`fast` : Mentor du langage, 15 cas ; `strong` : Architecte, 5 cas, et Mentor produit, 2 cas depuis la phase 7). `--fast`, `--strong` et `--model` remplacent la configuration pour comparer des candidats.
 - Le premier palier d'un cas est joué comme une passe (fichier traité comme créé), les suivants comme « Palier suivant » sur la remarque la plus confiante, avec le fil réel ; mêmes prompts, masquage et validation que l'IDE (construction des prompts partagée dans `hodegos-mentors`, `section_prompt`). Seuls les mentors livrés sont utilisés.
 - L'évaluation est une vraie dépense : elle compte dans `usage.json`, sans être bloquée par le plafond mensuel ; `--max-cost` (3 USD par défaut) l'arrête.
 - Les rapports sont écrits dans `evals/reports/` et commités ; le choix des modèles fait l'objet d'un ADR qui s'y réfère.
@@ -446,6 +450,16 @@ Décisions de la phase 6 (détail dans `evals/README.md`) :
 **Journaux** (décidé en phase 6) : sortie d'erreur du terminal, sans fichier. Par défaut, `info` pour les crates de Hodegos et `warn` pour les bibliothèques ; `RUST_LOG` remplace ce réglage. Une ligne `info` par passe (`passe` : chemin, issue, remarques, durée, coût) et par reprise d'une remarque (`reprise d'une remarque` : remarque, palier suivant ou relance, palier, issue, durée, coût). Jamais de contenu de fichier, de message de la personne ni de réponse du modèle au-dessus de `debug`. Le message d'erreur renvoyé par le fournisseur est purgé de la clé avant d'être affiché ou journalisé ; un test vérifie qu'elle n'apparaît dans aucun journal, même au niveau `trace`.
 
 Le front n'a pas de tests automatiques en MVP : une liste de vérifications manuelles par phase suffit (dans `docs/plan.md`).
+
+## Kick-off d'un projet (phase 7)
+
+Un projet démarre comme un document (décision : `docs/adr/0004-kickoff-par-document.md`, spécification : `docs/phase7-kickoff.md`).
+
+- `hodegos new <chemin> [--no-git] [--no-open] [--port N]` refuse un chemin sous `/mnt/` (tel qu'écrit ou par le plus proche parent existant, même message qu'au lancement) et un dossier existant non vide, sans rien créer ; un dossier existant vide est accepté. Il crée le dossier, puis `docs/vision.md` à partir du gabarit `templates/vision.md` intégré au binaire (`{project_name}` : nom du dossier, `{date}` : date du jour, AAAA-MM-JJ). Sauf `--no-git`, `git init` sans commit ; sans git, un avertissement. Sauf `--no-open`, il lance l'IDE comme `hodegos <chemin>` et le front ouvre `docs/vision.md` (`status.initial_file`). La création n'écrit rien dans `~/.config` ni `~/.local/share` ; le lancement qui suit se comporte comme d'habitude.
+- Le gabarit a cinq sections fixes (Idée, Pour qui, Ce que je veux apprendre, Contraintes, Première version) ; les consignes sont des commentaires HTML, jamais envoyés au modèle.
+- Le Mentor produit (`mentors/mentor-produit.md`, `model: strong`, `entry_level: question`, `on_open: true`) n'est déclenché que par le chemin `docs/vision.md` (50 points, sans langage ni titres) : titulaire de chaque section de la vision, absent de tout autre fichier Markdown (décidé en phase 7 : avec `languages: [markdown]`, il devenait titulaire de tout fichier Markdown grâce à sa priorité).
+- Le cadre commun ne change pas : il demande toujours une citation. La posture du Mentor produit lui fait citer le titre d'une section vide ; une citation vide reste acceptée pour un `next_step`.
+- Hors phase 7 : les trois points de départ de la maquette 01 (nouveau type de sortie, avec son propre contrat), tout écran dédié, toute génération de fichiers par un mentor.
 
 ## Plan par phases
 

@@ -1,6 +1,6 @@
 # Plan par phases
 
-Six phases, chacune livrable et vérifiable seule. On en traite une à la fois ; la
+Sept phases, chacune livrable et vérifiable seule. On en traite une à la fois ; la
 suivante ne commence qu'une fois les critères de fin de la précédente cochés.
 
 ## Phase 1 — Squelette
@@ -109,3 +109,22 @@ Reste à faire avec la vraie clé (par l'utilisateur) :
    cinq modifications réelles (code et ADR) et relever la durée affichée dans la
    barre d'état (« Dernière passe : … en N s ») ; vérifier qu'aucune remarque, à
    aucun palier, ne contient le code attendu.
+
+## Phase 7 — Kick-off d'un projet
+
+`hodegos new`, gabarit `docs/vision.md`, Mentor produit, passe à l'ouverture
+(`on_open`), remarques `next_step` sans citation, commentaires HTML retirés avant
+envoi, deux cas d'évaluation (21 et 22). Spécification : `docs/phase7-kickoff.md` ;
+décision : `docs/adr/0004-kickoff-par-document.md`.
+
+- [x] `hodegos new` : refus de `/mnt/…` et d'un dossier non vide, création du gabarit avec substitutions, `git init` facultatif, tests à l'appui
+  (`crates/hodegos-cli/tests/new.rs`, `Project::create` dans core, lien symbolique vers `/mnt` compris)
+- [x] Les commentaires HTML sont retirés avant envoi au modèle (test)
+  (section, contexte et diff : core `comments`, `section_prompt`, requêtes du faux client dans `tests/open_pass.rs`)
+- [x] `on_open` : passe complète à la première ouverture seulement (test avec `FakeLlmClient`)
+  (`crates/hodegos-server/tests/open_pass.rs` : réouverture, redémarrage, panne puis nouvelle tentative, budget, mentor sans `on_open`)
+- [x] `next_step` à citation vide accepté et ancré sur le titre ; citation vide refusée pour les autres types (tests)
+- [x] Casting : Mentor produit titulaire sur `docs/vision.md`, absent ailleurs (test)
+- [ ] Vérification manuelle : `hodegos new ~/projets/essai` ouvre `vision.md` et le Mentor produit pose au plus deux questions de cadrage en moins de 10 secondes
+- [ ] `hodegos eval` sur les cas 21 et 22 : aucune violation de `must_not`
+- [x] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 7

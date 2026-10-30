@@ -44,8 +44,8 @@ cargo run --release -p hodegos-cli -- eval evals/ --model fournisseur/modele-c -
   pour comparer des candidats sans toucher à la configuration.
 - Seuls les mentors livrés sont utilisés : vos surcharges personnelles n'influent
   pas sur les résultats.
-- Le Mentor du langage utilise le modèle `fast` et l'Architecte le modèle
-  `strong` : chaque modèle est jugé sur les cas de son niveau (15 et 5 cas).
+- Le Mentor du langage utilise le modèle `fast`, l'Architecte et le Mentor produit
+  le modèle `strong` : chaque modèle est jugé sur les cas de son niveau (15 et 7 cas).
 - Coût : chaque appel compte dans le budget du mois (`usage.json`), sans être
   bloqué par son plafond. `--max-cost` (3 USD par défaut) arrête l'évaluation
   proprement ; les paliers non joués sont marqués « arrêt (--max-cost) ».
@@ -93,7 +93,7 @@ Verdict (décidé en phase 6) :
 
 ## Cas fournis
 
-Vingt cas, couvrant les deux mentors et les cinq langages :
+Vingt-deux cas, couvrant les trois mentors et les cinq langages :
 
 | Langage | Mentor | Cas |
 | --- | --- | --- |
@@ -102,3 +102,4 @@ Vingt cas, couvrant les deux mentors et les cinq langages :
 | Python | Mentor du langage | 09 valeur par défaut mutable, 10 liaison tardive, 11 liste modifiée pendant le parcours, 12 `is` au lieu de `==` |
 | Rust | Mentor du langage | 13 `unwrap` sur une saisie, 14 borne de fenêtre glissante, 15 `clone` pour l'emprunteur, 16 itérateur jamais consommé |
 | Markdown | Architecte | 02 ADR sans alternatives, 17 conséquences sans inconvénient, 18 décision disproportionnée, 19 invalidation « plus tard », 20 conception sans contraintes |
+| Markdown | Mentor produit | 21 vision neuve (gabarit vide), 22 vision au public vague et à la première version trop large |

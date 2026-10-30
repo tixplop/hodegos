@@ -43,7 +43,7 @@ puis la même commande `cargo install`.
 [llm]
 provider = "openrouter"
 fast   = "[identifiant OpenRouter du modèle rapide]"   # Mentor du langage
-strong = "[identifiant OpenRouter du modèle fort]"     # Architecte
+strong = "[identifiant OpenRouter du modèle fort]"     # Architecte, Mentor produit
 timeout_secs = 30
 
 [budget]
@@ -73,7 +73,13 @@ d'état ; aucune remarque n'est alors produite.
 
 ```sh
 hodegos ~/projets/mon-projet
+hodegos new ~/projets/nouveau      # crée le projet et docs/vision.md, puis l'ouvre
 ```
+
+`hodegos new` refuse un dossier sous `/mnt/` ou déjà rempli, lance `git init`
+(sans commit ; `--no-git` pour s'en passer) et ouvre l'IDE sur `docs/vision.md`
+(`--no-open` pour seulement créer le projet). Le Mentor produit y pose ses
+questions de cadrage dès l'ouverture, puis à chaque enregistrement.
 
 Le terminal affiche une adresse `http://127.0.0.1:7420/?token=…` : un Ctrl+clic
 l'ouvre dans le navigateur Windows. Le jeton disparaît de l'adresse après le
@@ -112,7 +118,8 @@ une surcharge avec le même `id` et `enabled: false`.
 
 - `~/.config/hodegos/` : `config.toml`, `credentials.toml`, mentors personnels.
 - `~/.local/share/hodegos/usage.json` : coût cumulé par mois.
-- `~/.local/share/hodegos/<id-projet>/` : remarques et choix de mentor par projet.
+- `~/.local/share/hodegos/<id-projet>/` : remarques, choix de mentor et fichiers déjà
+  vus par une passe d'ouverture, par projet.
 
 Rien n'est écrit dans vos projets. Seul `.hodegos/mentors/`, si vous le créez, y
 contient des mentors propres au projet.
@@ -123,7 +130,7 @@ contient des mentors propres au projet.
 cargo run --release -p hodegos-cli -- eval evals/ --max-cost 3
 ```
 
-Rejoue vingt cas avec les vrais modèles, compte la dépense dans le budget du mois
+Rejoue vingt-deux cas avec les vrais modèles, compte la dépense dans le budget du mois
 et écrit un rapport dans `evals/reports/`. Options, déroulé et critères de choix
 d'un modèle : `evals/README.md`.
 
