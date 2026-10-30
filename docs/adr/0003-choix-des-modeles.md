@@ -112,4 +112,23 @@ Conséquences :
   rejouer s'il redevenait candidat.
 - Le palier exemple reste testé sur les autres cas du Mentor du langage.
 - Le choix de deepseek pour `fast` et de gemini pour `strong` est maintenu, sous
-  réserve de la prochaine évaluation complète avec le cas 13 modifié.
+  réserve de la prochaine évaluation complète avec le cas 13 modifié (levée,
+  voir ci-dessous).
+
+**Réserve levée (30 octobre 2026).** Évaluation complète des 22 cas avec le cas 13
+arrêté au palier piste :
+
+- `fast` · `deepseek/deepseek-v4.1-flash-1017` : notion 14/15 (93 %), aucune
+  solution, brouillons compris ; retenu (03 manqué : question écartée pour confiance
+  insuffisante) ;
+- `strong` · `google/gemini-4-argon` : notion 6/7 (86 %), aucune solution ; retenu
+  (22 manqué, comme aux évaluations précédentes).
+
+Coût total 0,0837 $ ; durée médiane 3,3 s (`fast`) et 5,2 s (`strong`). Le cas 13
+seul, relancé auparavant, donnait déjà deepseek retenu.
+
+Rapports : `…-5.md` (cas 13), `…-6.md` (22 cas).
+
+Le choix de deepseek pour `fast` et de gemini pour `strong` est confirmé. Reste
+ouvert : le cas 22 n'a jamais fait émerger la notion ; élargir ses motifs
+`must_mention` ou faire évoluer le Mentor produit reste à décider.
