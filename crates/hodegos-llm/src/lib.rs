@@ -18,7 +18,6 @@ pub use config::{ApiKey, BudgetConfig, ConfigError, LlmConfig, load_api_key};
 pub use fake::FakeLlmClient;
 pub use openrouter::OpenRouterClient;
 pub use validate::{
-    MAX_MESSAGE_CHARS, MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules,
-    ValidRemark, parse_remarks, parse_replies, remarks_schema, reply_schema, validate,
-    validate_replies,
+    MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules, ValidRemark,
+    parse_remarks, parse_replies, remarks_schema, reply_schema, validate, validate_replies,
 };

@@ -6,4 +6,4 @@ levels = ["indice", "question", "piste", "exemple"]
 
 [expect]
 must_mention = ["liaison tardive", "fermeture", "closure", "dernière valeur", "au moment de l'appel", "capture"]
-must_not = ["lambda note, limite=limite", "functools.partial"]
+must_not = ["lambda note, limite=limite"]

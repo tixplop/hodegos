@@ -86,7 +86,8 @@ journalisation propre, documentation d'installation dans le README.
   (cohérence de chaque cas vérifiée par `cargo test` : section, casting, motifs)
 - [x] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
   (vérifié avec `FakeLlmClient` et un faux OpenRouter local)
-- [ ] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
+- [x] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
+  (deepseek-v4.1-flash et gemini-4-argon, 100 % chacun : docs/adr/0003-choix-des-modeles.md)
 - [ ] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
 - [ ] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
   (critère reporté de la phase 4)
@@ -96,10 +97,10 @@ journalisation propre, documentation d'installation dans le README.
 
 Reste à faire avec la vraie clé (par l'utilisateur) :
 
-1. `hodegos eval evals/ --fast <candidat>` et `--strong <candidat>` pour chaque
-   candidat ; garder les rapports de `evals/reports/`.
-2. Consigner le choix dans `docs/adr/0003-choix-des-modeles.md` (candidats, chiffres
-   des rapports, coût) et dans `config.toml`.
+1. ~~`hodegos eval evals/ --fast <candidat>` et `--strong <candidat>` pour chaque
+   candidat ; garder les rapports de `evals/reports/`.~~ Fait le 30 octobre 2026.
+2. ~~Consigner le choix dans `docs/adr/0003-choix-des-modeles.md` (candidats, chiffres
+   des rapports, coût) et dans `config.toml`.~~ Fait le 30 octobre 2026.
 3. Sur un vrai projet d'environ 50 fichiers, ouvert avec `hodegos` : enregistrer
    cinq modifications réelles (code et ADR) et relever la durée affichée dans la
    barre d'état (« Dernière passe : … en N s ») ; vérifier qu'aucune remarque, à

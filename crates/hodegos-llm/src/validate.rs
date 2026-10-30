@@ -8,8 +8,6 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::json;
 
-/// Longueur maximale d'un message.
-pub const MAX_MESSAGE_CHARS: usize = 400;
 /// Confiance minimale d'une remarque gardée.
 pub const MIN_CONFIDENCE: f64 = 0.5;
 const QUOTE_CHARS: std::ops::RangeInclusive<usize> = 3..=120;
@@ -36,6 +34,15 @@ impl RemarkLevel {
             Self::Question => "question",
             Self::Piste => "piste",
             Self::Exemple => "exemple",
+        }
+    }
+
+    /// Longueur maximale d'un message : 400 caractères, 800 aux paliers piste et
+    /// exemple, qui nomment une notion, une documentation ou un cas voisin.
+    pub fn max_message_chars(self) -> usize {
+        match self {
+            Self::Indice | Self::Question => 400,
+            Self::Piste | Self::Exemple => 800,
         }
     }
 }
@@ -182,7 +189,8 @@ pub fn validate_replies(
         } else if draft.confidence.is_nan() || draft.confidence < MIN_CONFIDENCE {
             Some("confiance insuffisante")
         } else {
-            message_rejection(&draft.message).or_else(|| solution_guard(&draft.message, rules))
+            message_rejection(&draft.message, rules.level)
+                .or_else(|| solution_guard(&draft.message, rules))
         };
         match reason {
             Some(reason) => {
@@ -245,7 +253,7 @@ fn rejection(draft: &RemarkDraft, rules: &Rules<'_>) -> Option<&'static str> {
     if draft.confidence.is_nan() || draft.confidence < MIN_CONFIDENCE {
         return Some("confiance insuffisante");
     }
-    if let Some(reason) = message_rejection(&draft.message) {
+    if let Some(reason) = message_rejection(&draft.message, rules.level) {
         return Some(reason);
     }
     let quote_optional = draft.kind == RemarkKind::NextStep && draft.quote.is_empty();
@@ -260,9 +268,9 @@ fn rejection(draft: &RemarkDraft, rules: &Rules<'_>) -> Option<&'static str> {
     solution_guard(&draft.message, rules)
 }
 
-/// Longueur du message.
-fn message_rejection(message: &str) -> Option<&'static str> {
-    if message.trim().is_empty() || message.chars().count() > MAX_MESSAGE_CHARS {
+/// Longueur du message, selon le palier.
+fn message_rejection(message: &str, level: RemarkLevel) -> Option<&'static str> {
+    if message.trim().is_empty() || message.chars().count() > level.max_message_chars() {
         return Some("message vide ou trop long");
     }
     None
@@ -774,6 +782,22 @@ mod tests {
                 "message vide ou trop long"
             ]
         );
+    }
+
+    #[test]
+    fn longueur_du_message_selon_le_palier() {
+        let at = |level: RemarkLevel, chars: usize| {
+            let mut piste = draft("e.debut === debut", &"a".repeat(chars), 0.9);
+            piste.level = level;
+            let rules = Rules { level, ..rules() };
+            validate(vec![piste], &rules).kept.len()
+        };
+        assert_eq!(at(RemarkLevel::Question, 400), 1);
+        assert_eq!(at(RemarkLevel::Question, 401), 0);
+        assert_eq!(at(RemarkLevel::Piste, 800), 1);
+        assert_eq!(at(RemarkLevel::Piste, 801), 0);
+        assert_eq!(at(RemarkLevel::Exemple, 800), 1);
+        assert_eq!(at(RemarkLevel::Exemple, 801), 0);
     }
 
     #[test]

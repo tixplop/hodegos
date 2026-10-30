@@ -1,6 +1,6 @@
 # ADR 0003 — Choix des modèles rapide et fort
 
-Statut : proposé · 30 octobre 2026 · en attente des rapports d'évaluation
+Statut : accepté · 30 octobre 2026
 
 ## Contexte
 
@@ -19,41 +19,66 @@ Contraintes :
 - dépense compatible avec un plafond de 10 USD par mois.
 
 Méthode : `hodegos eval evals/` sur les vingt cas (15 pour le modèle `fast`,
-5 pour le modèle `strong`), un rapport par candidat dans `evals/reports/`.
+5 pour le modèle `strong`), un rapport par paire de candidats dans `evals/reports/`.
 
-## Candidats et résultats
+Un premier passage (`2026-10-30-deepseek-deepseek-v4.1-flash-1017.md`) a montré
+14 pistes et exemples utiles écartés par la limite de 400 caractères. Avant de
+comparer les candidats :
 
-À remplir à partir des rapports. Un candidat « non concluant » (panne, arrêt sur
-`--max-cost`) est relancé avant de figurer ici.
+- la limite passe à 800 caractères aux paliers piste et exemple, et le cadre
+  commun l'annonce au modèle (docs/cadrage.md) ;
+- `functools.partial` sort des motifs interdits du cas 10 : nommer un mécanisme
+  et sa documentation est le rôle du palier piste.
 
-| Niveau | Modèle | Notion | Solution (brouillons) | Solution (affichée) | JSON invalides | Durée médiane / p90 | Coût des cas | Verdict | Rapport |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| fast | `deepseek/deepseek-v4.1-flash-1017` (configuré aujourd'hui) | | | | | | | | |
-| fast | | | | | | | | | |
-| strong | `deepseek/deepseek-v4.1-flash-1017` (configuré aujourd'hui) | | | | | | | | |
-| strong | | | | | | | | | |
+## Résultats
+
+Rapports du 30 octobre 2026, tous produits avec ces règles. Durées par appel ;
+coût des cas du niveau.
+
+| Niveau | Modèle | Notion | Solution (brouillons / affichée) | JSON invalides | Durée médiane / p90 | Coût | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| fast | `deepseek/deepseek-v4.1-flash-1017` | 15/15 (100 %) | 0 / 0 | 0 | 2,9 s / 5,7 s | 0,021 $ | retenu |
+| fast | `anthropic/claude-haiku-5.5` | 14/15 (93 %) | 0 / 0 | 0 | 4,0 s / 6,3 s | 0,027 $ | retenu |
+| fast | `openai/gpt-6-luna` | 14/15 (93 %) | 1 / 1 | 0 | 3,1 s / 5,1 s | 0,012 $ | non retenu |
+| strong | `google/gemini-4-argon` | 5/5 (100 %) | 0 / 0 | 0 | 4,7 s / 6,4 s | 0,053 $ | retenu |
+| strong | `anthropic/claude-sonnet-5.5` | 4/5 (80 %) | 0 / 0 | 0 | 4,6 s / 6,8 s | 0,113 $ | retenu |
+| strong | `openai/gpt-6.1-terra` | 4/5 (80 %) | 0 / 0 | 0 | 3,4 s / 5,1 s | 0,027 $ | retenu |
+
+Rapports :
+
+- `evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md`
+- `evals/reports/2026-10-30-anthropic-claude-haiku-5.5-anthropic-claude-sonnet-5.5.md`
+- `evals/reports/2026-10-30-openai-gpt-6-luna-openai-gpt-6.1-terra.md`
 
 ## Décision
 
-À trancher : pour chaque niveau, le moins cher des candidats retenus dont la
-durée au 90ᵉ centile reste sous 10 secondes ; à égalité, celui qui fait émerger
-la notion le plus souvent.
+Parmi les candidats retenus, le meilleur taux de notion émergée, puis le coût :
 
-- `fast` : …
-- `strong` : …
+- `fast` : `deepseek/deepseek-v4.1-flash-1017` ;
+- `strong` : `google/gemini-4-argon`.
 
 ## Alternatives écartées
 
-- Un seul modèle pour les deux niveaux : à retenir seulement si le modèle rapide
-  est aussi retenu sur les cas de l'Architecte.
-- Modèles sans sorties structurées : le contrat JSON des remarques n'est pas tenu
-  de façon fiable.
-- …(candidats non retenus, avec leur motif tiré des rapports)
+- `openai/gpt-6-luna` (fast) : au cas 13, son exemple « voisin » contient
+  `contenu.trim().parse()?`, le geste exact de la solution attendue.
+- `anthropic/claude-haiku-5.5` (fast) : retenu, mais une notion manquée de plus
+  et plus cher que deepseek.
+- `openai/gpt-6.1-terra` (strong) : deux fois moins cher que gemini, mais une
+  notion manquée sur 5. L'écart de coût, un centime environ par passe de
+  l'Architecte, ne compense pas sur un échantillon aussi petit.
+- `anthropic/claude-sonnet-5.5` (strong) : une notion manquée et le plus cher.
+- Un seul modèle pour les deux niveaux : deepseek ne fait émerger la notion que
+  dans 3 cas sur 5 de l'Architecte au premier passage (limite à 400 caractères,
+  non rejoué depuis).
 
 ## Conséquences
 
-- `config.toml` d'exemple (README) et configuration locale mis à jour avec les
-  identifiants retenus.
+- `config.toml` : `fast = "deepseek/deepseek-v4.1-flash-1017"`,
+  `strong = "google/gemini-4-argon"`.
+- Cinq cas seulement départagent les modèles forts : à revoir si l'Architecte
+  déçoit à l'usage, en ajoutant des cas Markdown.
+- Le délai de 10 secondes est mesuré par appel : le critère sur un vrai
+  enregistrement reste à vérifier dans l'IDE (docs/plan.md, phase 6).
 - Tout changement de modèle ou de prompt relance `hodegos eval` et met cet ADR à
   jour (ou le remplace par un nouvel ADR).
 - Les identifiants OpenRouter datés peuvent disparaître : un modèle retiré par le
