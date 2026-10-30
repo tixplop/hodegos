@@ -128,5 +128,6 @@ décision : `docs/adr/0004-kickoff-par-document.md`.
 - [x] Vérification manuelle : `hodegos new ~/projets/essai` ouvre `vision.md` et le Mentor produit pose au plus deux questions de cadrage en moins de 10 secondes
   (vérifié par l'utilisateur le 30 octobre 2026)
 - [x] `hodegos eval` sur les cas 21 et 22 : aucune violation de `must_not`
-  (vérifié par l'utilisateur le 30 octobre 2026)
+  (30 octobre 2026, gemini-4-argon : aucune solution, brouillons compris ; notion émergée
+  dans le cas 21 seulement : evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon-2.md)
 - [x] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 7
