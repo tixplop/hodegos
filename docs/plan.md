@@ -52,9 +52,10 @@ en trois couches, validation des remarques, ancrage, persistance dans
 
 - [x] Tests avec `FakeLlmClient` : JSON invalide, relance unique, citation introuvable, garde « pas de solution », plafond
 - [x] Test : un fichier `.env` ou ignoré par git n'est jamais envoyé ; un secret dans une section est masqué
-- [ ] Enregistrer un fichier produit au plus deux remarques ancrées en moins de 10 secondes
+- [x] Enregistrer un fichier produit au plus deux remarques ancrées en moins de 10 secondes
   (testé avec `FakeLlmClient` et un faux OpenRouter local ; la mesure avec la vraie clé est
-  reportée en phase 6, avec le critère de fin du MVP, décidé le 29 octobre 2026)
+  reportée en phase 6, avec le critère de fin du MVP, décidé le 29 octobre 2026 ; délai et
+  plafond de deux remarques vérifiés avec la vraie clé le 30 octobre 2026, voir phase 6)
 - [x] Budget : avertissement à 80 %, arrêt des passes proactives à 100 %
 - [x] Panne du fournisseur : passe abandonnée, état visible, aucune nouvelle tentative
 
