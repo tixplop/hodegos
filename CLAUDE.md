@@ -58,7 +58,9 @@ Seul server connaît HTTP et la WebSocket.
   de message met à jour docs/protocole.md dans le même commit.
 - Une décision structurante = un ADR court dans docs/adr/NNNN-titre.md.
 - Textes de l'interface en français, vouvoiement (voir ui/styles/README.md).
-- Messages de commit en français, à l'impératif.
+- Messages de commit : Conventional Commits, description en français à l'impératif
+  (`type(portée): description`, types feat, fix, docs, test, refactor, chore ;
+  portées : core, mentors, llm, server, cli, ui, editor, eval, adr, plan).
 
 ## Façon de travailler
 - Suivre docs/plan.md, une phase à la fois ; ne pas anticiper les phases suivantes
