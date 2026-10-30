@@ -149,13 +149,14 @@ const anchorsField = StateField.define({
 
 /**
  * Position d'une citation dans le document : l'occurrence la plus proche de `lineHint`.
- * Sans citation (étape suivante), le début de la ligne. `null` si la citation a disparu.
+ * Sans citation (étape suivante), toute la ligne de `lineHint`, c'est-à-dire le titre
+ * de la section en Markdown. `null` si la citation a disparu.
  */
 export function locate(doc, quote, lineHint) {
   const hint = Math.min(Math.max(lineHint, 1), doc.lines);
   if (!quote) {
     const line = doc.line(hint);
-    return { from: line.from, to: line.from };
+    return { from: line.from, to: line.to };
   }
   const text = doc.toString();
   let best = null;

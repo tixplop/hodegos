@@ -135,6 +135,9 @@ function onPush(message) {
   }
   if (message.type === 'status') {
     applyStatus(message.payload);
+    // Premier status après `hodegos new` : la vision s'ouvre d'elle-même.
+    const initial = message.payload.initial_file;
+    if (initial && !currentPath) openFile(initial);
     return;
   }
   if (message.type !== 'file_changed') return;
