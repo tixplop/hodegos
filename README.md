@@ -5,10 +5,13 @@
 IDE personnel où des mentors IA vous font progresser sans écrire à votre place.
 
 Vous écrivez votre code ou vos documents ; à chaque enregistrement, le mentor
-adapté à la section modifiée (Mentor du langage, Architecte) laisse au plus deux
-remarques ancrées sur votre texte. Vous pouvez les faire monter d'un palier
-(indice, question, piste, exemple), y répondre ou les fermer. Aucun mentor
-n'écrit la solution à votre place.
+adapté à la section modifiée (Mentor du langage, Architecte, Mentor produit)
+laisse au plus deux remarques ancrées sur votre texte. Vous pouvez les faire
+monter d'un palier (indice, question, piste, exemple), y répondre ou les fermer.
+Aucun mentor n'écrit la solution à votre place.
+
+Pour démarrer un projet, `hodegos new` crée sa vision (`docs/vision.md`) : à la
+première ouverture, le Mentor produit vous pose les questions de cadrage.
 
 Hodegos tourne dans WSL2 et s'ouvre dans le navigateur de Windows ; seuls
 l'extrait modifié et son contexte partent vers OpenRouter.
