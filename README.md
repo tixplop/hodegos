@@ -59,8 +59,9 @@ puis la même commande `cargo install`.
 # ~/.config/hodegos/config.toml
 [llm]
 provider = "openrouter"
-fast   = "[identifiant OpenRouter du modèle rapide]"   # Mentor du langage
-strong = "[identifiant OpenRouter du modèle fort]"     # Architecte, Mentor produit
+# modèles retenus par docs/adr/0003-choix-des-modeles.md
+fast   = "deepseek/deepseek-v4.1-flash-1017"   # Mentor du langage
+strong = "google/gemini-4-argon"               # Architecte, Mentor produit
 timeout_secs = 30
 
 [budget]

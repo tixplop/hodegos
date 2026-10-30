@@ -83,7 +83,7 @@ Vérifications manuelles (navigateur, faux OpenRouter local via `base_url`) :
 Commande `hodegos eval`, vingt cas, rapport, choix des deux modèles,
 journalisation propre, documentation d'installation dans le README.
 
-- [x] Vingt cas dans `evals/cases/`, couvrant les deux mentors et les cinq langages
+- [x] Vingt cas dans `evals/cases/` (22 depuis la phase 7), couvrant les deux mentors et les cinq langages
   (cohérence de chaque cas vérifiée par `cargo test` : section, casting, motifs)
 - [x] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
   (vérifié avec `FakeLlmClient` et un faux OpenRouter local)

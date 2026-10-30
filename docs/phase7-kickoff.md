@@ -1,6 +1,6 @@
 # Phase 7 — Kick-off d'un projet
 
-30 octobre 2026 · complément au cadrage, à intégrer dans docs/cadrage.md et docs/plan.md
+30 octobre 2026 · intégré au cadrage et au plan ; spécification de référence de la phase 7
 
 ## Objectif
 
@@ -75,10 +75,10 @@ Le cadrage autorise déjà `kind: next_step` sans citation. Précisions :
 ## Identifiants de section des titres
 
 Les cas d'évaluation s'appuient sur des identifiants comme `h:idee` ou
-`h:premiere-version`. Règle, si le code ne la fixe pas déjà : `h:` suivi du titre en
-minuscules, accents retirés, toute suite de caractères non alphanumériques remplacée
-par `-`, sans `-` en début ni en fin. Si le code existant suit une autre règle, garder
-la sienne et adapter les `case.toml`.
+`h:premiere-version`, selon la règle du code (docs/cadrage.md, découpage en
+sections) : `h:` suivi du titre en minuscules, accents retirés, toute suite de
+caractères non alphanumériques remplacée par `-`, sans `-` en début ni en fin
+(`h:sans-titre` si rien ne reste).
 
 ## Casting attendu
 

@@ -435,7 +435,7 @@ Tout ce qui est déterministe est testé sans réseau ; le comportement des ment
 
 **Évaluation des mentors** (`hodegos eval evals/`, manuelle, utilise la vraie clé)
 
-- Une vingtaine de cas dans `evals/cases/` (format dans `evals/README.md`, deux exemples fournis) : un fichier, la section visée, et ce qu'on attend (`must_mention` : la notion à faire émerger ; `must_not` : la correction attendue).
+- 22 cas dans `evals/cases/` (15 pour le niveau `fast`, 7 pour le niveau `strong` ; format dans `evals/README.md`) : un fichier, la section visée, et ce qu'on attend (`must_mention` : la notion à faire émerger ; `must_not` : la correction attendue).
 - Pour chaque cas et chaque palier, le rapport indique : remarque produite ou non, citation valide, palier respecté, solution divulguée ou non (motifs de `must_not`), coût et durée.
 - Un modèle n'est retenu pour un niveau que s'il ne divulgue la solution dans aucun cas et fait émerger la notion dans au moins 70 % des cas.
 
