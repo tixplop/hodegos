@@ -2,7 +2,8 @@ title = "unwrap sur une saisie utilisateur : panique au lieu d'une erreur"
 file = "src/commande.rs"
 section = "fn:lire_quantite"
 expected_mentor = "mentor-langage"
-levels = ["indice", "question", "piste", "exemple"]
+# Sans palier exemple : tout cas voisin livre la solution (ADR 0003, après la phase 7).
+levels = ["indice", "question", "piste"]
 
 [expect]
 must_mention = ["panique", "panic", "Result", "propager"]

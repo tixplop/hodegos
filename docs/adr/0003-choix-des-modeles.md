@@ -83,3 +83,33 @@ Parmi les candidats retenus, le meilleur taux de notion émergée, puis le coût
   jour (ou le remplace par un nouvel ADR).
 - Les identifiants OpenRouter datés peuvent disparaître : un modèle retiré par le
   fournisseur impose une nouvelle évaluation.
+
+## Après la phase 7 (30 octobre 2026)
+
+Évaluation complète relancée avec les 22 cas, dont les deux cas du Mentor produit
+(niveau `strong`, désormais 7 cas) :
+
+- `strong` · `google/gemini-4-argon` : notion 5/7 (71 %), aucune solution,
+  retenu, avec une marge d'un cas (19 et 22 manqués) ;
+- `fast` · `deepseek/deepseek-v4.1-flash-1017` : notion 14/15, mais au cas 13,
+  le brouillon d'exemple, écarté par la garde, reprend `-> Result<u32` ; même
+  résultat sur les cas Rust relancés seuls. Non retenu selon la règle.
+
+Rapports : `evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon-2.md`
+(cas 21 et 22), `…-3.md` (22 cas), `…-4.md` (cas Rust).
+
+**Décision : le cas 13 s'arrête au palier piste.** Pour une fonction qui lit une
+ligne et la convertit en entier, tout cas voisin de 12 lignes montre la même
+lecture, la même conversion et le même type de retour : un exemple honnête livre
+la solution. Ce cas ne teste donc plus le palier exemple. Les autres règles et
+motifs ne changent pas.
+
+Conséquences :
+
+- Cette décision est prise après avoir vu le résultat ; elle vaut pour tous les
+  candidats. `openai/gpt-6-luna` avait été écarté sur le palier exemple de ce même
+  cas (« Alternatives écartées ») : son exclusion n'est plus fondée et serait à
+  rejouer s'il redevenait candidat.
+- Le palier exemple reste testé sur les autres cas du Mentor du langage.
+- Le choix de deepseek pour `fast` et de gemini pour `strong` est maintenu, sous
+  réserve de la prochaine évaluation complète avec le cas 13 modifié.
