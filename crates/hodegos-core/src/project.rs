@@ -23,6 +23,14 @@ pub enum ProjectError {
          puis relancez Hodegos"
     )]
     WindowsMount(PathBuf),
+    #[error("le dossier {0} existe déjà et n'est pas vide")]
+    NotEmpty(PathBuf),
+    #[error("impossible de créer le dossier {path} : {source}")]
+    Create {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 }
 
 /// Un projet ouvert dans Hodegos : un dossier du système de fichiers Linux.
@@ -41,6 +49,47 @@ pub(crate) struct Resolved {
 }
 
 impl Project {
+    /// Crée le dossier d'un nouveau projet (`hodegos new`) et renvoie son chemin réel.
+    ///
+    /// Refuse un chemin sous `/mnt/`, tel qu'écrit comme après résolution de son plus
+    /// proche parent existant, et un dossier existant non vide ; rien n'est créé
+    /// en cas de refus. Un dossier existant vide est accepté.
+    pub fn create(path: &Path) -> Result<PathBuf, ProjectError> {
+        let create_error = |source| ProjectError::Create {
+            path: path.to_owned(),
+            source,
+        };
+        let absolute = std::path::absolute(path).map_err(create_error)?;
+        if is_windows_mount(&absolute) {
+            return Err(ProjectError::WindowsMount(absolute));
+        }
+        let mut existing = absolute.as_path();
+        let mut missing = Vec::new();
+        while !existing.exists() {
+            let (Some(parent), Some(name)) = (existing.parent(), existing.file_name()) else {
+                break;
+            };
+            missing.push(name.to_owned());
+            existing = parent;
+        }
+        let mut resolved = existing.canonicalize().map_err(create_error)?;
+        resolved.extend(missing.iter().rev());
+        if is_windows_mount(&resolved) {
+            return Err(ProjectError::WindowsMount(resolved));
+        }
+        if resolved.exists() {
+            if !resolved.is_dir() {
+                return Err(ProjectError::NotADirectory(resolved));
+            }
+            let mut entries = std::fs::read_dir(&resolved).map_err(create_error)?;
+            if entries.next().is_some() {
+                return Err(ProjectError::NotEmpty(resolved));
+            }
+        }
+        std::fs::create_dir_all(&resolved).map_err(create_error)?;
+        resolved.canonicalize().map_err(create_error)
+    }
+
     /// Valide le dossier du projet et résout son chemin (liens symboliques compris).
     ///
     /// Refuse un chemin sous `/mnt/`, avant comme après résolution.
@@ -158,6 +207,47 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let project = Project::open(dir.path()).unwrap();
         assert_eq!(project.root(), dir.path().canonicalize().unwrap());
+    }
+
+    #[test]
+    fn create_accepte_un_dossier_absent_ou_vide_et_refuse_un_dossier_non_vide() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = Project::create(&dir.path().join("a/b")).unwrap();
+        assert_eq!(created, dir.path().canonicalize().unwrap().join("a/b"));
+        assert!(created.is_dir());
+        assert_eq!(
+            Project::create(&created).unwrap(),
+            created,
+            "vide : accepté"
+        );
+        std::fs::write(created.join("x"), "").unwrap();
+        assert!(matches!(
+            Project::create(&created),
+            Err(ProjectError::NotEmpty(_))
+        ));
+        assert!(matches!(
+            Project::create(&created.join("x")),
+            Err(ProjectError::NotADirectory(_))
+        ));
+    }
+
+    #[test]
+    fn create_refuse_mnt_meme_par_un_lien_sans_rien_creer() {
+        assert!(matches!(
+            Project::create(Path::new("/mnt/c/hodegos-inexistant/projet")),
+            Err(ProjectError::WindowsMount(_))
+        ));
+        assert!(!Path::new("/mnt/c/hodegos-inexistant").exists());
+        if Path::new(WINDOWS_MOUNT_ROOT).is_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            std::os::unix::fs::symlink(WINDOWS_MOUNT_ROOT, dir.path().join("lien")).unwrap();
+            let target = dir.path().join("lien/hodegos-inexistant/projet");
+            assert!(matches!(
+                Project::create(&target),
+                Err(ProjectError::WindowsMount(_))
+            ));
+            assert!(!Path::new("/mnt/hodegos-inexistant").exists());
+        }
     }
 
     #[test]

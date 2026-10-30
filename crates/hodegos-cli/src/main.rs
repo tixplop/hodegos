@@ -1,8 +1,10 @@
 //! Binaire `hodegos` : lance l'IDE sur un projet et affiche l'URL d'accès ;
-//! gère aussi les mentors (`hodegos mentors list`, `hodegos mentors eject <id>`)
-//! et évalue les mentors avec les vrais modèles (`hodegos eval evals/`).
+//! crée un projet (`hodegos new <chemin>`), gère les mentors (`hodegos mentors
+//! list`, `hodegos mentors eject <id>`) et évalue les mentors avec les vrais modèles
+//! (`hodegos eval evals/`).
 
 mod eval;
+mod new;
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -40,6 +42,20 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Crée un projet et sa vision (docs/vision.md), puis l'ouvre dans l'IDE.
+    New {
+        /// Dossier à créer, dans le système de fichiers Linux (~/…) ; vide s'il existe.
+        chemin: PathBuf,
+        /// Ne pas lancer git init.
+        #[arg(long)]
+        no_git: bool,
+        /// Créer le projet sans lancer l'IDE.
+        #[arg(long)]
+        no_open: bool,
+        /// Port d'écoute sur 127.0.0.1 (0 : un port libre choisi par le système).
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+    },
     /// Mentors du dossier courant : livrés, personnels et du projet.
     Mentors {
         #[command(subcommand)]
@@ -90,7 +106,11 @@ fn main() -> ExitCode {
     // Par défaut : les messages de Hodegos en info, ceux des bibliothèques (hyper,
     // reqwest…) à partir de warn. Les commandes affichent elles-mêmes leurs résultats.
     // RUST_LOG remplace ce réglage (README, « Journaux »).
-    let default_level = if cli.command.is_some() {
+    let serves = matches!(
+        cli.command,
+        None | Some(Command::New { no_open: false, .. })
+    );
+    let default_level = if !serves {
         "error"
     } else {
         "warn,hodegos=info,hodegos_core=info,hodegos_mentors=info,hodegos_llm=info,hodegos_server=info"
@@ -105,6 +125,21 @@ fn main() -> ExitCode {
 
     let result = match (cli.command, cli.projet) {
         (Some(Command::Mentors { action }), _) => mentors(action),
+        (
+            Some(Command::New {
+                chemin,
+                no_git,
+                no_open,
+                port,
+            }),
+            _,
+        ) => new::create(&chemin, !no_git).and_then(|root| {
+            if no_open {
+                Ok(())
+            } else {
+                run(root, port, Some(new::VISION.to_owned()))
+            }
+        }),
         (
             Some(Command::Eval {
                 dir,
@@ -129,7 +164,7 @@ fn main() -> ExitCode {
             Ok(false) => return ExitCode::FAILURE,
             other => other.map(|_| ()),
         },
-        (None, Some(projet)) => run(projet, cli.port),
+        (None, Some(projet)) => run(projet, cli.port, None),
         (None, None) => Err(anyhow::anyhow!("indiquez le dossier du projet")),
     };
     match result {
@@ -142,7 +177,7 @@ fn main() -> ExitCode {
 }
 
 #[tokio::main]
-async fn run(projet: PathBuf, port: u16) -> anyhow::Result<()> {
+async fn run(projet: PathBuf, port: u16, initial_file: Option<String>) -> anyhow::Result<()> {
     let project = Project::open(&projet)?;
     let root = project.root().to_path_buf();
     let config_dir = dirs::config_dir()
@@ -156,7 +191,7 @@ async fn run(projet: PathBuf, port: u16) -> anyhow::Result<()> {
         mentors: MentorSources::for_project(&root),
         data_dir,
         llm: llm(&config_dir),
-        initial_file: None,
+        initial_file,
     };
     if let Err(message) = &options.llm.client {
         tracing::warn!(%message, "aucune passe tant que le fournisseur n'est pas configuré");
