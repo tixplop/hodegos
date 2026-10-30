@@ -26,6 +26,18 @@ remontent pas, et Hodegos refuse de s'y lancer.
 
 ## Installer
 
+Depuis une release (binaire Linux x86_64, glibc 2.39 ou plus, soit Ubuntu 24.04
+ou plus récent) : téléchargez l'archive et son `.sha256` depuis la page des
+releases du dépôt, puis
+
+```sh
+sha256sum -c hodegos-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar -xzf hodegos-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz
+install -m 755 hodegos-vX.Y.Z-x86_64-unknown-linux-gnu/hodegos ~/.local/bin/
+```
+
+Depuis les sources :
+
 ```sh
 git clone <adresse du dépôt> ~/projets/hodegos
 cd ~/projets/hodegos
@@ -191,6 +203,17 @@ Aucun test n'appelle le réseau. Avant toute contribution, lire `CLAUDE.md`,
 | docs/adr/ | Décisions d'architecture |
 | docs/maquettes/ | Écrans en HTML statique |
 | CLAUDE.md, PROMPT.md | Instructions pour Claude Code |
+
+### Publier une version
+
+1. Porter `version` dans `Cargo.toml` (workspace) à X.Y.Z et écrire les notes
+   dans `docs/releases/vX.Y.Z.md` ; commiter.
+2. `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
+
+Le workflow `.github/workflows/release.yml` vérifie que le tag correspond à la
+version, fait passer fmt, clippy et les tests, construit le binaire sur Ubuntu
+24.04, puis publie l'archive et sa somme de contrôle. Lancé à la main (onglet
+Actions, « Run workflow ») sur un tag déjà publié, il remplace l'archive.
 
 ## Licence
 

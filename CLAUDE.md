@@ -34,7 +34,9 @@ Lire avant toute tâche :
   (script à écrire en phase 2 ; c'est la seule étape npm du projet).
 - Design system Hodegos : ui/styles/tokens.css, ui/styles/components.css (classes hd-*),
   ui/js/hodegos.js (utilitaires). Ne pas réinventer de composants qui existent.
-- Cible unique : x86_64-unknown-linux-gnu (WSL2). Pas d'empaquetage.
+- Cible unique : x86_64-unknown-linux-gnu (WSL2). Releases construites par GitHub
+  Actions (.github/workflows/release.yml) au push d'un tag vX.Y.Z égal à la version
+  du workspace ; notes dans docs/releases/vX.Y.Z.md.
 
 ## Dépendances entre crates
 core ← mentors ; llm indépendant ; server assemble tout ; cli lance server.
