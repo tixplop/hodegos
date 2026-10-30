@@ -1,5 +1,7 @@
 # Hodegos
 
+[![CI](https://github.com/tixplop/hodegos/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tixplop/hodegos/actions/workflows/ci.yml)
+
 IDE personnel où des mentors IA vous font progresser sans écrire à votre place.
 
 Vous écrivez votre code ou vos documents ; à chaque enregistrement, le mentor
