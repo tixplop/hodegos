@@ -125,6 +125,8 @@ décision : `docs/adr/0004-kickoff-par-document.md`.
   (`crates/hodegos-server/tests/open_pass.rs` : réouverture, redémarrage, panne puis nouvelle tentative, budget, mentor sans `on_open`)
 - [x] `next_step` à citation vide accepté et ancré sur le titre ; citation vide refusée pour les autres types (tests)
 - [x] Casting : Mentor produit titulaire sur `docs/vision.md`, absent ailleurs (test)
-- [ ] Vérification manuelle : `hodegos new ~/projets/essai` ouvre `vision.md` et le Mentor produit pose au plus deux questions de cadrage en moins de 10 secondes
-- [ ] `hodegos eval` sur les cas 21 et 22 : aucune violation de `must_not`
+- [x] Vérification manuelle : `hodegos new ~/projets/essai` ouvre `vision.md` et le Mentor produit pose au plus deux questions de cadrage en moins de 10 secondes
+  (vérifié par l'utilisateur le 30 octobre 2026)
+- [x] `hodegos eval` sur les cas 21 et 22 : aucune violation de `must_not`
+  (vérifié par l'utilisateur le 30 octobre 2026)
 - [x] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 7
