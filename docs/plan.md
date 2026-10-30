@@ -88,7 +88,8 @@ journalisation propre, documentation d'installation dans le README.
   (vérifié avec `FakeLlmClient` et un faux OpenRouter local)
 - [x] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
   (deepseek-v4.1-flash et gemini-4-argon, 100 % chacun : docs/adr/0003-choix-des-modeles.md)
-- [ ] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
+- [x] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
+  (vérifié par l'utilisateur le 30 octobre 2026 sur un projet réel : le MVP répond au besoin)
 - [x] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
   (critère reporté de la phase 4 ; mesuré le 30 octobre 2026 par la WebSocket, de
   `save` à `status` : 1,4 à 5,1 s sur cinq enregistrements TypeScript, Python, Rust
