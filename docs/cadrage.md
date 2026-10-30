@@ -1,10 +1,10 @@
 # Hodegos — dossier de cadrage
 
-29 octobre 2026
+30 octobre 2026
 
 ## Vision et principes
 
-Hodegos est un IDE personnel où des mentors IA vous font progresser sans écrire à votre place. Ce dossier fixe ce qu'il faut pour démarrer le développement : périmètre du MVP, architecture, contrats, prompts et plan.
+Hodegos est un IDE personnel où des mentors IA vous font progresser sans écrire à votre place. Ce dossier décrit Hodegos tel que livré en v0.1.0 (MVP et phase 7) : périmètre, architecture, contrats, prompts et plan.
 
 Principes non négociables :
 
@@ -134,12 +134,11 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 
 **Ce qui part vers OpenRouter**
 
-- Seulement : la section modifiée, le diff de cette section, le chemin relatif du fichier, son langage, et au plus 40 lignes de contexte autour.
+- Seulement : la section modifiée, le diff de cette section, le chemin relatif du fichier, son langage, et au plus 20 lignes de contexte de part et d'autre.
 - En Markdown, les commentaires HTML (`<!-- … -->`, consignes du gabarit comprises) sont retirés de la section, du contexte et du diff avant l'envoi (phase 7) ; une ligne qui ne contenait qu'un commentaire disparaît, un commentaire non fermé court jusqu'à la fin.
 - Jamais (décidé en phase 4) : les fichiers ignorés par git, les noms `.env*`, `*.pem`, `*.key`, les clés SSH (`id_*` sans extension ou en `.pub`), et tout fichier contenant un bloc `-----BEGIN … PRIVATE KEY-----`. La passe s'arrête alors avec l'issue `excluded`.
 - Avant chaque envoi, les lignes qui ressemblent à un secret sont remplacées par `[secret masqué]` : jetons reconnaissables (`AKIA…`, `ghp_…`, `github_pat_…`, `sk-…`, `xox…`) et affectations d'une valeur littérale à `password`, `secret`, `token`, `api_key`… (`password = "…"`, `API_KEY=…` en majuscules). Le reste part tel quel.
-- La clé vient de `OPENROUTER_API_KEY` si elle est définie, sinon de `credentials.toml` (`openrouter_api_key = "…"`), refusé s'il est lisible par le groupe ou les autres.
-- La clé OpenRouter est lue depuis `~/.config/hodegos/credentials.toml` (droits `600`) ou la variable `OPENROUTER_API_KEY` ; elle n'apparaît jamais dans les journaux ni dans le front.
+- La clé OpenRouter vient de la variable `OPENROUTER_API_KEY` si elle est définie, sinon de `~/.config/hodegos/credentials.toml` (`openrouter_api_key = "…"`, droits `600`), refusé s'il est lisible par le groupe ou les autres ; elle n'apparaît jamais dans les journaux ni dans le front.
 
 ## Contrat : format d'un mentor
 
@@ -321,12 +320,13 @@ Deux niveaux de modèles, choisis dans la configuration, et un budget mensuel du
 # ~/.config/hodegos/config.toml
 [llm]
 provider = "openrouter"
-fast   = "[identifiant OpenRouter du modèle rapide]"
-strong = "[identifiant OpenRouter du modèle fort]"
+# modèles retenus par docs/adr/0003-choix-des-modeles.md
+fast   = "deepseek/deepseek-v4.1-flash-1017"
+strong = "google/gemini-4-argon"
 timeout_secs = 30
 
 [budget]
-monthly_cap_usd = 10.0      # valeur par défaut à valider
+monthly_cap_usd = 10.0
 warn_at = 0.8               # avertissement à 80 %
 ```
 
@@ -465,27 +465,31 @@ Un projet démarre comme un document (décision : `docs/adr/0004-kickoff-par-doc
 
 Voir `docs/plan.md`, qui fait référence.
 
-## Valeurs par défaut à valider
+## Décisions tranchées et questions ouvertes
 
-Ces choix ont été faits pour débloquer le démarrage ; chacun se change avant la phase indiquée sans remettre le reste en cause.
+Ces choix avaient été proposés pour débloquer le démarrage ; chacun a été tranché dans la phase indiquée.
 
-| Sujet | Valeur proposée | À trancher avant |
+| Sujet | Valeur retenue | Tranché en |
 | --- | --- | --- |
 | Langages du MVP | Rust, TypeScript, JavaScript, Python, Markdown | Phase 3 |
-| Mentors du MVP | Mentor du langage, Architecte | Phase 3 |
-| Déclencheur | Enregistrement seul (pause de frappe plus tard) | Phase 4 |
-| Seuils du casting | Titulaire à 40 points, consultant à 70, langage à 40 points (tranché en phase 3) | Phase 3 |
-| Contexte envoyé | Section, diff, 40 lignes autour | Phase 4 |
-| Modèles | À choisir via l'évaluation (rapide et fort) | Phase 6 |
+| Mentors | Mentor du langage, Architecte (phase 3) ; Mentor produit, sur `docs/vision.md` seulement | Phase 3, phase 7 |
+| Déclencheur | Enregistrement du fichier (phase 4) ; première ouverture pour un mentor `on_open` (phase 7) ; pause de frappe plus tard | Phase 4, phase 7 |
+| Seuils du casting | Titulaire à 40 points, consultant à 70, langage à 40 points | Phase 3 |
+| Contexte envoyé | Section, diff, 20 lignes de part et d'autre, secrets masqués | Phase 4 |
+| Modèles | `fast` : `deepseek/deepseek-v4.1-flash-1017` ; `strong` : `google/gemini-4-argon` (`docs/adr/0003-choix-des-modeles.md`, confirmé après la phase 7) | Phase 6 |
+| Longueur des messages | 400 caractères, 800 aux paliers piste et exemple (ADR 0003) | Phase 6 |
 | Budget mensuel | 10 USD, avertissement à 80 % | Phase 4 |
-| Garde « pas de solution » | Aucun code avant le palier exemple ; 12 lignes au plus ensuite, 3 identifiants de la section au plus, hors mots-clés et noms d'un caractère (tranché en phase 5) | Phase 5 |
+| Garde « pas de solution » | Aucun code avant le palier exemple ; 12 lignes au plus ensuite, 3 identifiants de la section au plus, hors mots-clés et noms d'un caractère (phase 5) ; renforcée après la phase 6 : aucun fragment recopié de la section contenant un nom propre à la personne | Phase 5, après la phase 6 |
+| Port par défaut | 7420 (`--port` pour en changer) | Phase 1 |
 | Ouverture de l'interface | URL affichée dans le terminal, ouverte par Ctrl+clic ; ouverture automatique plus tard (tranché le 29 octobre 2026) | Phase 1 |
 
 Questions ouvertes :
 
-- [ ] Le dépôt Hodegos sera-t-il public, et sous quelle licence ?
+- [x] Le dépôt Hodegos sera-t-il public, et sous quelle licence ? Dépôt public, double licence MIT ou Apache 2.0 (`Cargo.toml`, `LICENSE-MIT`, `LICENSE-APACHE`).
 - [ ] Les remarques fermées doivent-elles rester consultables (onglet Historique) dès le MVP ?
 - [ ] Faut-il un raccourci clavier pour déclencher une passe sans enregistrer ?
+- [ ] Le cas d'évaluation 22 (Mentor produit) n'a jamais fait émerger la notion : élargir ses motifs `must_mention` ou faire évoluer le Mentor produit (`docs/adr/0003-choix-des-modeles.md`) ?
+- [ ] Les trois points de départ du kick-off (maquette 01) : contrat du nouveau type de sortie, à définir après la phase 7.
 - [x] Consultants : un au plus en MVP (tranché en phase 3, `ui/styles/README.md` corrigé).
 - [x] Un mentor `strong-signal` peut être titulaire s'il atteint 40, mais seulement quand un de ses mots-clés est présent (tranché en phase 3).
 - [x] `<id-projet>` de `~/.local/share/hodegos/<id-projet>/` : `ProjectId`, empreinte SHA-256 du chemin résolu de la racine (16 caractères hexadécimaux), décidé en phase 2.

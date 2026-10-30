@@ -88,7 +88,8 @@ journalisation propre, documentation d'installation dans le README.
 - [x] Rapport : citation valide, palier respecté, solution divulguée, coût, durée
   (vérifié avec `FakeLlmClient` et un faux OpenRouter local)
 - [x] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
-  (deepseek-v4.1-flash et gemini-4-argon, 100 % chacun : docs/adr/0003-choix-des-modeles.md)
+  (deepseek-v4.1-flash et gemini-4-argon, 100 % chacun en phase 6 ; confirmé après la phase 7
+  sur 22 cas : 93 % pour `fast`, 86 % pour `strong`, voir docs/adr/0003-choix-des-modeles.md)
 - [x] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
   (vérifié par l'utilisateur le 30 octobre 2026 sur un projet réel : le MVP répond au besoin)
 - [x] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
@@ -105,10 +106,10 @@ Reste à faire avec la vraie clé (par l'utilisateur) :
    candidat ; garder les rapports de `evals/reports/`.~~ Fait le 30 octobre 2026.
 2. ~~Consigner le choix dans `docs/adr/0003-choix-des-modeles.md` (candidats, chiffres
    des rapports, coût) et dans `config.toml`.~~ Fait le 30 octobre 2026.
-3. Sur un vrai projet d'environ 50 fichiers, ouvert avec `hodegos` : enregistrer
+3. ~~Sur un vrai projet d'environ 50 fichiers, ouvert avec `hodegos` : enregistrer
    cinq modifications réelles (code et ADR) et relever la durée affichée dans la
    barre d'état (« Dernière passe : … en N s ») ; vérifier qu'aucune remarque, à
-   aucun palier, ne contient le code attendu.
+   aucun palier, ne contient le code attendu.~~ Fait le 30 octobre 2026.
 
 ## Phase 7 — Kick-off d'un projet
 

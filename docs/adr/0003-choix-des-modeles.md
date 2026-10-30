@@ -77,8 +77,9 @@ Parmi les candidats retenus, le meilleur taux de notion émergée, puis le coût
   `strong = "google/gemini-4-argon"`.
 - Cinq cas seulement départagent les modèles forts : à revoir si l'Architecte
   déçoit à l'usage, en ajoutant des cas Markdown.
-- Le délai de 10 secondes est mesuré par appel : le critère sur un vrai
-  enregistrement reste à vérifier dans l'IDE (docs/plan.md, phase 6).
+- Le délai de 10 secondes est mesuré par appel ; le critère sur un vrai
+  enregistrement a été vérifié dans l'IDE le 30 octobre 2026 : 1,4 à 5,1 s
+  (docs/plan.md, phase 6).
 - Tout changement de modèle ou de prompt relance `hodegos eval` et met cet ADR à
   jour (ou le remplace par un nouvel ADR).
 - Les identifiants OpenRouter datés peuvent disparaître : un modèle retiré par le
