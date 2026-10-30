@@ -288,7 +288,207 @@ fn solution_guard(message: &str, rules: &Rules<'_>) -> Option<&'static str> {
     if reused > MAX_REUSED_IDENTIFIERS {
         return Some("garde « pas de solution » : exemple qui reprend le code de la section");
     }
+    if copies_section_fragment(&code, rules.section_text) {
+        return Some("garde « pas de solution » : exemple qui recopie un fragment de la section");
+    }
     None
+}
+
+/// Noms courants des bibliothèques standard : ils ne sont pas propres au code de la
+/// personne, même employés hors d'un accès `objet.nom`.
+const COMMON_NAMES: &[&str] = &[
+    // TypeScript et JavaScript
+    "Math",
+    "console",
+    "JSON",
+    "Object",
+    "Array",
+    "Number",
+    "String",
+    "Boolean",
+    "Date",
+    "Promise",
+    "Error",
+    "Map",
+    "Set",
+    "RegExp",
+    "Symbol",
+    "parseInt",
+    "parseFloat",
+    "setTimeout",
+    "document",
+    "window",
+    "require",
+    "module",
+    "exports",
+    // Python
+    "len",
+    "print",
+    "range",
+    "str",
+    "int",
+    "float",
+    "bool",
+    "list",
+    "dict",
+    "set",
+    "tuple",
+    "sum",
+    "min",
+    "max",
+    "sorted",
+    "enumerate",
+    "zip",
+    "map",
+    "filter",
+    "isinstance",
+    "open",
+    "Exception",
+    "ValueError",
+    "TypeError",
+    "KeyError",
+    // Rust
+    "std",
+    "io",
+    "fmt",
+    "Vec",
+    "Option",
+    "Result",
+    "Some",
+    "Ok",
+    "Err",
+    "Box",
+    "Rc",
+    "Arc",
+    "HashMap",
+    "HashSet",
+    "BTreeMap",
+    "println",
+    "eprintln",
+    "format",
+    "vec",
+    "panic",
+    "assert",
+    "assert_eq",
+    "usize",
+    "isize",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "i32",
+    "i64",
+    "f32",
+    "f64",
+    "char",
+    "str",
+];
+
+/// Fragments de la section recopiés tolérés, en jetons consécutifs.
+const MAX_COPIED_TOKENS: usize = 2;
+
+/// Jeton d'une ligne de code : identifiant, chaîne littérale ou autre caractère.
+#[derive(Debug, PartialEq, Eq)]
+enum Token<'a> {
+    Ident(&'a str),
+    Text(&'a str),
+    Punct(char),
+}
+
+static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(clippy::expect_used)]
+    Regex::new(r#"[A-Za-z_$][A-Za-z0-9_$]*|[0-9][0-9_.]*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\S"#)
+        .expect("motif valide")
+});
+
+fn tokens(line: &str) -> Vec<Token<'_>> {
+    TOKEN
+        .find_iter(line)
+        .map(|m| {
+            let text = m.as_str();
+            match text.chars().next() {
+                Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '$' => Token::Ident(text),
+                Some('"' | '\'') if text.len() > 1 => Token::Text(text),
+                Some(c) if text.len() == 1 => Token::Punct(c),
+                _ => Token::Text(text),
+            }
+        })
+        .collect()
+}
+
+/// Noms propres au code de la personne : identifiants de la section, hors mots-clés,
+/// noms d'un caractère et noms courants, employés au moins une fois ailleurs
+/// qu'après `.` ou `::` (les méthodes d'une bibliothèque, comme `find` ou `unwrap`,
+/// n'en sont pas).
+fn own_names(section_text: &str) -> std::collections::BTreeSet<&str> {
+    let mut names = std::collections::BTreeSet::new();
+    for line in section_text.lines() {
+        let tokens = tokens(line);
+        for (index, token) in tokens.iter().enumerate() {
+            let Token::Ident(name) = token else { continue };
+            let after_access =
+                index > 0 && matches!(tokens[index - 1], Token::Punct('.') | Token::Punct(':'));
+            if !after_access
+                && name.chars().count() > 1
+                && !KEYWORDS.contains(name)
+                && !COMMON_NAMES.contains(name)
+            {
+                names.insert(*name);
+            }
+        }
+    }
+    names
+}
+
+/// Une ligne de l'exemple partage avec une ligne de la section plus de deux jetons
+/// consécutifs, dont un nom propre au code de la personne : l'exemple reprend son
+/// code, même corrigé ou renommé en partie (`e.debut.getTime() === debut…`).
+fn copies_section_fragment(code: &CodeParts, section_text: &str) -> bool {
+    let names = own_names(section_text);
+    if names.is_empty() {
+        return false;
+    }
+    let section: Vec<Vec<Token<'_>>> = section_text.lines().map(tokens).collect();
+    code.lines
+        .iter()
+        .chain(code.inline.iter())
+        .map(|line| tokens(line))
+        .any(|example| {
+            section
+                .iter()
+                .any(|line| shares_fragment(&example, line, &names))
+        })
+}
+
+/// Plus longue suite commune de jetons, en programmation dynamique : vrai dès qu'une
+/// suite de plus de `MAX_COPIED_TOKENS` jetons contient un nom propre.
+fn shares_fragment(
+    example: &[Token<'_>],
+    section: &[Token<'_>],
+    names: &std::collections::BTreeSet<&str>,
+) -> bool {
+    let mut previous = vec![0usize; section.len() + 1];
+    for a in example {
+        let mut current = vec![0usize; section.len() + 1];
+        for (j, b) in section.iter().enumerate() {
+            if a != b {
+                continue;
+            }
+            let run = previous[j] + 1;
+            current[j + 1] = run;
+            if run > MAX_COPIED_TOKENS {
+                let window = &section[j + 1 - run..=j];
+                if window
+                    .iter()
+                    .any(|t| matches!(t, Token::Ident(name) if names.contains(name)))
+                {
+                    return true;
+                }
+            }
+        }
+        previous = current;
+    }
+    false
 }
 
 static CODE_START: LazyLock<Regex> = LazyLock::new(|| {
@@ -413,6 +613,8 @@ fn identifiers(text: &str) -> std::collections::BTreeSet<&str> {
 struct CodeParts {
     /// Lignes de code non vides (le code en ligne n'en compte pas).
     lines: Vec<String>,
+    /// Code en ligne, entre backticks.
+    inline: Vec<String>,
     /// Tout le code, lignes et code en ligne, pour y chercher les identifiants.
     text: String,
 }
@@ -445,7 +647,11 @@ fn code_parts(message: &str) -> CodeParts {
         .cloned()
         .collect::<Vec<_>>()
         .join("\n");
-    CodeParts { lines, text }
+    CodeParts {
+        lines,
+        inline,
+        text,
+    }
 }
 
 fn looks_like_code(line: &str) -> bool {
@@ -647,8 +853,8 @@ mod tests {
     fn au_palier_exemple_reprendre_quatre_identifiants_est_refuse() {
         // reserver, objet, debut, emprunts : quatre identifiants de la section.
         let quatre = "```ts\nfunction reserver(objet, debut) {\n  return emprunts.length;\n}\n```";
-        // objet, debut, emprunts : trois, la limite.
-        let trois = "```ts\nfunction compter(objet, debut) {\n  return emprunts.length;\n}\n```";
+        // objet, debut, emprunts : trois, la limite, sans recopier de fragment.
+        let trois = "```ts\nfunction compter(debut, objet) {\n  return emprunts.length;\n}\n```";
         let result = validate(vec![exemple(quatre), exemple(trois)], &exemple_rules());
         assert_eq!(result.kept.len(), 1);
         assert_eq!(result.kept[0].message, trois);
@@ -735,5 +941,85 @@ mod tests {
                 "garde « pas de solution » : code avant le palier exemple"
             ]
         );
+    }
+
+    /// Exemple arrivé par « Palier suivant » : réponse dans le fil, sans citation.
+    fn exemple_sur(section: &'static str, message: &str) -> Validated {
+        let (kept, rejected) = validate_replies(
+            vec![ReplyDraft {
+                level: RemarkLevel::Exemple,
+                message: message.to_owned(),
+                confidence: 0.9,
+            }],
+            &Rules {
+                section_text: section,
+                ..exemple_rules()
+            },
+        );
+        Validated {
+            kept: kept.map(|r| exemple(&r.message)).into_iter().collect(),
+            rejected,
+        }
+    }
+
+    const RECOPIE: &str =
+        "garde « pas de solution » : exemple qui recopie un fragment de la section";
+
+    #[test]
+    fn une_solution_d_une_ligne_qui_recopie_la_section_est_refusee() {
+        // Un seul identifiant repris (debut), mais l'expression vient de la section.
+        let result = exemple_sur(
+            SECTION,
+            "```ts\nreturn e.debut.getTime() === debut.getTime();\n```",
+        );
+        assert_eq!(result.rejected, [RECOPIE]);
+        // Même en code en ligne.
+        let result = exemple_sur(SECTION, "Essayez `e.debut.getTime() === x`.");
+        assert_eq!(result.rejected, [RECOPIE]);
+    }
+
+    #[test]
+    fn une_boucle_python_reprise_de_la_section_est_refusee() {
+        const BOUCLE: &str = "def retirer_terminees(taches):\n    for tache in taches:\n        if tache[\"terminee\"]:\n            taches.remove(tache)";
+        let result = exemple_sur(BOUCLE, "```python\nfor tache in taches[:]:\n    pass\n```");
+        assert_eq!(result.rejected, [RECOPIE]);
+        let result = exemple_sur(
+            BOUCLE,
+            "```python\nif not tache[\"terminee\"]:\n    garder()\n```",
+        );
+        assert_eq!(result.rejected, [RECOPIE]);
+    }
+
+    #[test]
+    fn un_cas_voisin_qui_emploie_la_meme_bibliotheque_reste_permis() {
+        // Mêmes méthodes (trim, parse, unwrap), aucun nom propre à la personne.
+        const SAISIE: &str = "pub fn lire_quantite() -> u32 {\n    let mut ligne = String::new();\n    io::stdin().read_line(&mut ligne).unwrap();\n    ligne.trim().parse().unwrap()\n}";
+        let voisin = "```rust\nlet age: u8 = texte.trim().parse().unwrap();\n```";
+        assert!(
+            exemple_sur(SAISIE, voisin).rejected.is_empty(),
+            "{:?}",
+            exemple_sur(SAISIE, voisin).rejected
+        );
+        // Même appel d'API (addEventListener) sur d'autres noms.
+        const BOUTONS: &str = "export function brancherBoutons(boutons, afficher) {\n  for (var i = 0; i < boutons.length; i++) {\n    boutons[i].addEventListener(\"click\", function () {\n      afficher(\"Bouton \" + (i + 1));\n    });\n  }\n}";
+        let voisin = "```js\nfor (var k = 0; k < 3; k++) {\n  setTimeout(function () { console.log(k); }, 0);\n}\n```";
+        assert!(
+            exemple_sur(BOUTONS, voisin).rejected.is_empty(),
+            "{:?}",
+            exemple_sur(BOUTONS, voisin).rejected
+        );
+        // Un cas voisin sur des points, pour des dates comparées par référence.
+        let points = "```ts\nconst a = { x: 1 };\nconst b = { x: 1 };\nconsole.log(a === b, a.x === b.x);\n```";
+        assert!(exemple_sur(SECTION, points).rejected.is_empty());
+    }
+
+    #[test]
+    fn noms_propres_a_la_personne() {
+        let names = own_names(
+            "const dejaPris = emprunts.find((e) => e.debut === debut);\nconsole.log(Math.max(a, total));",
+        );
+        let names: Vec<&str> = names.into_iter().collect();
+        // find et log suivent un point ; e et a ont un caractère ; console et Math sont courants.
+        assert_eq!(names, ["debut", "dejaPris", "emprunts", "total"]);
     }
 }

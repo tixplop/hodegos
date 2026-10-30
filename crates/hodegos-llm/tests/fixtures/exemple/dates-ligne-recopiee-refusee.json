@@ -1,0 +1,6 @@
+{
+  "language": "typescript",
+  "section": "export function reserver(objet: Objet, debut: Date, emprunts: Emprunt[]) {\n  const dejaPris = emprunts.find((e) => e.debut === debut);\n  return !dejaPris;\n}",
+  "kept": false,
+  "response": "{\"replies\": [{\"level\": \"exemple\", \"message\": \"Essayez plutôt :\\n```ts\\nreturn e.debut.getTime() === debut.getTime();\\n```\", \"confidence\": 0.8}]}"
+}

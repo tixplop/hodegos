@@ -85,8 +85,7 @@ async fn joue_les_paliers_comme_palier_suivant_avec_le_fil_reel() {
             "piste",
             "=== compare des références ; cherchez la valeur d'une date.",
         ),
-        // La solution en une ligne ne reprend qu'un identifiant de la section (debut) :
-        // la garde la laisse passer, l'évaluation la relève.
+        // Le modèle tente la solution : la garde l'écarte, mais le brouillon compte.
         reply(
             "exemple",
             "```ts\nreturn e.debut.getTime() === debut.getTime();\n```",
@@ -104,14 +103,26 @@ async fn joue_les_paliers_comme_palier_suivant_avec_le_fil_reel() {
     assert_eq!(result.error, None);
     assert!(result.casting_ok());
     assert_eq!(result.model.as_deref(), Some("test/rapide"));
-    assert!(result.levels.iter().all(|l| l.outcome == Outcome::Shown));
+    let outcomes: Vec<&Outcome> = result.levels.iter().map(|l| &l.outcome).collect();
+    assert_eq!(
+        outcomes,
+        [
+            &Outcome::Shown,
+            &Outcome::Shown,
+            &Outcome::Shown,
+            &Outcome::Nothing
+        ]
+    );
     assert_eq!(result.levels[0].valid_quotes, Some((1, 1)));
     assert!(result.levels[2].mentions);
     assert!(result.mentions());
     assert_eq!(result.levels[3].leaks_drafts, ["getTime() ==="]);
-    assert_eq!(result.levels[3].leaks_shown, ["getTime() ==="]);
+    assert!(result.levels[3].leaks_shown.is_empty());
     assert_eq!(result.leaks_drafts(), 1);
-    assert_eq!(result.levels[3].drafts[0].rejected, None);
+    assert_eq!(
+        result.levels[3].drafts[0].rejected,
+        Some("garde « pas de solution » : exemple qui recopie un fragment de la section")
+    );
     assert!((result.cost_usd() - 0.04).abs() < 1e-9);
 
     // Le palier piste part avec le fil : remarque d'origine et message du palier question.
