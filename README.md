@@ -188,7 +188,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
 
-Aucun test n'appelle le réseau. Avant toute contribution, lire `CLAUDE.md`,
+Le workflow `.github/workflows/ci.yml` lance fmt, clippy et les tests à chaque
+push sur une branche. Aucun test n'appelle le réseau. Avant toute contribution, lire `CLAUDE.md`,
 `docs/cadrage.md`, `docs/plan.md` et `docs/protocole.md`.
 
 | Chemin | Rôle |
