@@ -89,8 +89,10 @@ journalisation propre, documentation d'installation dans le README.
 - [x] Les deux modèles retenus ne divulguent aucune solution et font émerger la notion dans 70 % des cas au moins
   (deepseek-v4.1-flash et gemini-4-argon, 100 % chacun : docs/adr/0003-choix-des-modeles.md)
 - [ ] Critère de fin du MVP tenu sur un vrai projet de 50 fichiers
-- [ ] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
-  (critère reporté de la phase 4)
+- [x] Avec la vraie clé, un enregistrement produit ses remarques en moins de 10 secondes
+  (critère reporté de la phase 4 ; mesuré le 30 octobre 2026 par la WebSocket, de
+  `save` à `status` : 1,4 à 5,1 s sur cinq enregistrements TypeScript, Python, Rust
+  et deux ADR, avec deepseek-v4.1-flash et gemini-4-argon)
 - [x] Journaux : une ligne par passe et par reprise, ni contenu ni clé au niveau par défaut
   (test de la clé au niveau `trace`)
 - [x] README : installation, configuration, lancement, mentors, évaluation, journaux, dépannage
