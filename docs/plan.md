@@ -176,8 +176,8 @@ Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans 
 (Playwright, faux fournisseur local) dans les deux thèmes : sélection en accent à 18 % sur la ligne
 active avec liseré et numéro en gras, badge « Relit la section… » puis remarque, « Revenir au choix
 automatique » sans appel, dialogue d'un fichier non enregistré (Échap annule, « Enregistrer et
-demander » ne fait qu'un appel), aucune erreur dans la console. Reste à confirmer à la main dans le
-navigateur Windows.
+demander » ne fait qu'un appel), aucune erreur dans la console. Confirmé à la main dans le
+navigateur Windows le 31 octobre 2026.
 
 ### 8c — Markdown : source, aperçu en direct, lecture
 
@@ -194,8 +194,8 @@ Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans 
 brute sur la ligne du curseur, commentaires masqués et atteints aux flèches, case cochée puis
 annulée par Ctrl+Z, ancres et marqueurs dans les trois modes, aucun élément `script`, `img` ni
 attribut `style` ou `onclick` en lecture, lien relatif ouvert dans un onglet, double-clic vers
-l'aperçu, aucune erreur dans la console. `tests/ui.rs` refuse `innerHTML` dans le front. Reste à
-confirmer à la main dans le navigateur Windows.
+l'aperçu, aucune erreur dans la console. `tests/ui.rs` refuse `innerHTML` dans le front. Confirmé
+à la main dans le navigateur Windows le 31 octobre 2026.
 
 ### 8d — Réglages : modèles, effort, clé, budget
 
@@ -213,8 +213,8 @@ fort, dialogue d'estimation, évaluation de 7 cas (requêtes avec `reasoning.eff
 `results.json` sous `~/.local/share/hodegos/evals/`), résultat sous le seuil signalé dans l'écran
 et la barre d'état, retour à l'ancien réglage sans évaluation, clé remplacée (600, jamais dans la
 page), test de connexion, budget enregistré, commentaires de `config.toml` conservés, aucune
-erreur dans la console. Reste à confirmer à la main dans le navigateur Windows, et une évaluation
-réelle avec une vraie clé.
+erreur dans la console. Confirmé à la main dans le navigateur Windows le 31 octobre 2026 ; une
+évaluation réelle avec une vraie clé reste à faire.
 
 ### 8e — Réglages : mentors
 
@@ -228,8 +228,8 @@ puis un parcours scripté dans Chromium sans écran dans les deux thèmes : ment
 personnalisé, renommé avec un chemin ajouté (fichier réécrit dans le style des livrés), initiales
 et priorité refusées sous leurs champs sans écriture, prompt assemblé, fichier brut, mentor de
 projet créé (`.hodegos/mentors/` absent jusqu'à l'enregistrement), mentor livré désactivé puis
-réactivé, retour au mentor livré après confirmation, aucune erreur dans la console. Reste à
-confirmer à la main dans le navigateur Windows.
+réactivé, retour au mentor livré après confirmation, aucune erreur dans la console. Confirmé
+à la main dans le navigateur Windows le 31 octobre 2026.
 
 ### 8f — Terminal intégré et confiné
 
@@ -246,4 +246,5 @@ restant, commit qui pousse `git_status` ; faux `bwrap` : protocole et limites ; 
 message), puis un parcours scripté dans Chromium sans écran dans les deux thèmes : shell dans le
 projet, `OPENROUTER_API_KEY` absente, couleurs, redimensionnement par la poignée, Ctrl+` qui
 replie sans tuer, deux onglets, fermeture qui tue les descendants, arbre mis à jour après un
-commit, aucune erreur dans la console. Reste à confirmer à la main dans le navigateur Windows.
+commit, aucune erreur dans la console. Confirmé à la main dans le navigateur Windows le 31 octobre
+2026, ainsi que l'arbre qui suit les fichiers créés dans le terminal sans commit (`tests/tree.rs`).
