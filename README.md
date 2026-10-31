@@ -240,11 +240,11 @@ lire `CLAUDE.md`, `docs/cadrage.md`, `docs/plan.md` et `docs/protocole.md`.
 | mentors/ | Mentors livrés par défaut |
 | evals/ | Cas d'évaluation des mentors et rapports |
 | docs/cadrage.md | Dossier de cadrage complet |
-| docs/plan.md | Sept phases et critères de fin |
+| docs/plan.md | Huit phases et critères de fin |
 | docs/protocole.md | Messages WebSocket |
 | docs/adr/ | Décisions d'architecture |
 | docs/maquettes/ | Écrans en HTML statique |
-| CLAUDE.md, PROMPT.md | Instructions pour Claude Code |
+| CLAUDE.md | Instructions pour Claude Code |
 
 ### Publier une version
 
