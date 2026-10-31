@@ -233,7 +233,7 @@ confirmer à la main dans le navigateur Windows.
 
 ### 8f — Terminal intégré et confiné
 
-- [ ] Prototype consigné dans l'ADR 0005 (confinement sous WSL2, xterm.js sous la CSP, débit)
+- [x] Prototype consigné dans l'ADR 0005 (confinement sous WSL2, xterm.js sous la CSP, débit)
 - [ ] Terminal dans la racine du projet, avec l'UID de l'utilisateur ; `cd /` puis `ls ~` ne montre
   que les montages ; écrire hors du projet et des montages `rw` échoue
 - [ ] Sans `bwrap` utilisable : pas de terminal, message explicite
