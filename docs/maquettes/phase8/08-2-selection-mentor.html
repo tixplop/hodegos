@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — sélection visible et mentor activé</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">src/emprunts/reserver.ts</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+
+<div class="hd-columns" style="flex-wrap: nowrap;">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 240px; flex: 0 0 240px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Fichiers</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px; padding-left: 26px;">modele.ts <span class="hd-nav__meta">ML</span></a>
+<a class="hd-nav__item hd-mono" href="#" aria-current="page" style="font-size: 13px; padding-left: 26px;">reserver.ts <span class="hd-nav__meta">ML</span></a>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px; padding-left: 26px;">reserver.test.ts <span class="hd-nav__meta">ML</span></a>
+</div>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div class="hd-tabs" role="tablist" aria-label="Fichiers ouverts" style="background: var(--surface-0); padding: 0;">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">reserver.ts</button>
+</div>
+<div class="hd-editor" style="flex: 1;">
+<div class="hd-editor__line"><span class="hd-editor__num">3</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">export function</span> <span style="color: var(--syntax-function);">reserver</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">4</span><span class="hd-editor__code">  objet: <span style="color: var(--syntax-type);">Objet</span>, debut: <span style="color: var(--syntax-type);">Date</span>, fin: <span style="color: var(--syntax-type);">Date</span>, emprunts: <span style="color: var(--syntax-type);">Emprunt</span>[]</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">5</span><span class="hd-editor__code">) {</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">6</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (fin &lt; debut) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Période invalide"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">7</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">const</span> dejaPris = emprunts.<span style="color: var(--syntax-function);">some</span>(</span></div>
+<div class="hd-editor__line" style="box-shadow: inset 3px 0 0 var(--accent);"><span class="hd-editor__num" style="color: var(--accent-ink); font-weight: 600;">8</span><span class="hd-editor__code">    (e) =&gt; e.objetId === objet.id &amp;&amp; <span style="background: color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 2px;">e.debut &lt; fin &amp;&amp; debut &lt; e.fin</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: var(--accent); vertical-align: text-bottom;"></span></span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">9</span><span class="hd-editor__code">  );</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">10</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (dejaPris) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Objet indisponible"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">11</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">return</span> { objetId: objet.id, debut, fin };</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">12</span><span class="hd-editor__code">}</span></div>
+
+<section aria-label="Avant et après" style="margin: 32px 24px 0; padding: 16px; border: 1px dashed var(--border-control); border-radius: var(--radius-lg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; background: var(--surface-50);">
+<span class="hd-nav__label">Ligne active et sélection</span>
+<div style="display: flex; flex-wrap: wrap; gap: 16px;">
+<div style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 6px;">
+<span class="hd-badge hd-badge--danger" style="align-self: flex-start;">Aujourd'hui</span>
+<div style="display: flex; font-family: var(--font-mono); font-size: 13px; line-height: 24px; background: var(--accent-soft); border-radius: 4px;"><span style="width: 40px; text-align: right; padding-right: 12px; color: var(--accent-ink); font-weight: 600;">8</span><span style="white-space: pre;">    (e) =&gt; … &amp;&amp; e.debut &lt; fin &amp;&amp; debut &lt; e.fin</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Le fond <span class="hd-mono">accent-soft</span> de la ligne active est dessiné par-dessus la couche de sélection : la sélection est invisible.</span>
+</div>
+<div style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 6px;">
+<span class="hd-badge hd-badge--success" style="align-self: flex-start;">Phase 8</span>
+<div style="display: flex; font-family: var(--font-mono); font-size: 13px; line-height: 24px; background: var(--surface-0); box-shadow: inset 3px 0 0 var(--accent); border-radius: 4px;"><span style="width: 40px; text-align: right; padding-right: 12px; color: var(--accent-ink); font-weight: 600;">8</span><span style="white-space: pre;">    (e) =&gt; … &amp;&amp; <span style="background: color-mix(in srgb, var(--accent) 25%, transparent);">e.debut &lt; fin &amp;&amp; debut &lt; e.fin</span></span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Ligne active : liseré et numéro seulement, sans fond. La sélection garde sa couleur, contrastée dans les deux thèmes.</span>
+</div>
+</div>
+</section>
+</div>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 420px; flex: 0 0 420px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div class="hd-row"><span class="hd-id">fn:reserver</span><span class="hd-muted">reserver</span></div>
+<div class="hd-mentor">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">AR</span>
+<div class="hd-mentor__body">
+<div class="hd-row" style="gap: 6px;"><span class="hd-mentor__name">Architecte</span><span class="hd-badge hd-badge--info">Titulaire</span><span class="hd-badge hd-badge--mentor">Relit la section…</span></div>
+<span class="hd-mentor__why">Choisi par vous</span>
+</div>
+</div>
+<div class="hd-row">
+<span style="font-size: 12px; color: var(--ink-muted);">Disponibles :</span>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Activer Mentor du langage</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Revenir au choix automatique</button>
+</div>
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Activer un mentor le rend titulaire et lui demande aussitôt une relecture de la section du curseur.</p>
+</div>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+<article class="hd-card" aria-busy="true">
+<div class="hd-card__head"><span class="hd-msg__author--mentor">Architecte</span><span class="hd-mono hd-muted">fn:reserver</span><span class="hd-badge hd-card__end">Passe en cours</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="display: block; height: 10px; width: 92%; border-radius: 999px; background: var(--surface-100);"></span>
+<span style="display: block; height: 10px; width: 78%; border-radius: 999px; background: var(--surface-100);"></span>
+<span style="display: block; height: 10px; width: 54%; border-radius: 999px; background: var(--surface-100);"></span>
+</div>
+<p style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Version enregistrée à 10:42 · modèle fort · 2 remarques au plus</p>
+</article>
+
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--border-control); border-radius: var(--radius-lg);">
+<span class="hd-nav__label">Variante : fichier non enregistré</span>
+<div class="hd-callout hd-callout--warning">
+<div class="hd-callout__title">reserver.ts a des modifications non enregistrées</div>
+<p style="margin: 0;">L'Architecte relit la version enregistrée. Que voulez-vous qu'il lise ?</p>
+<div class="hd-row">
+<button class="hd-btn hd-btn--primary hd-btn--sm" type="button">Enregistrer et demander</button>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Version enregistrée</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Annuler</button>
+</div>
+</div>
+</div>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span class="hd-mono">8:52 · 30 caractères sélectionnés</span>
+<span>TypeScript</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Architecte</strong> (choisi par vous)</span>
+<span role="status">Passe en cours : Architecte sur fn:reserver</span>
+<span class="hd-statusbar__end hd-row">
+<span>Budget : 2,14 $ sur 10 $</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+
+</div>
+</body>
+</html>

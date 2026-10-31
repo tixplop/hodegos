@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — Markdown en aperçu en direct</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">docs/vision.md</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+
+<div class="hd-columns" style="flex-wrap: nowrap;">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 220px; flex: 0 0 220px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Fichiers</span>
+<a class="hd-nav__item hd-mono" href="#" style="font-size: 13px; padding-left: 26px;">0001-stockage.md <span class="hd-nav__meta">AR</span></a>
+<a class="hd-nav__item hd-mono" href="#" aria-current="page" style="font-size: 13px; padding-left: 26px;">vision.md <span class="hd-nav__meta">PR</span></a>
+</div>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div style="display: flex; align-items: center; background: var(--surface-0); border-bottom: 1px solid var(--border);">
+<div class="hd-tabs" role="tablist" aria-label="Fichiers ouverts" style="padding: 0; border-bottom: 0;">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">vision.md</button>
+</div>
+<div class="hd-row" role="group" aria-label="Mode d'affichage du Markdown" style="margin-left: auto; padding-right: 12px; gap: 4px;">
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Source</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Aperçu</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Lecture</button>
+<span style="font-size: 12px; color: var(--ink-muted); margin-left: 6px;">Ctrl+E : édition ⇄ lecture</span>
+</div>
+</div>
+
+<div style="flex: 1; background: var(--surface-0); padding: 28px 56px 24px; display: flex; flex-direction: column; gap: 14px; max-width: 820px; font-size: 15px; line-height: 24px;">
+<h1 style="margin: 0; font-size: 28px; line-height: 34px; font-weight: 700;">troc — vision</h1>
+<p style="margin: 0; color: var(--ink-muted); font-size: 14px;">Démarré le 2026-10-30</p>
+
+<h2 style="margin: 8px 0 0; font-size: 20px; line-height: 28px; font-weight: 600;">Idée</h2>
+<p style="margin: 0;">Une application pour prêter des objets entre voisins, au lieu que chacun achète sa propre <em>perceuse</em>.</p>
+
+<h2 style="margin: 8px 0 0; font-size: 20px; line-height: 28px; font-weight: 600;">Pour qui</h2>
+<p style="margin: 0;"><mark class="hd-anchor">Tout le monde.</mark><span class="hd-marker hd-marker--active">1</span></p>
+
+<h2 style="margin: 8px 0 0; font-size: 20px; line-height: 28px; font-weight: 600;">Contraintes</h2>
+<p style="margin: 0; padding: 0 0 0 10px; margin-left: -13px; box-shadow: inset 3px 0 0 var(--accent); font-family: var(--font-mono); font-size: 14px;">Je dispose de <span style="color: var(--ink-muted);">**</span><strong>deux soirs par semaine</strong><span style="color: var(--ink-muted);">**</span>.<span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: var(--accent); vertical-align: text-bottom;"></span></p>
+<ul style="margin: 0; padding-left: 22px;">
+<li>Les voisins consultent souvent depuis la <strong>cave</strong>, sans réseau.</li>
+<li>Voir la <a href="#">décision de stockage</a>.</li>
+</ul>
+
+<h2 style="margin: 8px 0 0; font-size: 20px; line-height: 28px; font-weight: 600;">Première version</h2>
+<ul style="margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 4px;">
+<li style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" checked aria-label="Catalogue des objets"><span>Catalogue des objets</span></li>
+<li style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" aria-label="Réservations avec calendrier"><span>Réservations avec calendrier</span></li>
+<li style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" aria-label="Messagerie entre voisins"><span><mark class="hd-anchor">Messagerie entre voisins</mark><span class="hd-marker">2</span></span></li>
+</ul>
+
+<section aria-label="Le même passage dans les trois modes" style="margin-top: 16px; padding: 14px; border: 1px dashed var(--border-control); border-radius: var(--radius-lg); background: var(--surface-50); display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 20px;">
+<span class="hd-nav__label">Le même passage dans les trois modes</span>
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px;"><strong>Source</strong><pre style="margin: 0; padding: 8px; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; line-height: 18px; white-space: pre-wrap;">## Pour qui
+
+&lt;!-- Les premières personnes… --&gt;
+Tout le monde.</pre><span style="color: var(--ink-muted);">Tout s'affiche brut, consignes comprises.</span></div>
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px;"><strong>Aperçu</strong><div style="padding: 8px; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-sm);"><span style="display: block; font-weight: 600; font-size: 15px;">Pour qui</span><span>Tout le monde.</span></div><span style="color: var(--ink-muted);">Rendu pendant la frappe ; consignes masquées, sauf sur la ligne du curseur.</span></div>
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px;"><strong>Lecture</strong><div style="padding: 8px; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-sm);"><span style="display: block; font-weight: 600; font-size: 15px;">Pour qui</span><span>Tout le monde.</span></div><span style="color: var(--ink-muted);">Non éditable ; double-clic pour revenir à l'aperçu à cet endroit.</span></div>
+</div>
+</section>
+</div>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 400px; flex: 0 0 400px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div class="hd-row"><span class="hd-id">h:contraintes</span><span class="hd-muted">Contraintes</span></div>
+<div class="hd-mentor">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">PR</span>
+<div class="hd-mentor__body">
+<div class="hd-row" style="gap: 6px;"><span class="hd-mentor__name">Mentor produit</span><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span class="hd-mentor__why">Chemin <span class="hd-mono">docs/vision.md</span></span>
+</div>
+</div>
+</div>
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+<article class="hd-card hd-card--active">
+<div class="hd-card__head"><span class="hd-marker hd-marker--active" style="vertical-align: baseline; margin: 0;">1</span><span class="hd-msg__author--mentor">Mentor produit</span><span class="hd-mono hd-muted">h:pour-qui</span><span class="hd-badge hd-badge--info hd-card__end">Question</span></div>
+<p class="hd-msg">Parmi vos voisins, qui sera le premier à prêter un objet, et qui le premier à en emprunter un ?</p>
+<div class="hd-row" style="gap: 4px;"><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Palier suivant</button><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Répondre</button></div>
+</article>
+<article class="hd-card">
+<div class="hd-card__head"><span class="hd-marker" style="vertical-align: baseline; margin: 0;">2</span><span class="hd-msg__author--mentor">Mentor produit</span><span class="hd-mono hd-muted">h:premiere-version</span><span class="hd-badge hd-badge--info hd-card__end">Question</span></div>
+<p class="hd-msg">Avec deux soirs par semaine, laquelle de ces cases cochez-vous en premier, et laquelle pourrait attendre ?</p>
+</article>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span class="hd-mono">13:28</span>
+<span>Markdown · aperçu en direct</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Mentor produit</strong></span>
+<span class="hd-statusbar__end hd-row">
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — terminal du projet</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">src/emprunts/reserver.ts</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Terminal</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+
+<div class="hd-columns" style="flex-wrap: nowrap;">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 260px; flex: 0 0 260px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Fichiers</span>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 13px;">
+<li><div class="hd-nav__item" style="padding-left: 10px;">docs</div></li>
+<li><div class="hd-nav__item" style="padding-left: 10px;"><span>src</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;"><span>emprunts</span></div></li>
+<li><div class="hd-nav__item" aria-current="page" style="padding-left: 46px;"><span>reserver.ts</span><span class="hd-nav__meta">ML</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px;"><span>reserver.test.ts</span><span class="hd-nav__meta">ML</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;"><span>modele.ts</span><span class="hd-nav__meta">ML</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 10px;"><span>README.md</span></div></li>
+</ul>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted); padding: 6px 10px 0;">Plus de lettres M et U : le commit fait dans le terminal a mis l'arbre à jour.</span>
+</div>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0; display: flex; flex-direction: column;">
+<div class="hd-tabs" role="tablist" aria-label="Fichiers ouverts" style="background: var(--surface-0); padding: 0;">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">reserver.ts</button>
+</div>
+<div class="hd-editor" style="flex: 1 1 auto; padding-bottom: 8px;">
+<div class="hd-editor__line"><span class="hd-editor__num">3</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">export function</span> <span style="color: var(--syntax-function);">reserver</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">4</span><span class="hd-editor__code">  objet: <span style="color: var(--syntax-type);">Objet</span>, debut: <span style="color: var(--syntax-type);">Date</span>, fin: <span style="color: var(--syntax-type);">Date</span>, emprunts: <span style="color: var(--syntax-type);">Emprunt</span>[]</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">5</span><span class="hd-editor__code">) {</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">6</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (fin &lt; debut) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Période invalide"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">7</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">const</span> dejaPris = emprunts.<span style="color: var(--syntax-function);">some</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">8</span><span class="hd-editor__code">    (e) =&gt; e.objetId === objet.id &amp;&amp; e.debut &lt; fin &amp;&amp; debut &lt; e.fin</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">9</span><span class="hd-editor__code">  );</span></div>
+</div>
+
+<section aria-label="Terminal" style="flex: 0 0 380px; display: flex; flex-direction: column; border-top: 1px solid var(--border-control); background: var(--surface-0);">
+<div style="display: flex; align-items: center; gap: 4px; padding: 0 8px 0 0; border-bottom: 1px solid var(--border);">
+<div class="hd-tabs" role="tablist" aria-label="Terminaux" style="border-bottom: 0; padding: 0 0 0 8px;">
+<button class="hd-tab" type="button" role="tab" aria-selected="true" style="font-size: 13px;">bash · 1</button>
+<button class="hd-tab" type="button" role="tab" aria-selected="false" style="font-size: 13px;">bash · 2</button>
+</div>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-label="Nouveau terminal" style="width: 32px; padding: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<span style="font-size: 12px; color: var(--ink-muted); margin-left: 8px;"><span class="hd-mono">dev</span> sur WSL · <span class="hd-mono">~/projets/troc</span></span>
+<div class="hd-row" style="margin-left: auto; gap: 2px;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réduire (Ctrl+`)</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Fermer</button>
+</div>
+</div>
+<pre style="flex: 1; margin: 0; padding: 12px 16px; font-family: var(--font-mono); font-variant-ligatures: none; font-size: 13px; line-height: 20px; color: var(--ink); white-space: pre-wrap; overflow: hidden;"><span style="color: var(--success); font-weight: 600;">dev@wsl</span>:<span style="color: var(--accent);">~/projets/troc</span>$ git status --short
+<span style="color: var(--warning);"> M</span> src/emprunts/reserver.ts
+<span style="color: var(--success);">??</span> src/emprunts/reserver.test.ts
+<span style="color: var(--success); font-weight: 600;">dev@wsl</span>:<span style="color: var(--accent);">~/projets/troc</span>$ npm test
+
+ <span style="color: var(--success); font-weight: 600;">✓</span> src/emprunts/reserver.test.ts (4 tests)
+ Tests  <span style="color: var(--success);">4 passed</span> (4)
+<span style="color: var(--success); font-weight: 600;">dev@wsl</span>:<span style="color: var(--accent);">~/projets/troc</span>$ git add src/emprunts &amp;&amp; git commit -m "Refuser une période invalide"
+[main 3f2a9c0] Refuser une période invalide
+ 2 files changed, 41 insertions(+), 3 deletions(-)
+<span style="color: var(--success); font-weight: 600;">dev@wsl</span>:<span style="color: var(--accent);">~/projets/troc</span>$ <span aria-hidden="true" style="display: inline-block; width: 8px; height: 16px; background: var(--ink); vertical-align: text-bottom;"></span></pre>
+</section>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 340px; flex: 0 0 340px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div class="hd-mentor">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">ML</span>
+<div class="hd-mentor__body">
+<div class="hd-row" style="gap: 6px;"><span class="hd-mentor__name">Mentor du langage</span><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span class="hd-mentor__why">Langage typescript</span>
+</div>
+</div>
+</div>
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div class="hd-callout">
+<div class="hd-callout__title">Le terminal reste privé</div>
+<p style="margin: 0; font-size: 13px; line-height: 19px;">Ce que vous tapez et ce qui s'affiche dans le terminal n'est jamais envoyé aux mentors. Il tourne avec votre compte WSL, dans la racine du projet, et s'arrête avec Hodegos.</p>
+</div>
+</div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span class="hd-mono">8:1</span>
+<span>TypeScript</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="8" r="2"></circle><path d="M6 8v8M18 10c0 4-6 4-10 6"></path></svg><span class="hd-mono">main</span> · à jour</span>
+<span>2 terminaux</span>
+<span class="hd-statusbar__end hd-row">
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+
+</div>
+</body>
+</html>

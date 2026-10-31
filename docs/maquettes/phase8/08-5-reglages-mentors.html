@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — réglages des mentors</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Réglages</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Mentors</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+
+<div class="hd-columns" style="flex-wrap: nowrap;">
+
+<nav class="hd-sidebar" aria-label="Réglages" style="max-width: 200px; flex: 0 0 200px;">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Réglages personnels</span>
+<a class="hd-nav__item" href="#">Modèles et effort</a>
+<a class="hd-nav__item" href="#">Clé d'API</a>
+<a class="hd-nav__item" href="#">Budget</a>
+<a class="hd-nav__item" href="#" aria-current="page">Mentors <span class="hd-nav__meta">4</span></a>
+</div>
+</div>
+</nav>
+
+<section aria-label="Liste des mentors" style="flex: 0 0 340px; padding: 20px 16px; border-right: 1px solid var(--border); background: var(--surface-0); display: flex; flex-direction: column; gap: 10px;">
+<div class="hd-row" style="justify-content: space-between;"><h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Mentors</h2><button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Nouveau mentor</button></div>
+
+<article class="hd-card" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">ML</span><strong>Mentor du langage</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Livré · proactif · rapide</span>
+</article>
+
+<article class="hd-card hd-card--active" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">AR</span><strong>Architecte</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Personnel, remplace le livré · proactif · fort</span>
+</article>
+
+<article class="hd-card" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">PR</span><strong>Mentor produit</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Livré · proactif · fort · à l'ouverture</span>
+</article>
+
+<article class="hd-card" style="padding: 10px 12px; border-color: var(--danger);">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--sm" aria-hidden="true">T</span><strong>Testeur</strong><span class="hd-badge hd-badge--danger" style="margin-left: auto;">En erreur</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Projet · <span class="hd-mono">.hodegos/mentors/testeur.md</span></span>
+<span style="font-size: 12px; line-height: 16px; color: var(--danger);">initials : deux caractères attendus, « T » trouvé</span>
+</article>
+
+<p style="margin: 8px 0 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Ordre de priorité à identifiant égal : projet, puis personnel, puis livré. Un mentor livré n'est jamais modifié : on le personnalise.</p>
+</section>
+
+<main class="hd-main" style="padding: 20px 28px; gap: 16px;">
+<div class="hd-row" style="align-items: flex-start;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h1 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 700;">Architecte</h1>
+<span style="font-size: 13px; color: var(--ink-muted);"><span class="hd-mono">~/.config/hodegos/mentors/architecte.md</span> · remplace le mentor livré de même identifiant</span>
+</div>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Dupliquer</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Désactiver</button>
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Revenir au mentor livré</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-nom">Nom</label><input class="hd-input" id="m-nom" type="text" value="Architecte"></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-ini">Initiales</label><input class="hd-input" id="m-ini" type="text" value="AR"></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-mode">Mode</label><select class="hd-input" id="m-mode"><option selected>Proactif</option><option>Signal fort</option><option>À la demande</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-prio">Priorité (0-100)</label><input class="hd-input" id="m-prio" type="text" value="80"></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-mod">Niveau de modèle</label><select class="hd-input" id="m-mod"><option>Rapide</option><option selected>Fort</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-pal">Palier d'entrée</label><select class="hd-input" id="m-pal"><option selected>Indice</option><option>Question</option><option>Piste</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-max">Remarques par passe</label><select class="hd-input" id="m-max"><option>1</option><option selected>2</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px; justify-content: flex-end;"><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">L'effort suit le niveau de modèle (Réglages · Modèles et effort).</span></div>
+</div>
+
+<fieldset style="margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px;">
+<legend style="padding: 0 6px; font-size: 13px; font-weight: 600;">Déclencheurs</legend>
+<div class="hd-row"><span class="hd-label" style="width: 90px;">Chemins</span><span class="hd-id">docs/architecture/**</span><span class="hd-id">**/adr/*.md</span><span class="hd-id">docs/design/**</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ajouter</button></div>
+<div class="hd-row"><span class="hd-label" style="width: 90px;">Langages</span><span class="hd-id">markdown</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ajouter</button></div>
+<div class="hd-row"><span class="hd-label" style="width: 90px;">Titres</span><span class="hd-id">Contexte</span><span class="hd-id">Décision</span><span class="hd-id">Conséquences</span><span class="hd-id">Alternatives</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ajouter</button></div>
+<div class="hd-row"><span class="hd-label" style="width: 90px;">Mots-clés</span><span style="font-size: 13px; color: var(--ink-muted);">Aucun</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ajouter</button></div>
+<label class="hd-row" style="gap: 8px; font-size: 13px;"><input type="checkbox"> Passe à la première ouverture d'un fichier (<span class="hd-mono">on_open</span>)</label>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<label class="hd-label" for="m-posture">Posture (Markdown ; <span class="hd-mono">{language}</span> et <span class="hd-mono">{name}</span> sont remplacés)</label>
+<textarea id="m-posture" rows="8" style="font-family: var(--font-mono); font-size: 13px; line-height: 20px; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--surface-0); color: var(--ink); resize: vertical;">Vous accompagnez une personne qui rédige une décision d'architecture (ADR)
+ou un document de conception.
+
+Un bon document de décision permet de savoir, plus tard, si la décision
+tient encore. Vérifiez en priorité :
+1. la cohérence entre contexte et décision ;
+2. les alternatives envisagées et la raison de leur rejet ;
+3. les conséquences, y compris négatives.</textarea>
+</div>
+
+<div class="hd-callout">
+<div class="hd-callout__title">Prompt assemblé<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button" style="margin-left: auto;">Afficher</button></div>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Cadre commun (règles absolues, paliers, format JSON), en lecture seule, puis cette posture. Une posture ne peut pas lever la règle « pas de solution ».</p>
+</div>
+
+<div class="hd-row" style="justify-content: flex-end;">
+<span style="font-size: 12px; color: var(--ink-muted); margin-right: auto;">Enregistrer écrit le fichier ; le mentor s'applique à la passe suivante.</span>
+<button class="hd-btn hd-btn--secondary" type="button">Annuler</button>
+<button class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
+</div>
+</main>
+
+</div>
+
+<footer class="hd-statusbar">
+<span>Réglages · Mentors</span>
+<span style="color: var(--danger);">1 mentor en erreur</span>
+<span class="hd-statusbar__end hd-row">
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+
+</div>
+</body>
+</html>

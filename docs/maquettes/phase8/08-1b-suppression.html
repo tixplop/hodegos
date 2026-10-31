@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — supprimer un fichier</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="position: relative; width: 960px; height: 600px; overflow: hidden; display: flex; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<nav aria-label="Fichiers du projet" style="flex: 0 0 260px; padding: 20px 16px; background: var(--surface-0); border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+<span class="hd-nav__label">Fichiers</span>
+<ul style="list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 13px;">
+<li><div class="hd-nav__item" style="padding-left: 10px;">src</div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;">emprunts</div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px; color: var(--warning);"><span>reserver.ts</span><span style="font-weight: 600;">M</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px; color: var(--success); background: var(--accent-soft); outline: 2px solid var(--accent); outline-offset: -2px;"><span>reserver.test.ts</span><span style="font-weight: 600;">U</span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;">modele.ts</div></li>
+</ul>
+</nav>
+
+<div style="flex: 1; position: relative; background: var(--surface-0);">
+<div aria-hidden="true" style="position: absolute; inset: 0; padding: 20px 24px; font-family: var(--font-mono); font-size: 13px; line-height: 24px; color: var(--ink-muted); white-space: pre;">import { describe, it, expect } from "vitest";
+import { reserver } from "./reserver";
+
+describe("reserver", () =&gt; {
+  it("refuse une période qui chevauche un emprunt", () =&gt; {</div>
+</div>
+
+<div style="position: absolute; inset: 0; background: rgba(15, 17, 20, 0.4); display: flex; align-items: center; justify-content: center;">
+<div role="alertdialog" aria-labelledby="titre-suppr" aria-describedby="texte-suppr" style="width: 460px; padding: 24px; background: var(--surface-0); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); display: flex; flex-direction: column; gap: 14px;">
+<h2 id="titre-suppr" style="margin: 0; font-size: 18px; line-height: 24px; font-weight: 600;">Supprimer <span class="hd-mono" style="font-size: 16px;">reserver.test.ts</span> ?</h2>
+<div id="texte-suppr" style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 21px;">
+<p style="margin: 0;"><span class="hd-badge hd-badge--danger">Définitif</span> Ce fichier n'est pas suivi par git : rien ne permettra de le récupérer.</p>
+<p style="margin: 0; color: var(--ink-muted);">Il est ouvert dans un onglet, qui sera fermé.</p>
+</div>
+<div class="hd-row" style="justify-content: flex-end;">
+<button class="hd-btn hd-btn--secondary" type="button">Annuler</button>
+<button class="hd-btn hd-btn--danger" type="button">Supprimer définitivement</button>
+</div>
+<div style="padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 17px; color: var(--ink-muted);">
+<span><strong style="color: var(--ink);">Suivi, sans modification :</strong> « Supprimer », récupérable par <span class="hd-mono">git restore</span>.</span>
+<span><strong style="color: var(--ink);">Suivi, avec modifications :</strong> « Supprimer », avec un avertissement : git restaure la dernière version commitée, les modifications non commitées sont perdues.</span>
+<span><strong style="color: var(--ink);">Dossier :</strong> le nombre de fichiers concernés est indiqué, ceux non suivis à part.</span>
+</div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

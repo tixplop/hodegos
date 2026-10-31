@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — arborescence et statut git</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">src/emprunts/reserver.ts</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+
+<div class="hd-columns" style="flex-wrap: nowrap;">
+
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<span class="hd-nav__label">Fichiers</span>
+<div class="hd-row" style="gap: 2px;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-label="Nouveau fichier à la racine" style="width: 32px; padding: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M12 12v6M9 15h6"></path></svg></button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-label="Nouveau dossier à la racine" style="width: 32px; padding: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M12 10v6M9 13h6"></path></svg></button>
+</div>
+</div>
+
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 13px;">
+<li><div class="hd-nav__item" style="padding-left: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg);"><path d="M9 6l6 6-6 6"></path></svg>docs</span><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--warning);" title="Contient des changements"></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;"><span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg);"><path d="M9 6l6 6-6 6"></path></svg>architecture</span><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--warning);" title="Contient des changements"></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 62px; color: var(--warning);"><span>0001-stockage.md</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">AR</span><span style="font-weight: 600; width: 12px; text-align: center;" title="Modifié">M</span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px;"><span>vision.md</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">PR</span><span style="width: 12px;"></span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg);"><path d="M9 6l6 6-6 6"></path></svg>src</span><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--warning);" title="Contient des changements"></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;"><span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg);"><path d="M9 6l6 6-6 6"></path></svg>emprunts</span><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--warning);" title="Contient des changements"></span></div></li>
+<li style="padding: 2px 0 2px 62px; display: flex; flex-direction: column; gap: 4px;">
+<label class="hd-label" for="nouveau-fichier" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Nom du nouveau fichier</label>
+<input class="hd-input" id="nouveau-fichier" type="text" value="annuler.ts" style="height: 30px; font-family: var(--font-mono); font-size: 13px; border: 2px solid var(--accent); padding: 0 8px;">
+<span style="font-family: var(--font-sans); font-size: 12px; line-height: 16px; color: var(--ink-muted);">Entrée pour créer · Échap pour annuler</span>
+</li>
+<li><div class="hd-nav__item" aria-current="page" style="padding-left: 62px; color: var(--warning); background: var(--accent-soft);"><span style="color: var(--warning);">reserver.ts</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">ML</span><span style="font-weight: 600; width: 12px; text-align: center; color: var(--warning);" title="Modifié">M</span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 62px; color: var(--success);"><span>reserver.test.ts</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">ML</span><span style="font-weight: 600; width: 12px; text-align: center;" title="Non suivi">U</span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px;"><span>modele.ts</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">ML</span><span style="width: 12px;"></span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 46px; color: var(--success);"><span>notifications.ts</span><span class="hd-row" style="gap: 8px;"><span class="hd-nav__meta">ML</span><span style="font-weight: 600; width: 12px; text-align: center;" title="Ajouté à l'index">A</span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px; color: var(--danger);"><span>package.json</span><span class="hd-row" style="gap: 8px;"><span style="font-weight: 600; width: 12px; text-align: center;" title="En conflit">C</span></span></div></li>
+<li><div class="hd-nav__item" style="padding-left: 26px;"><span>README.md</span><span class="hd-row" style="gap: 8px;"><span style="width: 12px;"></span></span></div></li>
+</ul>
+
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; line-height: 16px; color: var(--ink-muted);">
+<span><strong style="color: var(--warning); font-family: var(--font-mono);">M</strong> modifié · <strong style="color: var(--success); font-family: var(--font-mono);">A</strong> ajouté · <strong style="color: var(--success); font-family: var(--font-mono);">U</strong> non suivi · <strong style="color: var(--danger); font-family: var(--font-mono);">C</strong> conflit</span>
+<span>Point orange : le dossier contient un changement. Fichiers ignorés par git masqués.</span>
+</div>
+</nav>
+
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div class="hd-tabs" role="tablist" aria-label="Fichiers ouverts" style="background: var(--surface-0); padding: 0;">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="false" style="font-size: 13px; padding: 10px 16px;">0001-stockage.md</button>
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 10px 16px;">reserver.ts</button>
+</div>
+<div class="hd-editor" style="flex: 1;">
+<div class="hd-editor__line"><span class="hd-editor__num">1</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">import</span> { Emprunt, Objet } <span style="color: var(--syntax-keyword);">from</span> <span style="color: var(--syntax-string);">"../modele"</span>;</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">2</span><span class="hd-editor__code"> </span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">3</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">export function</span> <span style="color: var(--syntax-function);">reserver</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">4</span><span class="hd-editor__code">  objet: <span style="color: var(--syntax-type);">Objet</span>, debut: <span style="color: var(--syntax-type);">Date</span>, fin: <span style="color: var(--syntax-type);">Date</span>, emprunts: <span style="color: var(--syntax-type);">Emprunt</span>[]</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">5</span><span class="hd-editor__code">) {</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">6</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (fin &lt; debut) {</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">7</span><span class="hd-editor__code">    <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Période invalide"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">8</span><span class="hd-editor__code">  }</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">9</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">const</span> dejaPris = emprunts.<span style="color: var(--syntax-function);">some</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">10</span><span class="hd-editor__code">    (e) =&gt; e.objetId === objet.id &amp;&amp; e.debut &lt; fin &amp;&amp; debut &lt; e.fin</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">11</span><span class="hd-editor__code">  );</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">12</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (dejaPris) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Objet indisponible"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">13</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">return</span> { objetId: objet.id, debut, fin };</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">14</span><span class="hd-editor__code">}</span></div>
+</div>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 380px; flex: 0 0 380px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div class="hd-row"><span class="hd-id">fn:reserver</span><span class="hd-muted">reserver</span></div>
+<div class="hd-mentor">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">ML</span>
+<div class="hd-mentor__body">
+<div class="hd-row" style="gap: 6px;"><span class="hd-mentor__name">Mentor du langage</span><span class="hd-badge hd-badge--info">Titulaire</span></div>
+<span class="hd-mentor__why">Langage typescript</span>
+</div>
+</div>
+</div>
+<div style="padding: 16px;"><p class="hd-muted" style="margin: 0;">Aucune remarque pour ce fichier.</p></div>
+</aside>
+
+</div>
+
+<footer class="hd-statusbar">
+<span class="hd-mono">10:62</span>
+<span>TypeScript</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="8" r="2"></circle><path d="M6 8v8M18 10c0 4-6 4-10 6"></path></svg><span class="hd-mono">main</span> · 4 changements · 1 conflit</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Mentor du langage</strong></span>
+<span class="hd-statusbar__end hd-row">
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+<span>Serveur : <span class="hd-badge hd-badge--success">Connecté</span></span>
+</span>
+</footer>
+
+</div>
+</body>
+</html>
