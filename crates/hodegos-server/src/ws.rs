@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -25,6 +26,7 @@ use crate::protocol::{
     self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
     Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
 };
+use crate::settings;
 
 /// Longueur maximale d'une réponse de l'utilisateur.
 const MAX_REPLY_CHARS: usize = 2000;
@@ -93,6 +95,8 @@ struct Connection {
     busy: HashSet<String>,
     /// Fichiers dont la passe d'ouverture est en cours : une seule à la fois.
     opening: HashSet<RelPath>,
+    /// Réponses des demandes traitées en tâche de fond (réglages).
+    background: mpsc::UnboundedSender<Vec<Outgoing>>,
 }
 
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
@@ -102,6 +106,8 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let session = state.project.session(user);
     let (passes, mut finished) = mpsc::unbounded_channel();
     let (followups, mut followed) = mpsc::unbounded_channel();
+    let (background, mut answered) = mpsc::unbounded_channel();
+    let mut events = state.events.subscribe();
     let mut connection = Connection {
         state,
         session,
@@ -113,6 +119,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         followups,
         busy: HashSet::new(),
         opening: HashSet::new(),
+        background,
     };
     let mut pending = vec![
         Outgoing::push(connection.state.connection_status()),
@@ -159,11 +166,34 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
             },
             Some(result) = finished.recv() => connection.pass_finished(result),
             Some(done) = followed.recv() => connection.followup_finished(done),
+            Some(replies) = answered.recv() => replies,
+            event = events.recv() => match event {
+                Ok(message) => vec![Outgoing::push(message)],
+                Err(RecvError::Lagged(_)) => vec![
+                    Outgoing::push(settings::info(&connection.state)),
+                    Outgoing::push(connection.state.status()),
+                ],
+                Err(RecvError::Closed) => break,
+            },
         };
     }
 }
 
 impl Connection {
+    /// Traite une demande de réglages en tâche de fond (catalogue, évaluation, réseau) ;
+    /// la réponse revient par `background`.
+    fn in_background<F, Fut>(&self, re: Option<String>, work: F)
+    where
+        F: FnOnce(Arc<AppState>) -> Fut,
+        Fut: Future<Output = Result<ServerMessage, settings::Refused>> + Send + 'static,
+    {
+        let future = work(self.state.clone());
+        let sender = self.background.clone();
+        tokio::spawn(async move {
+            let _ = sender.send(vec![settings_reply(re, future.await)]);
+        });
+    }
+
     fn handle_text(&mut self, text: &str) -> Vec<Outgoing> {
         let (re, message) = match protocol::parse(text) {
             Ok(parsed) => parsed,
@@ -184,6 +214,47 @@ impl Connection {
         let project = &self.state.project;
         match message {
             ClientMessage::Ping => Ok(vec![Outgoing::reply(re, ServerMessage::Pong)]),
+            ClientMessage::SettingsGet => {
+                Ok(vec![Outgoing::reply(re, settings::info(&self.state))])
+            }
+            ClientMessage::SettingsSet {
+                fast,
+                strong,
+                fast_effort,
+                strong_effort,
+                budget,
+                confirm_eval,
+            } => {
+                let request = settings::Request {
+                    fast,
+                    strong,
+                    fast_effort,
+                    strong_effort,
+                    budget,
+                    confirm_eval,
+                };
+                self.in_background(
+                    re,
+                    |state| async move { settings::set(&state, request).await },
+                );
+                Ok(Vec::new())
+            }
+            ClientMessage::ModelCheck { id } => {
+                self.in_background(re, |state| async move {
+                    settings::model_check(&state, &id).await
+                });
+                Ok(Vec::new())
+            }
+            ClientMessage::ApiKeySet { key } => Ok(vec![settings_reply(
+                re,
+                settings::set_key(&self.state, &key.0),
+            )]),
+            ClientMessage::ProviderTest => {
+                self.in_background(re, |state| async move {
+                    Ok(settings::provider_test(&state).await)
+                });
+                Ok(Vec::new())
+            }
             ClientMessage::ListDir { path } => {
                 let rel = RelPath::parse(&path)?;
                 Ok(vec![Outgoing::reply(re, self.dir(&rel)?)])
@@ -952,6 +1023,16 @@ fn section_info(section: &Section) -> SectionInfo {
         start_line: section.start_line,
         end_line: section.end_line,
         parents: section.parents.clone(),
+    }
+}
+
+fn settings_reply(
+    re: Option<String>,
+    result: Result<ServerMessage, settings::Refused>,
+) -> Outgoing {
+    match result {
+        Ok(message) => Outgoing::reply(re, message),
+        Err(refused) => Outgoing::error(re, refused.code, refused.message),
     }
 }
 

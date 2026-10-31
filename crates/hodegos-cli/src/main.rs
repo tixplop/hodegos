@@ -14,9 +14,11 @@ use std::sync::Arc;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hodegos_core::Project;
-use hodegos_llm::{LlmClient, LlmConfig, OpenRouterClient, load_api_key};
+use hodegos_llm::{ApiKey, LlmClient, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry, default_user_dir, eject};
-use hodegos_server::{DEFAULT_PORT, Llm, Server, ServerOptions};
+use hodegos_server::{
+    Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, client_for,
+};
 use tracing_subscriber::EnvFilter;
 
 /// IDE personnel où des mentors IA vous guident sans écrire à votre place.
@@ -303,30 +305,43 @@ fn list(registry: &Registry, sources: &MentorSources) {
 }
 
 /// Client OpenRouter d'après `config.toml` et la clé ; sinon, la raison de son absence,
-/// affichée dans la barre d'état. Hodegos démarre dans tous les cas.
+/// affichée dans la barre d'état. Hodegos démarre dans tous les cas, et les réglages de
+/// l'IDE peuvent corriger la configuration ou la clé.
 fn llm(config_dir: &Path) -> Llm {
-    let config = match LlmConfig::load(config_dir) {
-        Ok(config) => config,
-        Err(err) => {
-            return Llm {
-                client: Err(format!("configuration invalide : {err}")),
-                config: LlmConfig::default(),
-            };
-        }
-    };
-    let client = match load_api_key(config_dir, std::env::var("OPENROUTER_API_KEY").ok()) {
-        Err(err) => Err(err.to_string()),
-        Ok(None) => Err(format!(
-            "clé OpenRouter absente : ajoutez-la à {} ou à OPENROUTER_API_KEY",
-            config_dir.join("credentials.toml").display()
-        )),
-        Ok(Some(_)) if config.fast.is_none() && config.strong.is_none() => Err(format!(
-            "modèles non configurés : renseignez fast et strong dans {}",
-            config_dir.join("config.toml").display()
-        )),
-        Ok(Some(key)) => OpenRouterClient::new(key, &config.base_url, config.timeout)
+    let connect: Connect = Arc::new(|key: &ApiKey, config: &LlmConfig| {
+        OpenRouterClient::new(key.clone(), &config.base_url, config.timeout)
             .map(|client| Arc::new(client) as Arc<dyn LlmClient>)
-            .map_err(|err| err.to_string()),
+            .map_err(|err| err.to_string())
+    });
+    let env_key = std::env::var("OPENROUTER_API_KEY")
+        .ok()
+        .filter(|k| !k.trim().is_empty());
+    let key_from_env = env_key.is_some();
+    let (key, key_error) = match load_api_key(config_dir, env_key) {
+        Ok(key) => (key, None),
+        Err(err) => (None, Some(err.to_string())),
     };
-    Llm { client, config }
+    let (config, client) = match LlmConfig::load(config_dir) {
+        Ok(config) => {
+            let client = match &key_error {
+                Some(message) => Err(message.clone()),
+                None => client_for(config_dir, key.as_ref(), &config, &connect),
+            };
+            (config, client)
+        }
+        Err(err) => (
+            LlmConfig::default(),
+            Err(format!("configuration invalide : {err}")),
+        ),
+    };
+    Llm {
+        client,
+        config,
+        settings: Some(SettingsSource {
+            config_dir: config_dir.to_path_buf(),
+            key,
+            key_from_env,
+            connect,
+        }),
+    }
 }

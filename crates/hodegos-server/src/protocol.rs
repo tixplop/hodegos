@@ -1,7 +1,9 @@
 //! Messages WebSocket entre le front et le backend (docs/protocole.md fait référence).
 
 use std::collections::BTreeMap;
+use std::fmt;
 
+use hodegos_llm::Effort;
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -120,6 +122,53 @@ pub enum ClientMessage {
     DeleteEntry {
         path: String,
     },
+    /// Réglages personnels (phase 8d).
+    SettingsGet,
+    /// Nouveaux réglages ; un niveau dont le modèle ou l'effort change demande une
+    /// évaluation : `eval_required`, puis le même message avec `confirm_eval`.
+    SettingsSet {
+        fast: String,
+        strong: String,
+        fast_effort: Effort,
+        strong_effort: Effort,
+        budget: BudgetSettings,
+        #[serde(default)]
+        confirm_eval: bool,
+    },
+    ModelCheck {
+        id: String,
+    },
+    /// La clé n'est jamais renvoyée ni journalisée.
+    ApiKeySet {
+        key: Secret,
+    },
+    ProviderTest,
+}
+
+/// Texte confidentiel (clé d'API) : masqué par `Debug`.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Secret(pub String);
+
+impl fmt::Debug for Secret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Secret(…)")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BudgetSettings {
+    pub monthly_cap_usd: f64,
+    /// Fraction du plafond à partir de laquelle on avertit.
+    pub warn_at: f64,
+}
+
+/// Niveau de modèle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tier {
+    Fast,
+    Strong,
 }
 
 /// Pourquoi une remarque est fermée ; c'est aussi son nouveau statut.
@@ -234,6 +283,143 @@ pub enum ServerMessage {
     },
     /// Statut git du projet ; `None` (`null`) sans dépôt ou sans git.
     GitStatus(Option<GitStatusInfo>),
+    /// Réponse à `settings_get` et `settings_set`, et diffusion après un changement.
+    Settings(Box<SettingsInfo>),
+    /// Un niveau change : rien n'est écrit avant confirmation du coût estimé.
+    EvalRequired {
+        level: Tier,
+        cases: usize,
+        estimated_cost: f64,
+        estimated_duration_ms: u64,
+        /// Plafond de l'évaluation, en dollars.
+        max_cost: f64,
+        /// D'où vient l'estimation (`same`, `tokens`, `prompts`).
+        basis: EstimateBasis,
+    },
+    ModelInfo {
+        id: String,
+        exists: bool,
+        structured_outputs: bool,
+        reasoning: bool,
+        /// Dollars par jeton.
+        prompt_price: f64,
+        completion_price: f64,
+    },
+    ProviderTestResult {
+        ok: bool,
+        message: String,
+    },
+    EvalProgress {
+        level: Tier,
+        done: usize,
+        total: usize,
+        cost: f64,
+    },
+    EvalDone(Box<EvalResult>),
+}
+
+/// Réglages personnels, tels que lus et appliqués. La clé n'y figure jamais.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SettingsInfo {
+    pub fast: Option<String>,
+    pub strong: Option<String>,
+    pub fast_effort: Effort,
+    pub strong_effort: Effort,
+    pub budget: BudgetInfo,
+    pub key_source: KeySource,
+    /// Quatre derniers caractères de la clé.
+    pub key_hint: Option<String>,
+    /// Les réglages peuvent être écrits (`~/.config/hodegos`).
+    pub editable: bool,
+    /// Où ils sont écrits.
+    pub config_dir: Option<String>,
+    /// Résultat connu du réglage actuel de chaque niveau ; absent : jamais évalué.
+    pub last_eval: LevelEvals,
+    /// Évaluation en cours.
+    pub eval_running: Option<Tier>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BudgetInfo {
+    pub monthly_cap_usd: f64,
+    pub warn_at: f64,
+    pub used_usd: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeySource {
+    /// `OPENROUTER_API_KEY` : elle prime, le champ est en lecture seule.
+    Env,
+    /// `credentials.toml`.
+    File,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LevelEvals {
+    pub fast: Option<EvalResult>,
+    pub strong: Option<EvalResult>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EstimateBasis {
+    /// Dernier passage du même niveau, même modèle et même effort.
+    Same,
+    /// Prix du modèle × jetons du dernier passage du niveau.
+    Tokens,
+    /// Prix du modèle × jetons estimés d'après les prompts des cas.
+    Prompts,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvalOrigin {
+    /// Résumé des choix livrés (ADR 0003), intégré au binaire.
+    Builtin,
+    /// Évaluation lancée depuis l'IDE.
+    Ide,
+}
+
+/// Couple modèle et effort d'un niveau.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LevelSetting {
+    pub model: String,
+    pub effort: Effort,
+}
+
+/// Résultat d'une évaluation de niveau.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EvalResult {
+    pub level: Tier,
+    pub model: String,
+    pub effort: Effort,
+    /// Date de l'évaluation (AAAA-MM-JJ).
+    pub date: String,
+    /// Retenu : aucune divulgation, notion dans 70 % des cas au moins, cas complets.
+    pub passed: bool,
+    /// Cas où la notion a émergé, sur `cases`.
+    pub notion: usize,
+    pub cases: usize,
+    /// Motifs de solution trouvés dans les brouillons.
+    pub divulged: usize,
+    pub cost: f64,
+    pub duration_ms: u64,
+    pub median_ms: u64,
+    #[serde(default)]
+    pub prompt_tokens: u64,
+    #[serde(default)]
+    pub completion_tokens: u64,
+    /// Rapport (chemin absolu, ou chemin dans le dépôt pour les choix livrés).
+    pub report: Option<String>,
+    pub origin: EvalOrigin,
+    /// Évaluation interrompue : rapport partiel.
+    #[serde(default)]
+    pub partial: bool,
+    /// Réglage du niveau avant ce changement, pour « Revenir à l'ancien réglage ».
+    #[serde(default)]
+    pub previous: Option<LevelSetting>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -419,6 +605,14 @@ pub enum ErrorCode {
     BudgetExceeded,
     ProviderError,
     Internal,
+    /// Réglages : la variable `OPENROUTER_API_KEY` prime, la clé n'est pas écrite.
+    KeyFromEnv,
+    /// Réglages : modèle inconnu, sans sorties structurées, ou effort non accepté.
+    ModelRefused,
+    /// Une évaluation tourne déjà.
+    EvalRunning,
+    /// Valeur de réglage hors limites, ou réglages non modifiables.
+    InvalidSettings,
 }
 
 /// Message illisible : la réponse sera `error` avec le code `bad_message`.
@@ -500,6 +694,46 @@ mod tests {
                 base_version: "v".to_owned(),
                 skip_pass: false,
             }
+        );
+    }
+
+    #[test]
+    fn lit_les_reglages_et_masque_la_cle() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "settings_set", "payload": {
+                "fast": "a/b", "strong": "c/d", "fast_effort": "default",
+                "strong_effort": "high",
+                "budget": { "monthly_cap_usd": 10.0, "warn_at": 0.8 } } }))
+            .unwrap()
+            .1,
+            ClientMessage::SettingsSet {
+                fast: "a/b".to_owned(),
+                strong: "c/d".to_owned(),
+                fast_effort: Effort::Default,
+                strong_effort: Effort::High,
+                budget: BudgetSettings {
+                    monthly_cap_usd: 10.0,
+                    warn_at: 0.8
+                },
+                confirm_eval: false,
+            }
+        );
+        let key = parse_value(json!({ "v": 1, "type": "api_key_set",
+            "payload": { "key": "sk-or-secret" } }))
+        .unwrap()
+        .1;
+        assert_eq!(
+            key,
+            ClientMessage::ApiKeySet {
+                key: Secret("sk-or-secret".to_owned())
+            }
+        );
+        assert!(!format!("{key:?}").contains("sk-or-secret"));
+        assert!(
+            parse_value(json!({ "v": 1, "type": "settings_set", "payload": {
+            "fast": "a", "strong": "b", "fast_effort": "max", "strong_effort": "default",
+            "budget": { "monthly_cap_usd": 1.0, "warn_at": 0.5 } } }))
+            .is_err()
         );
     }
 

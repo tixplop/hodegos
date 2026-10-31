@@ -16,7 +16,9 @@ binaire installé n'en a pas.
 ## Décision
 
 - Tout changement d'identifiant **ou d'effort** d'un niveau déclenche
-  l'évaluation de ce niveau.
+  l'évaluation de ce niveau, sauf vers un réglage qui a déjà un résultat retenu
+  (évaluation de l'IDE, ou choix livrés de l'ADR 0003) : revenir à l'ancien
+  réglage ne coûte rien (décidé le 31 octobre 2026). Un niveau à la fois.
 - La personne est prévenue **avant** : dialogue avec le niveau, le nombre de
   cas, le coût et la durée estimés (d'après le dernier passage, sinon le prix du
   modèle), et le plafond de l'évaluation. Annuler n'écrit rien.
@@ -26,6 +28,9 @@ binaire installé n'en a pas.
 - Un résultat sous le seuil de l'ADR 0003 n'annule pas le réglage : il est
   signalé, avec « Revenir à l'ancien réglage ».
 - L'effort est un réglage de niveau, pas de mentor.
+- Sans passage mesuré, l'estimation multiplie le prix du modèle par les jetons
+  estimés d'après les prompts des cas intégrés : les rapports de l'ADR 0003
+  n'avaient pas noté les jetons. Ils le sont désormais dans chaque rapport.
 
 ## Alternatives écartées
 

@@ -134,6 +134,7 @@ mod tests {
             messages: vec![ChatMessage::new(Role::User, "section")],
             schema_name: "remarques".to_owned(),
             schema: remarks_schema(),
+            effort: Default::default(),
         }
     }
 

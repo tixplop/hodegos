@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{ApiKey, BoxFuture, LlmClient, LlmError, LlmRequest, LlmResponse, Tokens};
@@ -65,7 +65,7 @@ impl OpenRouterClient {
     }
 
     async fn send(&self, request: &LlmRequest) -> Result<LlmResponse, LlmError> {
-        let body = json!({
+        let mut body = json!({
             "model": request.model,
             "messages": request.messages,
             "response_format": {
@@ -79,6 +79,9 @@ impl OpenRouterClient {
             // Seulement les fournisseurs qui acceptent response_format.
             "provider": { "require_parameters": true },
         });
+        if let Some(effort) = request.effort.reasoning() {
+            body["reasoning"] = json!({ "effort": effort });
+        }
         let response = self
             .http
             .post(format!("{}/chat/completions", self.base_url))
@@ -133,6 +136,106 @@ fn transport_error(err: reqwest::Error) -> LlmError {
     } else {
         LlmError::Transport(err.without_url().to_string())
     }
+}
+
+/// Modèle du catalogue public d'OpenRouter.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ModelInfo {
+    pub id: String,
+    /// Accepte un schéma JSON imposé (`structured_outputs`) : condition pour Hodegos.
+    pub structured_outputs: bool,
+    /// Accepte un effort de raisonnement (`reasoning`).
+    pub reasoning: bool,
+    /// Prix en dollars par jeton d'entrée et de sortie.
+    pub prompt_price: f64,
+    pub completion_price: f64,
+}
+
+#[derive(Deserialize)]
+struct ModelList {
+    data: Vec<RawModel>,
+}
+
+#[derive(Deserialize)]
+struct RawModel {
+    id: String,
+    #[serde(default)]
+    supported_parameters: Vec<String>,
+    #[serde(default)]
+    pricing: RawPricing,
+}
+
+#[derive(Deserialize, Default)]
+struct RawPricing {
+    #[serde(default)]
+    prompt: Option<String>,
+    #[serde(default)]
+    completion: Option<String>,
+}
+
+fn http(timeout: Duration) -> Result<reqwest::Client, LlmError> {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|e| LlmError::Transport(e.to_string()))
+}
+
+/// Catalogue public des modèles (`GET /models`, sans clé).
+pub async fn fetch_models(base_url: &str, timeout: Duration) -> Result<Vec<ModelInfo>, LlmError> {
+    let response = http(timeout)?
+        .get(format!("{}/models", base_url.trim_end_matches('/')))
+        .header("X-Title", "Hodegos")
+        .send()
+        .await
+        .map_err(transport_error)?;
+    let status = response.status();
+    let text = response.text().await.map_err(transport_error)?;
+    if !status.is_success() {
+        return Err(LlmError::Http {
+            status: status.as_u16(),
+            message: text.chars().take(200).collect(),
+        });
+    }
+    let list: ModelList = serde_json::from_str(&text)
+        .map_err(|e| LlmError::InvalidResponse(format!("catalogue illisible : {e}")))?;
+    let price = |p: Option<String>| p.and_then(|p| p.parse::<f64>().ok()).unwrap_or(0.0);
+    Ok(list
+        .data
+        .into_iter()
+        .map(|m| ModelInfo {
+            structured_outputs: m
+                .supported_parameters
+                .iter()
+                .any(|p| p == "structured_outputs"),
+            reasoning: m.supported_parameters.iter().any(|p| p == "reasoning"),
+            prompt_price: price(m.pricing.prompt),
+            completion_price: price(m.pricing.completion),
+            id: m.id,
+        })
+        .collect())
+}
+
+/// Vérifie la clé (`GET /key`) : appel léger, sans génération ni coût.
+pub async fn check_key(base_url: &str, key: &ApiKey, timeout: Duration) -> Result<(), LlmError> {
+    let response = http(timeout)?
+        .get(format!("{}/key", base_url.trim_end_matches('/')))
+        .bearer_auth(key.expose())
+        .header("X-Title", "Hodegos")
+        .send()
+        .await
+        .map_err(transport_error)?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+    let text = response.text().await.unwrap_or_default();
+    let message = serde_json::from_str::<ErrorBody>(&text)
+        .map(|b| b.error.message)
+        .unwrap_or_else(|_| text.chars().take(200).collect());
+    Err(LlmError::Http {
+        status: status.as_u16(),
+        message: message.replace(key.expose(), "[clé masquée]"),
+    })
 }
 
 impl LlmClient for OpenRouterClient {
@@ -207,6 +310,7 @@ mod tests {
             ],
             schema_name: "remarques".to_owned(),
             schema: json!({ "type": "object" }),
+            effort: crate::Effort::Default,
         }
     }
 
@@ -369,5 +473,86 @@ mod tests {
         let captured = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
         assert!(captured.contains("passe abandonnée"), "{captured}");
         assert!(!captured.contains("sk-or-test"), "{captured}");
+    }
+
+    #[tokio::test]
+    async fn l_effort_n_est_envoye_que_s_il_est_choisi() {
+        let body = json!({
+            "choices": [{ "message": { "content": "{}" } }],
+            "usage": { "cost": 0.0 }
+        });
+        let (url, seen) = serve(StatusCode::OK, body, Duration::ZERO).await;
+        let client = client(&url, Duration::from_secs(5));
+        client.complete(&request()).await.unwrap();
+        let mut medium = request();
+        medium.effort = crate::Effort::Medium;
+        client.complete(&medium).await.unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(seen[0].1.get("reasoning").is_none(), "{}", seen[0].1);
+        assert_eq!(seen[1].1["reasoning"], json!({ "effort": "medium" }));
+    }
+
+    async fn serve_get(models: Value, key_status: StatusCode) -> String {
+        let app = axum::Router::new()
+            .route(
+                "/api/v1/models",
+                axum::routing::get(move || {
+                    let models = models.clone();
+                    async move { Json(models) }
+                }),
+            )
+            .route(
+                "/api/v1/key",
+                axum::routing::get(move |headers: HeaderMap| async move {
+                    if headers["authorization"] == "Bearer sk-or-test" {
+                        (StatusCode::OK, Json(json!({ "data": { "label": "test" } })))
+                    } else {
+                        (
+                            key_status,
+                            Json(json!({ "error": { "message": "No auth credentials found" } })),
+                        )
+                    }
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/api/v1", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        url
+    }
+
+    #[tokio::test]
+    async fn lit_le_catalogue_et_verifie_la_cle() {
+        let url = serve_get(
+            json!({ "data": [
+                { "id": "a/raisonne", "supported_parameters": ["structured_outputs", "reasoning"],
+                  "pricing": { "prompt": "0.000001", "completion": "0.000004" } },
+                { "id": "b/simple", "supported_parameters": ["response_format"] }
+            ] }),
+            StatusCode::UNAUTHORIZED,
+        )
+        .await;
+        let models = fetch_models(&url, Duration::from_secs(5)).await.unwrap();
+        assert_eq!(
+            models[0],
+            ModelInfo {
+                id: "a/raisonne".to_owned(),
+                structured_outputs: true,
+                reasoning: true,
+                prompt_price: 0.000001,
+                completion_price: 0.000004,
+            }
+        );
+        assert!(!models[1].structured_outputs && !models[1].reasoning);
+        assert_eq!(models[1].prompt_price, 0.0);
+
+        let timeout = Duration::from_secs(5);
+        check_key(&url, &ApiKey::new("sk-or-test"), timeout)
+            .await
+            .unwrap();
+        let err = check_key(&url, &ApiKey::new("sk-autre"), timeout)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, LlmError::Http { status: 401, .. }), "{err}");
+        assert!(!err.to_string().contains("sk-autre"));
     }
 }

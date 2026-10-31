@@ -30,6 +30,7 @@ fn models() -> Models {
     Models {
         fast: Some("test/rapide".to_owned()),
         strong: Some("test/fort".to_owned()),
+        ..Models::default()
     }
 }
 
@@ -309,6 +310,7 @@ async fn section_introuvable_ou_modele_absent() {
     let only_strong = Models {
         fast: None,
         strong: Some("test/fort".to_owned()),
+        ..Models::default()
     };
     let result = run_case(
         &fake,
@@ -338,6 +340,7 @@ fn rapport_ecrit_sans_ecraser_celui_du_jour() {
     let models = Models {
         fast: Some("vendeur/Modèle-1".to_owned()),
         strong: Some("vendeur/Modèle-1".to_owned()),
+        ..Models::default()
     };
     let first = models_report_path(dir.path(), &models).unwrap();
     std::fs::write(&first, "a").unwrap();

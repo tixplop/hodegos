@@ -199,12 +199,22 @@ confirmer à la main dans le navigateur Windows.
 
 ### 8d — Réglages : modèles, effort, clé, budget
 
-- [ ] Modèle et effort modifiables ; un modèle sans sorties structurées est refusé ; `reasoning`
+- [x] Modèle et effort modifiables ; un modèle sans sorties structurées est refusé ; `reasoning`
   n'est envoyé qu'aux modèles qui l'acceptent
-- [ ] Tout changement de niveau annonce coût et durée estimés, puis lance l'évaluation sur les cas
+- [x] Tout changement de niveau annonce coût et durée estimés, puis lance l'évaluation sur les cas
   intégrés ; rapport sous `~/.local/share/hodegos/evals/`
-- [ ] `config.toml` garde ses commentaires ; la clé n'est jamais renvoyée au front ni journalisée ;
+- [x] `config.toml` garde ses commentaires ; la clé n'est jamais renvoyée au front ni journalisée ;
   la variable d'environnement prime et le dit
+
+Vérification le 31 octobre 2026 : `tests/settings.rs` et les tests de `hodegos-llm` (faux
+OpenRouter local, `FakeLlmClient`, journal capturé), puis un parcours scripté dans Chromium sans
+écran dans les deux thèmes : modèle sans sorties structurées refusé, effort « Moyen » du niveau
+fort, dialogue d'estimation, évaluation de 7 cas (requêtes avec `reasoning.effort`, rapport et
+`results.json` sous `~/.local/share/hodegos/evals/`), résultat sous le seuil signalé dans l'écran
+et la barre d'état, retour à l'ancien réglage sans évaluation, clé remplacée (600, jamais dans la
+page), test de connexion, budget enregistré, commentaires de `config.toml` conservés, aucune
+erreur dans la console. Reste à confirmer à la main dans le navigateur Windows, et une évaluation
+réelle avec une vraie clé.
 
 ### 8e — Réglages : mentors
 

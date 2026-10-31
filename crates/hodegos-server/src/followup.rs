@@ -111,9 +111,9 @@ pub(crate) fn prepare(
             )
         })?;
 
-    if let Err(message) = &state.llm.client {
+    if let Err(message) = state.llm().client {
         state.set_provider(false, Some(message.clone()));
-        return Err(Refused::new(ErrorCode::ProviderError, message.clone()));
+        return Err(Refused::new(ErrorCode::ProviderError, message));
     }
     if state.budget.state(Timestamp::now()).level == BudgetLevel::Exceeded && !confirm_over_budget {
         return Err(Refused::new(
@@ -121,7 +121,7 @@ pub(crate) fn prepare(
             "budget du mois atteint : confirmez pour envoyer cette demande",
         ));
     }
-    let Some(model) = model_for(state, mentor) else {
+    let Some((model, effort)) = model_for(state, mentor) else {
         let tier = match mentor.model {
             ModelTier::Fast => "fast",
             ModelTier::Strong => "strong",
@@ -175,6 +175,7 @@ pub(crate) fn prepare(
             ],
             schema_name: "reponse".to_owned(),
             schema: reply_schema(),
+            effort,
         },
     })
 }
@@ -188,9 +189,9 @@ pub(crate) async fn run(state: Arc<AppState>, job: Job) -> Done {
         level: job.level,
         outcome,
     };
-    let client = match &state.llm.client {
-        Ok(client) => client.clone(),
-        Err(message) => return done(Err(Refused::new(ErrorCode::ProviderError, message.clone()))),
+    let client = match state.llm().client {
+        Ok(client) => client,
+        Err(message) => return done(Err(Refused::new(ErrorCode::ProviderError, message))),
     };
     let rules = Rules {
         section_text: &job.section_text,

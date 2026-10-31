@@ -39,6 +39,7 @@ pub fn no_llm() -> Llm {
     Llm {
         client: Err("aucun fournisseur dans les tests".to_owned()),
         config: LlmConfig::default(),
+        settings: None,
     }
 }
 
@@ -51,6 +52,7 @@ pub fn fake_llm(fake: Arc<FakeLlmClient>) -> Llm {
             strong: Some("test/fort".to_owned()),
             ..LlmConfig::default()
         },
+        settings: None,
     }
 }
 

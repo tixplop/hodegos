@@ -3,6 +3,8 @@ use std::pin::Pin;
 
 use serde::Serialize;
 
+use crate::Effort;
+
 /// Futur renvoyé par [`LlmClient::complete`], pour que le trait reste utilisable en `dyn`.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -36,6 +38,9 @@ pub struct LlmRequest {
     pub messages: Vec<ChatMessage>,
     pub schema_name: String,
     pub schema: serde_json::Value,
+    /// Effort de raisonnement ; `Effort::Default` n'envoie rien. L'appelant ne le
+    /// règle que pour un modèle qui accepte `reasoning`.
+    pub effort: Effort,
 }
 
 /// Jetons d'un ou plusieurs appels : base des estimations de coût.

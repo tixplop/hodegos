@@ -13,19 +13,20 @@ mod mentors;
 mod pass;
 pub mod protocol;
 mod secret;
+mod settings;
 mod store;
 mod ws;
 
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, RwLock};
 
 use axum::Router;
 use axum::routing::get;
 use hodegos_core::{FileError, FileWatcher, Project, RelPath, UserId};
-use hodegos_llm::{Budget, LlmClient, LlmConfig};
-use hodegos_mentors::MentorSources;
+use hodegos_llm::{ApiKey, Budget, Effort, LlmClient, LlmConfig};
+use hodegos_mentors::{MentorSources, ModelTier};
 use jiff::Timestamp;
 use tokio::net::TcpListener;
 use tokio::sync::{Notify, broadcast};
@@ -34,7 +35,8 @@ pub use auth::{Authenticator, LaunchTokenAuthenticator};
 
 use crate::git::GitTracker;
 use crate::mentors::Mentors;
-use crate::protocol::{BudgetLevel, LastPass, ServerMessage};
+use crate::protocol::{BudgetLevel, LastPass, ServerMessage, Tier};
+use crate::settings::Catalog;
 use crate::store::Store;
 
 /// Port par défaut. Il est fixe : sous WSL2 en mode NAT, un port tiré au hasard peut
@@ -66,6 +68,50 @@ pub enum ServerError {
 pub struct Llm {
     pub client: Result<Arc<dyn LlmClient>, String>,
     pub config: LlmConfig,
+    /// Réglages modifiables depuis l'IDE ; `None` : lecture seule.
+    pub settings: Option<SettingsSource>,
+}
+
+/// Crée le client du fournisseur pour une clé et une configuration (les tests
+/// fournissent le faux client).
+pub type Connect =
+    Arc<dyn Fn(&ApiKey, &LlmConfig) -> Result<Arc<dyn LlmClient>, String> + Send + Sync>;
+
+/// Où écrire les réglages, et de quoi refaire le client quand ils changent.
+pub struct SettingsSource {
+    /// `~/.config/hodegos` : `config.toml` et `credentials.toml`.
+    pub config_dir: PathBuf,
+    pub key: Option<ApiKey>,
+    /// La clé vient de `OPENROUTER_API_KEY` : elle prime, les réglages ne l'écrivent pas.
+    pub key_from_env: bool,
+    pub connect: Connect,
+}
+
+/// Client d'après la clé et la configuration ; sinon, la raison de son absence,
+/// affichée dans la barre d'état.
+pub fn client_for(
+    config_dir: &Path,
+    key: Option<&ApiKey>,
+    config: &LlmConfig,
+    connect: &Connect,
+) -> Result<Arc<dyn LlmClient>, String> {
+    match key {
+        None => Err(format!(
+            "clé OpenRouter absente : ajoutez-la dans les réglages, à {} ou à OPENROUTER_API_KEY",
+            config_dir.join("credentials.toml").display()
+        )),
+        Some(_) if config.fast.is_none() && config.strong.is_none() => Err(format!(
+            "modèles non configurés : renseignez-les dans les réglages ou dans {}",
+            config_dir.join("config.toml").display()
+        )),
+        Some(key) => connect(key, config),
+    }
+}
+
+/// Accès au modèle en cours : les réglages le remplacent, chaque passe en lit une copie.
+pub(crate) struct LlmNow {
+    pub(crate) client: Result<Arc<dyn LlmClient>, String>,
+    pub(crate) config: LlmConfig,
 }
 
 /// Réglages du serveur.
@@ -94,7 +140,16 @@ struct AppState {
     /// Statut git, recalculé après chaque changement.
     git: Arc<GitTracker>,
     mentors: Mentors,
-    llm: Llm,
+    llm: RwLock<LlmNow>,
+    /// Réglages modifiables, et la clé lue (jamais renvoyée au front).
+    settings: Option<settings::Source>,
+    /// Catalogue des modèles d'OpenRouter, lu à la demande.
+    catalog: Catalog,
+    /// Évaluation en cours (une à la fois).
+    eval_running: Mutex<Option<Tier>>,
+    /// Messages pour toutes les connexions : réglages, évaluation, état.
+    events: broadcast::Sender<ServerMessage>,
+    data_dir: PathBuf,
     budget: Budget,
     store: Store,
     /// Fournisseur joignable, et sinon pourquoi.
@@ -114,6 +169,38 @@ impl AppState {
 
     fn cookie_name(&self) -> String {
         format!("hodegos_{}", self.port)
+    }
+
+    /// Copie du client et de la configuration en cours.
+    fn llm(&self) -> LlmNow {
+        match self.llm.read() {
+            Ok(llm) => LlmNow {
+                client: llm.client.clone(),
+                config: llm.config.clone(),
+            },
+            Err(_) => LlmNow {
+                client: Err("état du fournisseur illisible".to_owned()),
+                config: LlmConfig::default(),
+            },
+        }
+    }
+
+    /// Modèle et effort d'un niveau. L'effort n'est retenu que si le catalogue
+    /// confirme que le modèle accepte `reasoning` ; sinon rien n'est envoyé.
+    fn model_for_tier(&self, tier: ModelTier) -> Option<(String, Effort)> {
+        let config = self.llm().config;
+        let (model, effort) = match tier {
+            ModelTier::Fast => (config.fast?, config.fast_effort),
+            ModelTier::Strong => (config.strong?, config.strong_effort),
+        };
+        let effort = if effort != Effort::Default
+            && self.catalog.known(&model).is_some_and(|m| m.reasoning)
+        {
+            effort
+        } else {
+            Effort::Default
+        };
+        Some((model, effort))
     }
 
     fn set_provider(&self, ok: bool, message: Option<String>) {
@@ -213,6 +300,9 @@ impl Server {
             Ok(_) => (true, None),
             Err(message) => (false, Some(message.clone())),
         };
+        let needs_catalog = llm.config.fast_effort != Effort::Default
+            || llm.config.strong_effort != Effort::Default;
+        let (events, _) = broadcast::channel(64);
         let state = Arc::new(AppState {
             port,
             auth: Arc::new(auth),
@@ -221,13 +311,26 @@ impl Server {
             changes,
             git,
             mentors,
-            llm,
+            catalog: Catalog::default(),
+            settings: llm.settings.map(settings::Source::new),
+            llm: RwLock::new(LlmNow {
+                client: llm.client,
+                config: llm.config,
+            }),
+            eval_running: Mutex::new(None),
+            events,
+            data_dir,
             budget,
             store,
             provider: Mutex::new(provider),
             last_pass: Mutex::new(None),
             initial_file,
         });
+        // Un effort choisi n'est envoyé qu'une fois le catalogue lu.
+        if needs_catalog {
+            let catalog_state = state.clone();
+            tokio::spawn(async move { settings::refresh_catalog(&catalog_state).await });
+        }
         let reload_state = state.clone();
         tokio::spawn(async move {
             while mentor_changes.recv().await.is_some() {

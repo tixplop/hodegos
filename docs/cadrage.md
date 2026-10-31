@@ -323,6 +323,8 @@ provider = "openrouter"
 # modèles retenus par docs/adr/0003-choix-des-modeles.md
 fast   = "deepseek/deepseek-v4.1-flash-1017"
 strong = "google/gemini-4-argon"
+fast_effort   = "default"   # default | low | medium | high (phase 8d)
+strong_effort = "default"
 timeout_secs = 30
 
 [budget]
@@ -332,6 +334,7 @@ warn_at = 0.8               # avertissement à 80 %
 
 - **Sorties structurées** : chaque appel envoie `response_format` de type `json_schema` avec `strict: true`, et `provider.require_parameters: true` pour n'être routé que vers des fournisseurs qui l'acceptent. Selon la documentation d'OpenRouter (https://openrouter.ai/docs/guides/features/structured-outputs), la prise en charge se décide par fournisseur et pas seulement par modèle, et certains ne traitent le schéma que comme une indication : la validation côté serveur reste donc obligatoire.
 - **Choix des modèles** : un modèle est retenu s'il passe le jeu d'évaluation (section Tests) ; l'identifiant n'est jamais écrit en dur dans le code.
+- **Réglages depuis l'IDE** (phase 8d) : modèle et effort de chaque niveau, clé et budget se changent dans l'écran Réglages, qui réécrit `config.toml` en gardant ses commentaires. Un niveau qui change est réévalué sur les cas intégrés au binaire, après confirmation du coût et de la durée estimés (ADR 0007) ; un retour à un réglage déjà retenu ne l'est pas. L'effort (`reasoning.effort`) n'est envoyé qu'aux modèles qui l'acceptent.
 - **Budget** : le coût de chaque appel est lu dans la réponse d'OpenRouter et cumulé par mois dans `~/.local/share/hodegos/usage.json`. À 80 %, avertissement dans la barre d'état ; à 100 %, plus aucune passe proactive, et chaque demande explicite (« Palier suivant », réponse) doit être confirmée (tranché en phase 5, voir ci-dessous).
 - **Panne** : délai dépassé ou erreur du fournisseur, la passe est abandonnée, la barre d'état l'indique ; aucune nouvelle tentative automatique avant l'enregistrement suivant.
 - **Coût** : `usage.cost` est toujours présent dans la réponse d'OpenRouter ; il est compté en crédits, pris comme des dollars (1 crédit = 1 USD). Une réponse sans coût est traitée comme une erreur.

@@ -40,7 +40,7 @@ struct UsageFile {
 /// Budget mensuel dur, cumulé dans `usage.json` (données de l'utilisateur).
 pub struct Budget {
     path: PathBuf,
-    config: BudgetConfig,
+    config: Mutex<BudgetConfig>,
     months: Mutex<BTreeMap<String, f64>>,
 }
 
@@ -58,9 +58,26 @@ impl Budget {
         };
         Self {
             path,
-            config,
+            config: Mutex::new(config),
             months: Mutex::new(months),
         }
+    }
+
+    /// Nouveau plafond ou seuil, appliqué tout de suite (réglages de l'IDE).
+    pub fn set_config(&self, config: BudgetConfig) {
+        if let Ok(mut current) = self.config.lock() {
+            *current = config;
+        }
+    }
+
+    pub fn config(&self) -> BudgetConfig {
+        self.config
+            .lock()
+            .map(|c| c.clone())
+            .unwrap_or(BudgetConfig {
+                monthly_cap_usd: 0.0,
+                warn_at: 0.0,
+            })
     }
 
     pub fn state(&self, at: Timestamp) -> BudgetState {
@@ -73,10 +90,11 @@ impl Budget {
     }
 
     fn state_for(&self, used: f64) -> BudgetState {
-        let cap = self.config.monthly_cap_usd;
+        let config = self.config();
+        let cap = config.monthly_cap_usd;
         let level = if used >= cap {
             BudgetLevel::Exceeded
-        } else if used >= cap * self.config.warn_at {
+        } else if used >= cap * config.warn_at {
             BudgetLevel::Warning
         } else {
             BudgetLevel::Ok
@@ -159,7 +177,7 @@ mod tests {
         assert_eq!(budget.state(at("2026-11-01T00:30:00Z")).used_usd, 0.0);
         assert_eq!(month_of(at("2026-10-31T23:30:00Z")), "2026-10");
 
-        let reopened = super::Budget::open(dir.path().join("usage.json"), budget.config.clone());
+        let reopened = super::Budget::open(dir.path().join("usage.json"), budget.config());
         assert_eq!(
             reopened.state(at("2026-10-15T00:00:00Z")).level,
             BudgetLevel::Warning

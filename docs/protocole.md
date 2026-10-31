@@ -45,6 +45,11 @@ connexion reste ouverte.
 | `create_entry` | `path`, `kind` (`file` ou `dir`) | Crée un fichier vide ou un dossier (phase 8a) ; renvoie `entry_created`, puis pousse `dir` du dossier parent |
 | `delete_preview` | `path` | Renvoie `delete_preview` : ce qu'emporterait la suppression, sans rien supprimer |
 | `delete_entry` | `path` | Supprime pour de bon (pas de corbeille) un fichier ou un dossier ; renvoie `entry_deleted`, puis pousse `dir` du dossier parent |
+| `settings_get` | — | Renvoie `settings` (phase 8d) |
+| `settings_set` | `fast`, `strong`, `fast_effort`, `strong_effort` (`default`, `low`, `medium` ou `high`), `budget` (`monthly_cap_usd`, `warn_at`), `confirm_eval` (facultatif, `false`) | Écrit `config.toml` et applique les réglages ; renvoie `settings`. Si un niveau change de modèle ou d'effort vers un réglage non retenu, renvoie d'abord `eval_required` sans rien écrire ; la même demande avec `confirm_eval: true` écrit, puis lance l'évaluation (voir plus bas) |
+| `model_check` | `id` | Renvoie `model_info`, d'après le catalogue public d'OpenRouter |
+| `api_key_set` | `key` | Écrit `credentials.toml` (droits 600) et refait le client ; renvoie `settings`, jamais la clé. Refusé (`key_from_env`) si `OPENROUTER_API_KEY` est définie |
+| `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
 
 ## Du backend vers le front
 
@@ -65,6 +70,12 @@ connexion reste ouverte.
 | `delete_preview` | `path`, `kind`, `files`, `untracked`, `modified`, `ignored`, `restorable` | réponse à `delete_preview` |
 | `entry_deleted` | `path`, `kind` | réponse à `delete_entry` |
 | `git_status` | `branch`, `detached`, `entries` (`path`, `status`), `changes`, `conflicts` ; `null` sans dépôt ou sans git | à la connexion, juste après le premier `status`, puis à chaque changement du statut |
+| `settings` | `fast`, `strong`, `fast_effort`, `strong_effort`, `budget` (`monthly_cap_usd`, `warn_at`, `used_usd`), `key_source` (`env`, `file` ou `none`), `key_hint`, `editable`, `config_dir`, `last_eval` (`fast`, `strong`), `eval_running` (`fast`, `strong` ou `null`) | réponse à `settings_get`, `settings_set` et `api_key_set` ; poussé à toutes les fenêtres après un changement et à la fin d'une évaluation |
+| `eval_required` | `level`, `cases`, `estimated_cost`, `estimated_duration_ms`, `max_cost`, `basis` (`same`, `tokens` ou `prompts`) | réponse à `settings_set` non confirmé quand un niveau doit être réévalué |
+| `model_info` | `id`, `exists`, `structured_outputs`, `reasoning`, `prompt_price`, `completion_price` (dollars par jeton) | réponse à `model_check` |
+| `provider_test_result` | `ok`, `message` | réponse à `provider_test` |
+| `eval_progress` | `level`, `done`, `total`, `cost` | poussé à toutes les fenêtres au début et à la fin de chaque cas d'une évaluation |
+| `eval_done` | un résultat d'évaluation (voir plus bas) | poussé à toutes les fenêtres à la fin d'une évaluation, suivi de `settings` et `status` |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -207,6 +218,41 @@ Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 « Contrat : format d'une remarque ». Un mentor dans `titular`, `consultants` et
 `available` est décrit par `id`, `name`, `initials`, `role`.
 
+Détails des réglages (phase 8d, ADR 0007) :
+
+- La clé n'est jamais renvoyée ni journalisée : `settings` ne donne que son
+  origine (`key_source`) et ses quatre derniers caractères (`key_hint`).
+  `OPENROUTER_API_KEY` prime sur `credentials.toml`.
+- `config.toml` est réécrit avec ses commentaires, son ordre et ses autres clés
+  (`toml_edit`), de façon atomique ; les réglages valent dès la passe suivante,
+  sans redémarrage. `editable: false` : réglages en lecture seule (aucun dossier
+  de configuration).
+- Un modèle inconnu du catalogue, sans sorties structurées (`structured_outputs`),
+  ou un effort autre que `default` pour un modèle sans `reasoning` sont refusés
+  (`model_refused`). `reasoning: { effort }` n'est envoyé au modèle que si le
+  catalogue confirme qu'il l'accepte ; il est absent pour `default`.
+- Un niveau dont le modèle ou l'effort change est réévalué, sauf si ce réglage a
+  déjà un résultat retenu (retour à l'ancien réglage, choix livrés) : un seul
+  niveau à la fois (`invalid_settings` sinon), une évaluation à la fois
+  (`eval_running`), clé requise (`provider_error`).
+- Estimation (`basis`) : `same`, coût et durée du dernier passage de ce réglage ;
+  `tokens`, prix du modèle × jetons du dernier passage du niveau ; `prompts`,
+  prix du modèle × jetons estimés d'après les prompts des cas (aucun passage
+  mesuré). `max_cost` : plafond de l'évaluation (3 USD).
+- L'évaluation joue les cas intégrés du niveau avec les mentors livrés ; les
+  passes continuent pendant ce temps, avec le nouveau réglage. Sa dépense compte
+  dans `usage.json`. Rapport : `~/.local/share/hodegos/evals/AAAA-MM-JJ-<modèle>-<effort>.md`,
+  réécrit après chaque cas et marqué partiel jusqu'à la fin ; résultats dans
+  `evals/results.json` du même dossier.
+- Un résultat (`eval_done`, `last_eval.fast`, `last_eval.strong`) :
+  `{ level, model, effort, date, passed, notion, cases, divulged, cost,
+  duration_ms, median_ms, prompt_tokens, completion_tokens, report, origin,
+  partial, previous }`. `passed` : aucune solution divulguée, notion dans 70 %
+  des cas au moins, tous les cas joués. `origin` : `builtin` (résumé des choix
+  livrés, `evals/livres.toml`) ou `ide`. `previous` : réglage du niveau avant le
+  changement, pour « Revenir à l'ancien réglage ». `last_eval` donne le dernier
+  résultat du réglage actuel de chaque niveau, `null` s'il n'a jamais été évalué.
+
 ## Codes d'erreur
 
 | Code | Sens |
@@ -218,8 +264,12 @@ Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 | `version_conflict` | `base_version` ne correspond plus à la version sur disque |
 | `not_text` | fichier qui n'est pas un texte UTF-8 de 2 Mo au plus |
 | `budget_exceeded` | budget mensuel atteint : demande explicite non confirmée |
-| `provider_error` | fournisseur non configuré, erreur ou délai dépassé chez le fournisseur de modèles |
+| `provider_error` | fournisseur non configuré, erreur ou délai dépassé chez le fournisseur de modèles ; catalogue des modèles injoignable ; évaluation sans clé |
 | `internal` | erreur inattendue (détail dans le journal du serveur) |
+| `key_from_env` | `api_key_set` : `OPENROUTER_API_KEY` est définie et prime (phase 8d) |
+| `model_refused` | `settings_set` : modèle inconnu, sans sorties structurées, ou effort non accepté |
+| `eval_running` | `settings_set` : une évaluation tourne déjà |
+| `invalid_settings` | `settings_set`, `api_key_set` : valeur hors limites, deux niveaux à évaluer à la fois, clé vide, ou réglages en lecture seule |
 
 Conflit : si `base_version` ne correspond plus à la version sur disque, le serveur
 refuse `save` avec `version_conflict` et la version sur disque dans `version` ; le

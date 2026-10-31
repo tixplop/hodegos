@@ -290,6 +290,21 @@ Précisions retenues à l'implémentation (31 octobre 2026) :
 - Plafond, seuil d'avertissement, dépense du mois (UTC) et barre de
   progression ; mêmes règles qu'aujourd'hui.
 
+### Précisions retenues à l'implémentation (31 octobre 2026)
+
+- Pas de nouvelle évaluation vers un réglage déjà retenu (retour à l'ancien
+  réglage, choix livrés) ; un seul niveau à évaluer par enregistrement.
+- Résultats des évaluations de l'IDE : `~/.local/share/hodegos/evals/results.json`,
+  à côté des rapports ; résumé des choix livrés : `evals/livres.toml`, intégré
+  au binaire.
+- L'évaluation est code du serveur (`hodegos-server::eval`) ; `hodegos eval` s'en
+  sert. Les rapports notent désormais les jetons.
+- Le catalogue des modèles n'est lu qu'à la demande (`model_check`, `settings_set`)
+  ou au démarrage si un effort est choisi ; tant qu'il n'est pas lu, aucun effort
+  n'est envoyé.
+- L'écran Réglages tient sur une page ; la navigation de gauche fait défiler
+  jusqu'à la section. « Mentors » y figure, inactif, jusqu'à la phase 8e.
+
 ### Messages
 
 `settings_get` → `settings { fast, strong, fast_effort, strong_effort,
@@ -421,6 +436,9 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   conflits, noms avec espaces) ; dépôt absent.
 - 8b : `activate` lance une passe sur la section du curseur, sans `no_change` ;
   `skip_pass` ; budget dépassé sans confirmation.
+- 8d : `tests/settings.rs` (faux OpenRouter local pour le catalogue et la clé,
+  `FakeLlmClient` pour l'évaluation) ; écriture de `config.toml` et de
+  `credentials.toml` dans `hodegos-llm`.
 - 8c : aucun message nouveau ; le test `ui.rs` refuse `innerHTML` et les
   fonctions qui produisent du HTML à partir de texte dans `ui/js/`, et tout
   attribut `style` dans les pages ; le reste se vérifie dans le navigateur.

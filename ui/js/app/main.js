@@ -1,6 +1,6 @@
 /* Hodegos — application : arborescence (création, suppression, statut git), onglets, éditeur,
    Markdown en source, aperçu ou lecture, enregistrement, modifications externes, interlocuteurs
-   de la section courante, remarques et état des passes. */
+   de la section courante, remarques, état des passes et réglages personnels. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
 import { confirmDeletion } from './deletion.js';
@@ -10,11 +10,16 @@ import { icon } from './icons.js';
 import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
+import { createSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = {
   path: $('chemin'),
   theme: $('theme'),
+  openSettings: $('ouvrir-reglages'),
+  ide: $('ide'),
+  settings: $('reglages'),
+  evaluation: $('evaluation'),
   tree: $('arborescence'),
   tabBar: $('barre-onglets'),
   tabs: $('onglets'),
@@ -89,6 +94,8 @@ let cursorTimer = null;
 /** Mode d'affichage du Markdown, global et mémorisé comme le thème. */
 let markdownMode = stored('hodegos.markdown.mode', MODES, 'preview');
 let editMode = stored('hodegos.markdown.edit', EDIT_MODES, 'preview');
+/** Derniers réglages reçus : évaluation en cours, résultats sous le seuil. */
+let lastSettings = null;
 
 const server = connect({ onPush, onState });
 const editor = createEditor(ui.editor, {
@@ -111,6 +118,11 @@ const reader = createReader(ui.reading, {
 for (const choice of ui.modes.querySelectorAll('[data-value]')) {
   choice.addEventListener('click', () => setMarkdownMode(choice.dataset.value));
 }
+const settings = createSettings(ui.settings, {
+  request: (type, payload) => server.request(type, payload),
+  onSettings: renderEvaluation,
+});
+ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden));
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => {
@@ -136,6 +148,7 @@ function onState(state) {
   if (state === 'open') {
     setBadge('Connecté', 'success');
     tree.load();
+    settings.load();
     if (wasConnected) resync();
     wasConnected = true;
   } else {
@@ -183,6 +196,20 @@ function onPush(message) {
     applyRemark(remark);
     return;
   }
+  if (message.type === 'settings') {
+    settings.apply(message.payload);
+    return;
+  }
+  if (message.type === 'eval_progress') {
+    settings.progress(message.payload);
+    renderEvaluation(null, message.payload);
+    return;
+  }
+  if (message.type === 'eval_done') {
+    const { level, passed } = message.payload;
+    showMessage(`Évaluation du ${LEVEL_NAMES[level]} terminée : ${passed ? 'retenu' : 'sous le seuil'}.`);
+    return;
+  }
   if (message.type === 'git_status') {
     gitStatus = message.payload;
     tree.setGit(gitStatus);
@@ -202,6 +229,56 @@ function onPush(message) {
   if (!tab || version === tab.version) return;
   tab.banner = version === null ? { kind: 'deleted' } : { kind: 'changed', version };
   render();
+}
+
+/* ---------- Réglages ---------- */
+
+const LEVEL_NAMES = { fast: 'niveau rapide', strong: 'niveau fort' };
+
+/** L'écran des réglages remplace l'IDE ; il garde ses changements en attente quand on le quitte. */
+function showSettings(open) {
+  ui.ide.hidden = open;
+  ui.settings.hidden = !open;
+  ui.openSettings.setAttribute('aria-expanded', String(open));
+  ui.openSettings.textContent = open ? 'Revenir à l\'éditeur' : 'Réglages';
+  if (open) {
+    settings.load();
+    ui.path.textContent = 'Réglages';
+    document.title = 'Réglages — Hodegos';
+    ui.settings.querySelector('.app-settings__nav a')?.focus();
+  } else {
+    render();
+    if (currentPath && !isReading()) editor.focus();
+  }
+}
+
+/** Barre d'état : évaluation en cours, ou réglage sous le seuil. */
+function renderEvaluation(next, progress = null) {
+  if (next) lastSettings = next;
+  ui.evaluation.replaceChildren();
+  ui.evaluation.className = 'app-eval';
+  const running = lastSettings?.eval_running;
+  if (running) {
+    const done = progress && progress.level === running ? ` : ${progress.done}/${progress.total} cas` : '…';
+    ui.evaluation.append(`Évaluation du ${LEVEL_NAMES[running]}${done}`);
+    ui.evaluation.hidden = false;
+    return;
+  }
+  const below = Object.keys(LEVEL_NAMES).filter((level) => lastSettings?.last_eval[level]?.passed === false);
+  ui.evaluation.hidden = below.length === 0;
+  if (!below.length) return;
+  const badge = document.createElement('span');
+  badge.className = 'hd-badge hd-badge--warning';
+  badge.textContent = below.length === 2 ? 'Deux niveaux sous le seuil' : `${capitalize(LEVEL_NAMES[below[0]])} sous le seuil`;
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.textContent = 'Voir les réglages';
+  open.addEventListener('click', () => showSettings(true));
+  ui.evaluation.append(badge, open);
+}
+
+function capitalize(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /* ---------- Git et suppression ---------- */
@@ -835,10 +912,13 @@ function render() {
   ui.editor.hidden = !tab || isReading();
   ui.reading.hidden = !tab || !isReading();
   ui.empty.hidden = Boolean(tab);
-  ui.path.textContent = tab ? tab.path : '';
   ui.language.textContent = tab ? languageLabel(tab) : '';
   if (!tab) ui.position.textContent = '';
-  document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
+  // L'écran des réglages garde son titre.
+  if (ui.settings.hidden) {
+    ui.path.textContent = tab ? tab.path : '';
+    document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
+  }
   tree.setCurrent(currentPath);
   renderMentors();
   renderRemarksPanel();
@@ -976,10 +1056,10 @@ ui.theme.addEventListener('click', () => {
 document.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
     event.preventDefault();
-    save();
+    if (ui.settings.hidden) save();
   }
   // Ctrl+E : dernier mode d'édition ⇄ lecture, pour un onglet Markdown.
-  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e' && isMarkdown()) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e' && isMarkdown() && ui.settings.hidden) {
     event.preventDefault();
     setMarkdownMode(markdownMode === 'reading' ? editMode : 'reading');
   }

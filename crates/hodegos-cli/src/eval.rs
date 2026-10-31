@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use hodegos_llm::{Budget, LlmConfig, OpenRouterClient, load_api_key};
+use hodegos_llm::{Budget, Effort, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry};
 use hodegos_server::eval::case::{builtin_cases, load_cases};
 use hodegos_server::eval::report::{self, Verdict, markdown, summarize, terminal};
@@ -38,17 +38,22 @@ pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyh
         None => builtin_cases(args.only.as_deref())?,
     };
     let config = LlmConfig::load(config_dir).context("configuration invalide")?;
+    let fast = args.fast.clone().or_else(|| args.model.clone());
+    let strong = args.strong.clone().or_else(|| args.model.clone());
+    // L'effort de config.toml vaut pour le modèle configuré, pas pour un candidat.
     let models = Models {
-        fast: args
-            .fast
-            .clone()
-            .or_else(|| args.model.clone())
-            .or(config.fast.clone()),
-        strong: args
-            .strong
-            .clone()
-            .or_else(|| args.model.clone())
-            .or(config.strong.clone()),
+        fast_effort: if fast.is_none() {
+            config.fast_effort
+        } else {
+            Effort::Default
+        },
+        strong_effort: if strong.is_none() {
+            config.strong_effort
+        } else {
+            Effort::Default
+        },
+        fast: fast.or(config.fast.clone()),
+        strong: strong.or(config.strong.clone()),
     };
     if models.fast.is_none() && models.strong.is_none() {
         bail!(

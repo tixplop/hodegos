@@ -39,6 +39,7 @@ async fn reponses_enregistrees_au_palier_exemple() {
             messages: vec![ChatMessage::new(Role::User, fixture.language)],
             schema_name: "reponse".to_owned(),
             schema: reply_schema(),
+            effort: Default::default(),
         };
         let rules = Rules {
             section_text: &fixture.section,

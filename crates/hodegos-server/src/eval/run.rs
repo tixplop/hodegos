@@ -7,8 +7,9 @@ use std::time::Instant;
 use hodegos_core::secrets::exclusion;
 use hodegos_core::{changed_sections, sections};
 use hodegos_llm::{
-    AskError, ChatMessage, LlmClient, LlmRequest, RemarkKind, RemarkLevel, Role, Rules, Tokens,
-    ask_for_remarks, ask_for_reply, remarks_schema, reply_schema, validate, validate_replies,
+    AskError, ChatMessage, Effort, LlmClient, LlmRequest, RemarkKind, RemarkLevel, Role, Rules,
+    Tokens, ask_for_remarks, ask_for_reply, remarks_schema, reply_schema, validate,
+    validate_replies,
 };
 use hodegos_mentors::{
     Author, CastRequest, FollowUpKind, Forced, Level, ModelTier, Registry, SectionRequest, Thread,
@@ -22,6 +23,9 @@ use super::case::Case;
 pub struct Models {
     pub fast: Option<String>,
     pub strong: Option<String>,
+    /// Effort de raisonnement, seulement pour un modèle qui l'accepte.
+    pub fast_effort: Effort,
+    pub strong_effort: Effort,
 }
 
 impl Models {
@@ -29,6 +33,13 @@ impl Models {
         match tier {
             ModelTier::Fast => self.fast.as_deref(),
             ModelTier::Strong => self.strong.as_deref(),
+        }
+    }
+
+    pub fn effort(&self, tier: ModelTier) -> Effort {
+        match tier {
+            ModelTier::Fast => self.fast_effort,
+            ModelTier::Strong => self.strong_effort,
         }
     }
 }
@@ -301,6 +312,7 @@ pub async fn run_case(
             ],
             schema_name: schema_name.to_owned(),
             schema,
+            effort: models.effort(mentor.model),
         };
         let rules = Rules {
             section_text: &text,
@@ -425,6 +437,44 @@ pub async fn run_case(
         result.levels.push(level_result);
     }
     result
+}
+
+/// Niveau du titulaire d'un cas et taille, en caractères, de son premier prompt :
+/// de quoi trier les cas par niveau et estimer les jetons sans appel au modèle.
+pub fn first_prompt(registry: &Registry, case: &Case) -> Option<(ModelTier, usize)> {
+    let all = sections(case.language, &case.content);
+    let section = all.iter().find(|s| s.id == case.section)?;
+    let text = section.text(&case.content);
+    let casting = cast(
+        registry,
+        &CastRequest {
+            path: &case.file,
+            language: case.language.as_str(),
+            headings: section_headings(case.language, Some(section)),
+            text: &text,
+            forced: None,
+        },
+    );
+    let mentor = registry.get(casting.titular.as_deref()?)?;
+    let diff = changed_sections(case.language, "", &case.content)
+        .into_iter()
+        .find(|c| c.section.id == section.id)
+        .map(|c| c.diff)
+        .unwrap_or_default();
+    let prompt = section_prompt(&SectionRequest {
+        mentor,
+        level: *case.levels.first()?,
+        path: &case.file,
+        language: case.language.as_str(),
+        content: &case.content,
+        section,
+        diff: &diff,
+        thread: None,
+    });
+    Some((
+        mentor.model,
+        prompt.system.chars().count() + prompt.user.chars().count(),
+    ))
 }
 
 fn fill_error(level_result: &mut LevelResult, err: AskError) {

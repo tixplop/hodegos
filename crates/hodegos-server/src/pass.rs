@@ -9,8 +9,8 @@ use std::time::Instant;
 use hodegos_core::secrets::exclusion;
 use hodegos_core::{Language, RelPath, Section, changed_sections, sections};
 use hodegos_llm::{
-    AskError, BudgetLevel, ChatMessage, LlmRequest, RemarkDraft, RemarkLevel, Role, Rules,
-    ask_for_remarks, remarks_schema,
+    AskError, BudgetLevel, ChatMessage, Effort, LlmClient, LlmRequest, RemarkDraft, RemarkLevel,
+    Role, Rules, ask_for_remarks, remarks_schema,
 };
 use hodegos_mentors::{
     CastRequest, Casting, Forced, Level, Mentor, ModelTier, Registry, SectionRequest, cast,
@@ -85,6 +85,8 @@ pub(crate) struct Run {
     path: RelPath,
     trigger: Trigger,
     jobs: Vec<Job>,
+    /// Client au lancement : un changement de réglages vaut pour la passe suivante.
+    client: Arc<dyn LlmClient>,
 }
 
 /// Résultat d'une passe, renvoyé à la connexion qui l'a lancée.
@@ -233,7 +235,7 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
         return Prepared::Done(PassOutcome::NoMentor);
     }
     // Fournisseur absent avant budget atteint, comme l'issue le dira.
-    if state.llm.client.is_ok()
+    if state.llm().client.is_ok()
         && state.budget.state(Timestamp::now()).level == BudgetLevel::Exceeded
     {
         return Prepared::Done(PassOutcome::BudgetExceeded);
@@ -280,14 +282,17 @@ fn launch(
     picks: Vec<(Section, String, Mentor)>,
 ) -> Prepared {
     let path = request.path.as_str();
-    if let Err(message) = &state.llm.client {
-        state.set_provider(false, Some(message.clone()));
-        return Prepared::Done(PassOutcome::ProviderError);
-    }
+    let client = match state.llm().client {
+        Ok(client) => client,
+        Err(message) => {
+            state.set_provider(false, Some(message));
+            return Prepared::Done(PassOutcome::ProviderError);
+        }
+    };
 
     let mut jobs = Vec::new();
     for (section, diff, mentor) in picks {
-        let Some(model) = model_for(state, &mentor) else {
+        let Some((model, effort)) = model_for(state, &mentor) else {
             let tier = match mentor.model {
                 ModelTier::Fast => "fast",
                 ModelTier::Strong => "strong",
@@ -321,6 +326,7 @@ fn launch(
                 ],
                 schema_name: "remarques".to_owned(),
                 schema: remarks_schema(),
+                effort,
             },
             section,
         });
@@ -339,14 +345,13 @@ fn launch(
         path: request.path.clone(),
         trigger: request.trigger,
         jobs,
+        client,
     }))
 }
 
-pub(crate) fn model_for(state: &AppState, mentor: &Mentor) -> Option<String> {
-    match mentor.model {
-        ModelTier::Fast => state.llm.config.fast.clone(),
-        ModelTier::Strong => state.llm.config.strong.clone(),
-    }
+/// Modèle et effort du niveau du mentor.
+pub(crate) fn model_for(state: &AppState, mentor: &Mentor) -> Option<(String, Effort)> {
+    state.model_for_tier(mentor.model)
 }
 
 pub(crate) fn remark_level(level: Level) -> RemarkLevel {
@@ -365,17 +370,7 @@ pub(crate) async fn run(
     generation: u64,
     started: Instant,
 ) -> PassResult {
-    let Ok(client) = state.llm.client.clone() else {
-        return finish(
-            run.path,
-            run.trigger,
-            generation,
-            Vec::new(),
-            PassOutcome::ProviderError,
-            0.0,
-            started,
-        );
-    };
+    let client = run.client.clone();
     let mut tasks = JoinSet::new();
     for job in run.jobs {
         let client = client.clone();

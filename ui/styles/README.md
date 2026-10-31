@@ -82,6 +82,7 @@ Les colonnes passent les unes sous les autres sur écran étroit.
 - Survol : `surface-100` sous les éléments neutres, `accent-hover` sous le bouton principal.
 - Désactivé : opacité 0.5 et `aria-disabled`.
 - Vrais éléments natifs : `<button>`, `<a href>`, `<input>` avec `<label>`. Onglets en `role="tab"` (`Hodegos.initTabs`), choix exclusifs en `aria-pressed` (`Hodegos.initChoices`).
+- Écran de réglages : il remplace l'IDE (en-tête et barre d'état restent), navigation à gauche (`hd-nav`), une carte `hd-card` par réglage, `hd-card--active` et badge `warning` « Modifié » tant qu'un changement n'est pas enregistré. Les changements attendent « Enregistrer » (`hd-btn--primary`) ; « Annuler les changements » (`hd-btn--secondary`) revient aux valeurs lues. Une conséquence coûteuse (évaluation) passe par un dialogue « Choix » qui dit le coût et la durée estimés avant la dépense.
 - Mode d'affichage d'un document (Source · Aperçu · Lecture) : groupe `role="group"` de `hd-btn--choice hd-btn--sm` en `aria-pressed`, à droite de la barre d'onglets, suivi de son raccourci en `text-caption` (« Ctrl+E : édition ⇄ lecture »). Il n'apparaît que pour un fichier Markdown.
 - Les paliers d'aide sont une liste ordonnée avec `aria-current="step"` sur le palier courant.
 - Cible tactile de 32px minimum (`hd-btn--sm`), 36–40px par défaut.

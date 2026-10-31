@@ -19,9 +19,12 @@
 <span class="hd-wordmark">hodegos</span>
 <span class="hd-muted" aria-hidden="true">/</span>
 <span id="chemin" class="hd-mono app-path"></span>
-<button id="theme" class="hd-btn hd-btn--ghost hd-btn--sm app-header__end" type="button">Thème sombre</button>
+<span class="hd-row app-header__end">
+<button id="ouvrir-reglages" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="reglages">Réglages</button>
+<button id="theme" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</span>
 </header>
-<div class="hd-columns app-columns">
+<div id="ide" class="hd-columns app-columns">
 <nav class="hd-sidebar app-sidebar" aria-label="Fichiers du projet">
 <div class="hd-nav">
 <div class="hd-nav__group">
@@ -62,6 +65,88 @@
 </div>
 </aside>
 </div>
+<div id="reglages" class="hd-columns app-columns" hidden>
+<nav class="hd-sidebar app-sidebar app-settings__nav" aria-label="Réglages">
+<div class="hd-nav">
+<div class="hd-nav__group">
+<span class="hd-nav__label">Réglages personnels</span>
+<a class="hd-nav__item" href="#reglages-modeles" aria-current="page">Modèles et effort</a>
+<a class="hd-nav__item" href="#reglages-cle">Clé d'API <span id="nav-cle" class="hd-nav__meta"></span></a>
+<a class="hd-nav__item" href="#reglages-budget">Budget <span id="nav-budget" class="hd-nav__meta"></span></a>
+<span class="hd-nav__item app-settings__soon" aria-disabled="true">Mentors <span class="hd-nav__meta">bientôt</span></span>
+</div>
+<div class="hd-nav__group">
+<span class="hd-nav__label">Où c'est écrit</span>
+<p id="reglages-ou" class="app-settings__where"></p>
+</div>
+</div>
+</nav>
+<main class="hd-main app-settings">
+<div id="reglages-modeles" class="app-settings__intro">
+<h1 class="app-settings__h1">Modèles et effort</h1>
+<p class="hd-muted app-settings__lead">Deux niveaux, partagés par les mentors selon leur champ <span class="hd-mono">model</span>. Effet à la passe suivante, sans redémarrage.</p>
+</div>
+<section id="niveau-fast" class="hd-card app-settings__card" aria-labelledby="niveau-fast-titre">
+<div class="hd-card__head app-settings__head"><h2 id="niveau-fast-titre" class="app-settings__title">Niveau rapide</h2><span class="hd-badge">fast</span><span class="hd-muted">Mentor du langage</span><span class="hd-badge hd-card__end" data-role="badge"></span></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--wide">
+<label class="hd-label" for="modele-fast">Identifiant OpenRouter</label>
+<input class="hd-input hd-mono app-settings__mono" id="modele-fast" type="text" autocomplete="off" spellcheck="false" aria-describedby="note-fast">
+</div>
+<div class="app-settings__field">
+<label class="hd-label" for="effort-fast">Effort de raisonnement</label>
+<select class="hd-input" id="effort-fast"><option value="default">Par défaut</option><option value="low">Faible</option><option value="medium">Moyen</option><option value="high">Élevé</option></select>
+</div>
+</div>
+<p id="note-fast" class="app-settings__note" data-role="note"></p>
+<div data-role="callout"></div>
+</section>
+<section id="niveau-strong" class="hd-card app-settings__card" aria-labelledby="niveau-strong-titre">
+<div class="hd-card__head app-settings__head"><h2 id="niveau-strong-titre" class="app-settings__title">Niveau fort</h2><span class="hd-badge">strong</span><span class="hd-muted">Architecte, Mentor produit</span><span class="hd-badge hd-card__end" data-role="badge"></span></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--wide">
+<label class="hd-label" for="modele-strong">Identifiant OpenRouter</label>
+<input class="hd-input hd-mono app-settings__mono" id="modele-strong" type="text" autocomplete="off" spellcheck="false" aria-describedby="note-strong">
+</div>
+<div class="app-settings__field">
+<label class="hd-label" for="effort-strong">Effort de raisonnement</label>
+<select class="hd-input" id="effort-strong"><option value="default">Par défaut</option><option value="low">Faible</option><option value="medium">Moyen</option><option value="high">Élevé</option></select>
+</div>
+</div>
+<p id="note-strong" class="app-settings__note" data-role="note"></p>
+<div data-role="callout"></div>
+</section>
+<section id="reglages-cle" class="hd-card app-settings__card" aria-labelledby="cle-titre">
+<div class="hd-card__head app-settings__head"><h2 id="cle-titre" class="app-settings__title">Clé d'API OpenRouter</h2><span id="cle-badge" class="hd-badge hd-card__end" hidden></span></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--wide">
+<label class="hd-label" for="cle">Clé enregistrée</label>
+<input class="hd-input hd-mono app-settings__mono" id="cle" type="password" autocomplete="off" readonly aria-describedby="cle-note">
+</div>
+<div class="hd-row">
+<button id="cle-remplacer" class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Remplacer la clé</button>
+<button id="cle-enregistrer" class="hd-btn hd-btn--primary hd-btn--sm" type="button" hidden>Enregistrer la clé</button>
+<button id="cle-tester" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Tester la connexion</button>
+</div>
+</div>
+<p id="cle-note" class="app-settings__note"></p>
+</section>
+<section id="reglages-budget" class="hd-card app-settings__card" aria-labelledby="budget-titre">
+<div class="hd-card__head app-settings__head"><h2 id="budget-titre" class="app-settings__title">Budget mensuel</h2><span id="budget-mois" class="hd-muted hd-card__end"></span></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="plafond">Plafond (USD)</label><input class="hd-input" id="plafond" type="number" min="0" step="0.5" inputmode="decimal"></div>
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="seuil">Avertir à (%)</label><input class="hd-input" id="seuil" type="number" min="0" max="100" step="5" inputmode="numeric"></div>
+<div class="app-settings__field app-settings__field--wide"><span id="depense" class="hd-label"></span><div class="hd-progress" role="img" id="depense-barre"><div class="hd-progress__bar"></div></div></div>
+</div>
+</section>
+<p id="reglages-erreur" class="app-settings__error" role="alert" hidden></p>
+<div class="hd-row app-settings__actions">
+<span id="reglages-attente" class="hd-muted app-settings__pending" aria-live="polite"></span>
+<button id="reglages-annuler" class="hd-btn hd-btn--secondary" type="button">Annuler les changements</button>
+<button id="reglages-enregistrer" class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
+</div>
+</main>
+</div>
 <footer class="hd-statusbar">
 <span id="position" class="hd-mono"></span>
 <span id="langage"></span>
@@ -70,6 +155,7 @@
 <span id="titulaire"></span>
 <span id="mentors-erreurs" hidden></span>
 <span id="passe" role="status"></span>
+<span id="evaluation" role="status" hidden></span>
 <span id="message" role="status"></span>
 <span class="hd-statusbar__end hd-row">
 <span id="budget" hidden></span>
