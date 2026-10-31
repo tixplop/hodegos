@@ -254,9 +254,17 @@ commit, aucune erreur dans la console. Confirmé à la main dans le navigateur W
 
 ### 8g — Déplacer un fichier ou un dossier
 
-- [ ] Déplacer un fichier et un dossier par glisser-déposer, et au clavier par « Déplacer vers… » ;
+- [x] Déplacer un fichier et un dossier par glisser-déposer, et au clavier par « Déplacer vers… » ;
   cibles interdites signalées ; refus du serveur affichés près de l'arbre
-- [ ] Remarques, choix forcés et passes d'ouverture suivent le déplacement (ADR 0008) ; échec de leur
-  mise à jour : renommage annulé
-- [ ] Onglets ouverts, même modifiés, et fil d'Ariane suivent le nouveau chemin ; aucun bandeau
-  « fichier supprimé »
+  (core `entries` et `tree`, `crates/hodegos-server/tests/moves.rs` : refus, `list_dirs`)
+- [x] Remarques, choix forcés et passes d'ouverture suivent le déplacement (ADR 0008) ; échec de leur
+  mise à jour : renommage annulé (`tests/moves.rs` : `overrides.json` impossible à écrire)
+- [x] Onglets ouverts, même modifiés, et fil d'Ariane suivent le nouveau chemin ; aucun bandeau
+  « fichier supprimé » (`tests/moves.rs` : aucun `file_changed` après le déplacement)
+
+Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, projet local) dans les deux thèmes : surbrillance d'un dossier et de l'en-tête, cible
+interdite sans surbrillance, Échap qui annule, dossier replié ouvert après 600 ms, refus « nom déjà
+pris » sous l'arbre, dépôt à la racine, « Déplacer vers… » au clavier (filtre, flèches, Entrée),
+onglet modifié qui suit puis s'enregistre au nouveau chemin, fil d'Ariane, remarque ancrée à sa
+place, casting au nouveau chemin (choix forcé gardé), aucune erreur dans la console.

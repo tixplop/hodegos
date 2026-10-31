@@ -165,8 +165,14 @@ function anchorRanges(state) {
   return ranges;
 }
 
+/** Nouveau chemin du document : son fichier a été déplacé depuis l'arbre. */
+const setPath = StateEffect.define();
+
 /** Chemin du document dans le projet, posé à la création de l'état d'un onglet. */
-const pathField = StateField.define({ create: () => '', update: (path) => path });
+const pathField = StateField.define({
+  create: () => '',
+  update: (path, tr) => tr.effects.find((e) => e.is(setPath))?.value ?? path,
+});
 
 /** Aperçu en direct du Markdown : présent ou non dans l'état, sans toucher à l'historique. */
 const previewSlot = new Compartment();
@@ -322,6 +328,13 @@ export function createEditor(parent, { onChange, onCursor, onAnchor, onLink }) {
       onCursor(position(state));
     },
     get state() {
+      return view.state;
+    },
+    /** `state` avec un nouveau chemin, historique et modifications gardés. */
+    retarget(state, path) {
+      const spec = { effects: setPath.of(path) };
+      if (state !== view.state) return state.update(spec).state;
+      view.dispatch(spec);
       return view.state;
     },
     /** Aperçu en direct (Markdown) ou source, pour l'état affiché. */

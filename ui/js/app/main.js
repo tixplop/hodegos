@@ -1,4 +1,4 @@
-/* Hodegos — application : arborescence (création, suppression, statut git), onglets, éditeur,
+/* Hodegos — application : arborescence (création, suppression, déplacement, statut git), onglets, éditeur,
    Markdown en source, aperçu ou lecture, enregistrement, modifications externes, interlocuteurs
    de la section courante, remarques, état des passes et réglages personnels. */
 import { connect } from './connection.js';
@@ -11,6 +11,7 @@ import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
+import { chooseDestination } from './move.js';
 import { createSettings } from './settings.js';
 import { createSidebarResizer } from './sidebar.js';
 import { createTerminalPanel } from './terminal.js';
@@ -161,12 +162,18 @@ const tree = createTree(ui.tree, {
     return reply.payload.entries;
   }),
   create: (path, kind) => server.request('create_entry', { path, kind }),
+  move: (from, toDir) => server.request('move_entry', { from, to_dir: toDir }),
   onOpen: openFile,
   onCreated: (path, kind) => {
     if (kind === 'file') openFile(path);
   },
   onDelete: deleteEntry,
+  onMoveTo: moveTo,
+  onMoved: followMove,
   onError: showError,
+  zone: $('fichiers'),
+  head: $('fichiers').querySelector('.app-tree__head'),
+  problem: $('arbre-erreur'),
 });
 ui.newFile.append(icon('file-plus'));
 ui.newDir.append(icon('folder-plus'));
@@ -379,6 +386,50 @@ async function deleteEntry(path, button) {
   for (const p of affected) dropTab(p);
   tree.refresh();
   showMessage(`Supprimé : ${path}`);
+}
+
+/** « Déplacer vers… » : choix du dossier au clavier, puis le même déplacement qu'au glisser. */
+async function moveTo(path, button) {
+  let reply;
+  try {
+    reply = await server.request('list_dirs', null);
+  } catch (error) {
+    showError(error);
+    return;
+  }
+  const { paths, truncated } = reply.payload;
+  const kind = button.dataset.kind;
+  const dir = await chooseDestination({ path, kind, dirs: paths, truncated, returnFocus: button });
+  if (dir !== null) tree.moveEntry(path, dir);
+}
+
+/** Les onglets des fichiers déplacés suivent leur nouveau chemin, modifications comprises. */
+function followMove({ from, to }) {
+  const moved = (path) => (path === from || path.startsWith(`${from}/`) ? to + path.slice(from.length) : null);
+  if (currentPath && tabs.has(currentPath)) tabs.get(currentPath).state = editor.state;
+  const entries = [...tabs.entries()].map(([path, tab]) => {
+    const next = moved(path);
+    if (!next) return [path, tab];
+    tab.path = next;
+    tab.state = editor.retarget(tab.state, next);
+    if (remarksByPath.has(path)) {
+      const remarks = remarksByPath.get(path).map((remark) => ({ ...remark, path: next }));
+      remarksByPath.delete(path);
+      remarksByPath.set(next, remarks);
+    }
+    // Le serveur pousse le casting du nouveau chemin.
+    castings.delete(path);
+    return [next, tab];
+  });
+  tabs.clear();
+  for (const [path, tab] of entries) tabs.set(path, tab);
+  const current = moved(currentPath ?? '');
+  if (current) {
+    currentPath = current;
+    if (sentCursor) sentCursor = { ...sentCursor, path: current };
+  }
+  render();
+  showMessage(`Déplacé : ${from} → ${to}`);
 }
 
 /* ---------- Mentors ---------- */

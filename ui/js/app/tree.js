@@ -1,5 +1,6 @@
 /* Arborescence du projet, chargée dossier par dossier (list_dir) : création dans l'arbre,
-   suppression par le menu contextuel, statut git (lettre et couleur, point sur les dossiers). */
+   suppression par le menu contextuel, déplacement par glisser-déposer ou « Déplacer vers… »,
+   statut git (lettre et couleur, point sur les dossiers). */
 import { icon } from './icons.js';
 import { openMenu } from './menu.js';
 
@@ -19,17 +20,46 @@ const CREATE_ERRORS = {
   bad_message: 'Nom invalide.',
 };
 
+const MOVE_ERRORS = {
+  already_exists: 'Ce nom est déjà pris dans le dossier de destination.',
+  path_forbidden: 'Destination sous .git, exclue par .gitignore, hors du projet ou atteinte par un lien symbolique.',
+  not_found: "Ce fichier ou ce dossier n'existe plus.",
+  invalid_move: 'Un dossier ne peut pas aller dans lui-même ni dans un de ses sous-dossiers.',
+  internal: "Déplacement annulé : les remarques n'ont pas pu suivre. Voir le journal du serveur.",
+};
+
 /** Délai de regroupement des rechargements (plusieurs `git_status` rapprochés). */
 const REFRESH_DELAY_MS = 50;
+
+/** Type des données glissées depuis l'arbre ; tout autre dépôt est ignoré. */
+const DRAG_TYPE = 'application/x-hodegos-entry';
+/** Survol d'un dossier replié avant qu'il s'ouvre pendant un glisser. */
+const EXPAND_DELAY_MS = 600;
+
+/** Dossier parent d'un chemin (`''` : racine). */
+export function parentOf(path) {
+  const slash = path.lastIndexOf('/');
+  return slash < 0 ? '' : path.slice(0, slash);
+}
+
+/** `dir` peut recevoir l'entrée `path` : ni elle-même, ni un descendant, ni son dossier actuel. */
+export function canMoveInto(path, dir) {
+  return dir !== parentOf(path) && dir !== path && !dir.startsWith(`${path}/`);
+}
 
 let inputs = 0;
 
 /**
  * `list(path)` renvoie une promesse des entrées du dossier ; `create(path, kind)` crée une
- * entrée ; `onOpen(path)` au clic sur un fichier ; `onCreated(path, kind)` après une
- * création ; `onDelete(path, button)` quand « Supprimer… » est choisi.
+ * entrée ; `move(from, toDir)` la déplace et renvoie la réponse `entry_moved` ; `onOpen(path)`
+ * au clic sur un fichier ; `onCreated(path, kind)` après une création ; `onDelete(path,
+ * button)` quand « Supprimer… » est choisi ; `onMoveTo(path, button)` pour « Déplacer vers… » ;
+ * `onMoved({ from, to, kind })` après un déplacement. `zone` reçoit les dépôts (hors d'une
+ * ligne : la racine, signalée sur `head`) ; `problem` affiche les refus de déplacement.
  */
-export function createTree(root, { list, create, onOpen, onCreated, onDelete, onError }) {
+export function createTree(root, {
+  list, create, move, onOpen, onCreated, onDelete, onMoveTo, onMoved, onError, zone, head, problem,
+}) {
   let current = null;
   /** Dossiers dépliés : ils le restent quand l'arbre est rechargé. */
   const expanded = new Set();
@@ -45,6 +75,12 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
   let focusPath = null;
   /** Dernière demande de contenu par liste : une réponse plus ancienne est ignorée. */
   const fills = new WeakMap();
+  /** Entrée glissée depuis l'arbre : `{ path }` ; `null` hors d'un glisser. */
+  let dragging = null;
+  /** Élément en surbrillance de dépôt, et dossier replié qui s'ouvrira s'il reste survolé. */
+  let dropMark = null;
+  let expandTimer = null;
+  let expandTarget = null;
 
   root.dataset.path = '';
   root.dataset.depth = '0';
@@ -86,6 +122,7 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
     button.style.setProperty('--depth', String(depth));
     button.dataset.path = path;
     button.dataset.kind = entry.kind;
+    button.draggable = true;
     button.title = path;
     const name = document.createElement('span');
     name.className = 'app-tree__name';
@@ -145,6 +182,14 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
       if (end.childElementCount) button.append(end);
       button.addEventListener('click', () => onOpen(path));
     }
+    button.addEventListener('dragstart', (event) => {
+      dragging = { path };
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(DRAG_TYPE, path);
+      event.dataTransfer.setData('text/plain', path);
+      clearProblem();
+    });
+    button.addEventListener('dragend', endDrag);
     button.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       showMenu(button, event.clientX, event.clientY);
@@ -164,15 +209,17 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
 
   function showMenu(button, x, y) {
     const { path, kind } = button.dataset;
+    const moveTo = { label: 'Déplacer vers…', onSelect: () => onMoveTo(path, button) };
     const remove = { label: 'Supprimer…', danger: true, onSelect: () => onDelete(path, button) };
     const items = kind === 'dir'
       ? [
         { label: 'Nouveau fichier', onSelect: () => startCreate(path, 'file') },
         { label: 'Nouveau dossier', onSelect: () => startCreate(path, 'dir') },
         'sep',
+        moveTo,
         remove,
       ]
-      : [remove];
+      : [moveTo, remove];
     openMenu({ x, y, label: path, items, returnFocus: button });
   }
 
@@ -291,9 +338,121 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => {
       const active = document.activeElement;
-      if (root.contains(active) && active.dataset.path) focusPath = active.dataset.path;
+      if (!focusPath && root.contains(active) && active.dataset.path) focusPath = active.dataset.path;
       fill(root, '', 0, true);
     }, REFRESH_DELAY_MS);
+  }
+
+  /* ---------- Déplacer ---------- */
+
+  /** Dossier visé sous le pointeur : le dossier survolé, celui d'un fichier, sinon la racine. */
+  function dropTarget(event) {
+    const button = event.target.closest?.('.app-tree__item');
+    if (!button || !zone.contains(button)) return { dir: '', mark: head };
+    if (button.dataset.kind === 'dir') return { dir: button.dataset.path, mark: button, button };
+    const dir = parentOf(button.dataset.path);
+    return { dir, mark: dir ? buttonFor(dir) : head };
+  }
+
+  function markDrop(element) {
+    if (dropMark === element) return;
+    dropMark?.classList.remove('app-tree__drop');
+    dropMark = element;
+    dropMark?.classList.add('app-tree__drop');
+  }
+
+  /** Ouvre un dossier replié survolé assez longtemps. */
+  function scheduleExpand(button) {
+    if (expandTarget === button) return;
+    clearTimeout(expandTimer);
+    expandTarget = button;
+    if (!button || button.getAttribute('aria-expanded') === 'true') return;
+    expandTimer = setTimeout(() => {
+      if (dragging && button.isConnected && button.getAttribute('aria-expanded') !== 'true') button.click();
+    }, EXPAND_DELAY_MS);
+  }
+
+  function endDrag() {
+    dragging = null;
+    markDrop(null);
+    clearTimeout(expandTimer);
+    expandTarget = null;
+  }
+
+  // Fichiers venus de l'extérieur du navigateur : ignorés (pas d'import), sans que la page
+  // les ouvre à la place de l'IDE. L'éditeur garde ses propres dépôts.
+  window.addEventListener('dragover', (event) => {
+    if (event.defaultPrevented || !event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'none';
+  });
+  window.addEventListener('drop', (event) => {
+    if (!event.defaultPrevented && event.dataTransfer.types.includes('Files')) event.preventDefault();
+  });
+
+  zone.addEventListener('dragover', (event) => {
+    if (!dragging || !event.dataTransfer.types.includes(DRAG_TYPE)) return;
+    const target = dropTarget(event);
+    scheduleExpand(target.button ?? null);
+    if (!canMoveInto(dragging.path, target.dir)) {
+      // Sans preventDefault, le navigateur montre le curseur « interdit ».
+      event.dataTransfer.dropEffect = 'none';
+      markDrop(null);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    markDrop(target.mark);
+  });
+  zone.addEventListener('dragleave', (event) => {
+    if (!zone.contains(event.relatedTarget)) {
+      markDrop(null);
+      scheduleExpand(null);
+    }
+  });
+  zone.addEventListener('drop', (event) => {
+    if (!dragging || !event.dataTransfer.types.includes(DRAG_TYPE)) return;
+    event.preventDefault();
+    const { path } = dragging;
+    const { dir } = dropTarget(event);
+    endDrag();
+    if (canMoveInto(path, dir)) moveEntry(path, dir);
+  });
+
+  /** Déplace `from` dans `toDir` ; le refus du serveur s'affiche sous l'arbre. */
+  async function moveEntry(from, toDir) {
+    clearProblem();
+    let reply;
+    try {
+      reply = await move(from, toDir);
+    } catch (error) {
+      showProblem(MOVE_ERRORS[error.code] ?? error.message);
+      return false;
+    }
+    const { to } = reply.payload;
+    // Les dossiers dépliés le restent à leur nouvel endroit ; la destination s'ouvre.
+    for (const path of [...expanded]) {
+      if (path === from || path.startsWith(`${from}/`)) {
+        expanded.delete(path);
+        expanded.add(to + path.slice(from.length));
+      }
+    }
+    for (let dir = toDir; dir; dir = parentOf(dir)) expanded.add(dir);
+    if (current === from || current?.startsWith(`${from}/`)) current = to + current.slice(from.length);
+    focusPath = to;
+    refresh();
+    onMoved(reply.payload);
+    return true;
+  }
+
+  function showProblem(text) {
+    problem.textContent = text;
+    problem.hidden = false;
+  }
+
+  function clearProblem() {
+    problem.hidden = true;
+    problem.textContent = '';
   }
 
   function markCurrent() {
@@ -307,6 +466,7 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
     load: () => fill(root, '', 0),
     refresh,
     startCreate,
+    moveEntry,
     setCurrent(path) {
       current = path;
       markCurrent();
