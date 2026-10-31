@@ -68,9 +68,10 @@ export function evalSummary(result) {
 
 /**
  * Écran des réglages dans `root`. `request(type, payload)` envoie une demande au serveur ;
- * `onSettings(settings)` suit les réglages reçus (barre d'état).
+ * `onSettings(settings)` suit les réglages reçus (barre d'état) ; `mentors` est la page
+ * des mentors (`show()`, `hide()`), dans le même écran.
  */
-export function createSettings(root, { request, onSettings }) {
+export function createSettings(root, { request, onSettings, mentors }) {
   const $ = (id) => root.querySelector(`#${id}`);
   const levels = Object.fromEntries(Object.keys(LEVELS).map((key) => [key, {
     card: $(`niveau-${key}`),
@@ -450,11 +451,19 @@ export function createSettings(root, { request, onSettings }) {
   for (const input of [ui.cap, ui.warn]) input.addEventListener('input', render);
   ui.cancel.addEventListener('click', reset);
   ui.save.addEventListener('click', () => save());
+  const modelsPage = $('page-modeles');
   for (const link of root.querySelectorAll('.app-settings__nav a[href^="#"]')) {
     link.addEventListener('click', (event) => {
       event.preventDefault();
       for (const other of root.querySelectorAll('.app-settings__nav a')) other.removeAttribute('aria-current');
       link.setAttribute('aria-current', 'page');
+      const onMentors = link.dataset.page === 'mentors';
+      modelsPage.hidden = onMentors;
+      if (onMentors) {
+        mentors.show();
+        return;
+      }
+      mentors.hide();
       root.querySelector(link.getAttribute('href'))?.scrollIntoView({ block: 'start' });
     });
   }

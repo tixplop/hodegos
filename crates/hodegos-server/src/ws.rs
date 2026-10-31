@@ -19,6 +19,7 @@ use tokio::sync::mpsc;
 
 use crate::AppState;
 use crate::followup;
+use crate::mentor_settings::{self, Content};
 use crate::pass::{
     self, PassRequest, PassResult, Prepared, Trigger, cast_section, locate_anchor, mentor_ref,
 };
@@ -248,6 +249,49 @@ impl Connection {
             ClientMessage::ApiKeySet { key } => Ok(vec![settings_reply(
                 re,
                 settings::set_key(&self.state, &key.0),
+            )]),
+            ClientMessage::MentorsList => Ok(vec![Outgoing::reply(
+                re,
+                mentor_settings::list(&self.state),
+            )]),
+            ClientMessage::MentorGet { id, origin } => Ok(vec![mentor_reply(
+                re,
+                mentor_settings::get(&self.state, &id, origin),
+            )]),
+            ClientMessage::MentorSave {
+                origin,
+                id,
+                content,
+                form,
+                body,
+            } => {
+                let content = match (content, form) {
+                    (Some(text), _) => Content::Raw(text),
+                    (None, Some(form)) => Content::Form(form, body.unwrap_or_default()),
+                    (None, None) => {
+                        return Ok(vec![Outgoing::error(
+                            re,
+                            ErrorCode::BadMessage,
+                            "content ou form attendu",
+                        )]);
+                    }
+                };
+                Ok(vec![mentor_reply(
+                    re,
+                    mentor_settings::save(&self.state, origin, &id, content),
+                )])
+            }
+            ClientMessage::MentorEject { id, to } => Ok(vec![mentor_reply(
+                re,
+                mentor_settings::personalize(&self.state, &id, to),
+            )]),
+            ClientMessage::MentorDelete { id, origin } => Ok(vec![mentor_reply(
+                re,
+                mentor_settings::delete(&self.state, &id, origin),
+            )]),
+            ClientMessage::MentorPrompt { id, content } => Ok(vec![mentor_reply(
+                re,
+                mentor_settings::prompt(&self.state, &id, content.as_deref()),
             )]),
             ClientMessage::ProviderTest => {
                 self.in_background(re, |state| async move {
@@ -1026,6 +1070,24 @@ fn section_info(section: &Section) -> SectionInfo {
     }
 }
 
+fn mentor_reply(
+    re: Option<String>,
+    result: Result<ServerMessage, mentor_settings::Refused>,
+) -> Outgoing {
+    match result {
+        Ok(message) => Outgoing::reply(re, message),
+        Err(refused) => Outgoing::reply(
+            re,
+            ServerMessage::Error {
+                code: refused.code,
+                message: refused.message,
+                version: None,
+                errors: refused.errors,
+            },
+        ),
+    }
+}
+
 fn settings_reply(
     re: Option<String>,
     result: Result<ServerMessage, settings::Refused>,
@@ -1051,6 +1113,7 @@ fn error_reply(re: Option<String>, err: FileError) -> Outgoing {
                     code: ErrorCode::VersionConflict,
                     message,
                     version: Some(current.as_str().to_owned()),
+                    errors: Vec::new(),
                 },
             );
         }

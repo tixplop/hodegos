@@ -218,10 +218,18 @@ réelle avec une vraie clé.
 
 ### 8e — Réglages : mentors
 
-- [ ] Personnaliser, éditer, créer, dupliquer, désactiver, revenir au livré ; erreurs de validation
+- [x] Personnaliser, éditer, créer, dupliquer, désactiver, revenir au livré ; erreurs de validation
   identiques au chargeur ; rechargement à chaud
-- [ ] Un mentor livré n'est jamais écrit ; `.hodegos/mentors/` n'est créé qu'à l'enregistrement
+- [x] Un mentor livré n'est jamais écrit ; `.hodegos/mentors/` n'est créé qu'à l'enregistrement
   d'un mentor de projet
+
+Vérification le 31 octobre 2026 : `tests/mentor_settings.rs` et les tests de `hodegos-mentors`,
+puis un parcours scripté dans Chromium sans écran dans les deux thèmes : mentor livré en lecture,
+personnalisé, renommé avec un chemin ajouté (fichier réécrit dans le style des livrés), initiales
+et priorité refusées sous leurs champs sans écriture, prompt assemblé, fichier brut, mentor de
+projet créé (`.hodegos/mentors/` absent jusqu'à l'enregistrement), mentor livré désactivé puis
+réactivé, retour au mentor livré après confirmation, aucune erreur dans la console. Reste à
+confirmer à la main dans le navigateur Windows.
 
 ### 8f — Terminal intégré et confiné
 

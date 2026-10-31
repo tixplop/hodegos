@@ -213,6 +213,45 @@ function position(state) {
 }
 
 /**
+ * Petit éditeur de texte (posture d'un mentor, fichier brut), avec le même thème que
+ * l'éditeur principal, monté lui aussi dans un shadow root. `onChange()` à chaque frappe.
+ */
+export function createTextEditor(parent, { onChange, label }) {
+  const root = parent.attachShadow({ mode: 'open' });
+  const view = new EditorView({ parent: root, root });
+  return {
+    /** Remplace le texte ; `readOnly` pour une lecture seule. */
+    set(text, { language = 'markdown', readOnly = false } = {}) {
+      view.setState(EditorState.create({
+        doc: text,
+        extensions: [
+          lineNumbers(),
+          highlightActiveLineGutter(),
+          history(),
+          drawSelection(),
+          highlightActiveLine(),
+          syntaxHighlighting(highlight),
+          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          theme,
+          EditorView.lineWrapping,
+          EditorState.readOnly.of(readOnly),
+          EditorView.contentAttributes.of({ 'aria-label': label }),
+          EditorView.domEventHandlers({ beforeinput: replaceMultilineSelection }),
+          languageSupport(language, ''),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) onChange();
+          }),
+        ],
+      }));
+    },
+    get value() {
+      return view.state.doc.toString();
+    },
+    focus: () => view.focus(),
+  };
+}
+
+/**
  * Une seule vue, montée dans un shadow root : CodeMirror y pose ses styles par
  * `adoptedStyleSheets`, que la CSP stricte autorise, au lieu de balises `<style>`
  * qu'elle bloque. Les variables du design system traversent le shadow root.

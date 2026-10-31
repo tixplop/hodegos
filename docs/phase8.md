@@ -343,6 +343,20 @@ niveau change, puis `settings_set { …, confirm_eval: true }`) ; `model_check`,
   { origin, id, content }` ; `mentor_eject { id, to }` ; `mentor_delete
   { id, origin }` ; `mentor_prompt { id }` → `mentor_prompt { text }`.
 
+Précisions retenues à l'implémentation (31 octobre 2026) :
+
+- Le serveur écrit le frontmatter depuis le formulaire (`serde-saphyr` avec sa
+  fonctionnalité `serialize`) : ordre et style des mentors livrés, listes de
+  déclencheurs sur une ligne. `mentor_save` prend le fichier brut ou le
+  formulaire et la posture.
+- Désactiver un mentor livré : surcharge minimale dans les mentors personnels par
+  défaut ; « Personnaliser pour ce projet » et la création permettent le projet.
+- `validate` collecte toutes les erreurs d'un fichier ; le chargeur en réunit les
+  messages. `mode`, `model` et `entry_level` inconnus sont désormais signalés sur
+  leur champ (avant : « YAML invalide »).
+- Mentors est une seconde page de l'écran Réglages : liste à gauche, fiche à
+  droite ; la posture et le fichier brut s'éditent dans CodeMirror.
+
 ## 8f — Terminal intégré et confiné (UC-8.21 à UC-8.24, ADR 0005)
 
 ### Prototype (début de 8f, jetable)
@@ -436,6 +450,8 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   conflits, noms avec espaces) ; dépôt absent.
 - 8b : `activate` lance une passe sur la section du curseur, sans `no_change` ;
   `skip_pass` ; budget dépassé sans confirmation.
+- 8e : `tests/mentor_settings.rs` et les tests de `hodegos-mentors` (validation
+  collectée, formulaire réécrit à l'identique, surcharge minimale).
 - 8d : `tests/settings.rs` (faux OpenRouter local pour le catalogue et la clé,
   `FakeLlmClient` pour l'évaluation) ; écriture de `config.toml` et de
   `credentials.toml` dans `hodegos-llm`.

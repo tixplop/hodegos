@@ -3,10 +3,11 @@
 use std::fmt;
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_saphyr::FlowSeq;
 
 /// Quand un mentor intervient sans être sollicité.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Mode {
     Proactive,
@@ -24,17 +25,38 @@ impl Mode {
             Self::OnDemand => "on-demand",
         }
     }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Proactive, Self::StrongSignal, Self::OnDemand]
+            .into_iter()
+            .find(|m| m.as_str() == name)
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ModelTier {
     Fast,
     Strong,
 }
 
+impl ModelTier {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fast => "fast",
+            Self::Strong => "strong",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Fast, Self::Strong]
+            .into_iter()
+            .find(|m| m.as_str() == name)
+    }
+}
+
 /// Palier d'aide, du plus léger au plus explicite.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Level {
     Indice,
@@ -44,7 +66,8 @@ pub enum Level {
 }
 
 /// D'où vient le fichier d'un mentor, du plus général au plus précis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Origin {
     Builtin,
     User,
@@ -108,6 +131,55 @@ pub enum Parsed {
 #[error("{0}")]
 pub struct MentorError(pub String);
 
+/// Erreur de validation rattachée à un champ du frontmatter (`initials`,
+/// `triggers.paths[1]`…) ; `frontmatter` ou `yaml` quand le fichier ne se lit pas.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FieldError {
+    pub field: String,
+    pub message: String,
+}
+
+impl FieldError {
+    fn new(field: &str, message: String) -> Self {
+        Self {
+            field: field.to_owned(),
+            message,
+        }
+    }
+}
+
+/// Champs du frontmatter, tels que l'écran des réglages les édite.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MentorForm {
+    pub id: String,
+    pub name: String,
+    pub initials: String,
+    pub role: String,
+    pub enabled: bool,
+    pub mode: Mode,
+    pub model: ModelTier,
+    /// Entiers larges : une valeur hors limites arrive jusqu'à la validation, qui la
+    /// signale sur son champ.
+    pub priority: i64,
+    pub entry_level: Level,
+    pub max_remarks: i64,
+    pub on_open: bool,
+    #[serde(default)]
+    pub triggers: FormTriggers,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FormTriggers {
+    #[serde(default)]
+    pub paths: Vec<String>,
+    #[serde(default)]
+    pub languages: Vec<String>,
+    #[serde(default)]
+    pub headings: Vec<String>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
+}
+
 #[derive(Deserialize)]
 struct RawFrontmatter {
     id: Option<String>,
@@ -115,33 +187,23 @@ struct RawFrontmatter {
     initials: Option<String>,
     role: Option<String>,
     enabled: Option<bool>,
-    mode: Option<Mode>,
-    model: Option<ModelTier>,
+    mode: Option<String>,
+    model: Option<String>,
     priority: Option<i64>,
-    entry_level: Option<Level>,
+    entry_level: Option<String>,
     max_remarks: Option<i64>,
     on_open: Option<bool>,
     #[serde(default)]
-    triggers: RawTriggers,
+    triggers: FormTriggers,
 }
 
-#[derive(Deserialize, Default)]
-struct RawTriggers {
-    #[serde(default)]
-    paths: Vec<String>,
-    #[serde(default)]
-    languages: Vec<String>,
-    #[serde(default)]
-    headings: Vec<String>,
-    #[serde(default)]
-    keywords: Vec<String>,
-}
-
-/// Lit un fichier de mentor. Les champs inconnus sont ignorés.
-pub fn parse(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, MentorError> {
-    let error = |message: String| MentorError(message);
+/// Frontmatter lu et posture.
+fn read(text: &str) -> Result<(RawFrontmatter, String), Vec<FieldError>> {
     let (yaml, lines) = hodegos_core::frontmatter(text).ok_or_else(|| {
-        error("frontmatter YAML absent (le fichier doit commencer par ---)".into())
+        vec![FieldError::new(
+            "frontmatter",
+            "frontmatter YAML absent (le fichier doit commencer par ---)".into(),
+        )]
     })?;
     let body: String = text
         .split_inclusive('\n')
@@ -151,72 +213,172 @@ pub fn parse(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, Me
         .to_owned();
     let raw: RawFrontmatter = serde_saphyr::from_str(yaml).map_err(|e| {
         let detail = e.to_string();
-        error(format!(
-            "YAML invalide : {}",
-            detail.lines().next().unwrap_or_default()
-        ))
+        vec![FieldError::new(
+            "yaml",
+            format!(
+                "YAML invalide : {}",
+                detail.lines().next().unwrap_or_default()
+            ),
+        )]
     })?;
+    Ok((raw, body))
+}
 
-    let id = raw.id.ok_or_else(|| error("champ id manquant".into()))?;
+fn check_id(raw: &RawFrontmatter) -> Result<String, Vec<FieldError>> {
+    let id = raw
+        .id
+        .clone()
+        .ok_or_else(|| vec![FieldError::new("id", "champ id manquant".into())])?;
     if id.is_empty()
         || !id
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     {
-        return Err(error(format!(
-            "id « {id} » invalide (lettres minuscules, chiffres et -)"
-        )));
+        return Err(vec![FieldError::new(
+            "id",
+            format!("id « {id} » invalide (lettres minuscules, chiffres et -)"),
+        )]);
     }
-    if raw.enabled == Some(false) {
-        return Ok(Parsed::Disabled { id });
-    }
+    Ok(id)
+}
 
-    let missing = |field: &str| error(format!("champ {field} manquant"));
-    let name = raw.name.ok_or_else(|| missing("name"))?;
-    let role = raw.role.ok_or_else(|| missing("role"))?;
-    let initials = raw.initials.ok_or_else(|| missing("initials"))?;
-    if initials.chars().count() != 2 || !initials.chars().all(char::is_alphanumeric) {
-        return Err(error(format!(
-            "initials « {initials} » : deux lettres attendues"
-        )));
+/// Valide tous les champs d'un mentor actif, en collectant chaque erreur.
+fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet), Vec<FieldError>> {
+    let mut errors = Vec::new();
+    let mut required = |field: &str, value: Option<String>| {
+        value.unwrap_or_else(|| {
+            errors.push(FieldError::new(field, format!("champ {field} manquant")));
+            String::new()
+        })
+    };
+    let name = required("name", raw.name);
+    let role = required("role", raw.role);
+    let initials = required("initials", raw.initials.clone());
+    if raw.initials.is_some()
+        && (initials.chars().count() != 2 || !initials.chars().all(char::is_alphanumeric))
+    {
+        errors.push(FieldError::new(
+            "initials",
+            format!("initials « {initials} » : deux lettres attendues"),
+        ));
     }
     let priority = raw.priority.unwrap_or(50);
     let priority = u8::try_from(priority)
         .ok()
         .filter(|p| *p <= 100)
-        .ok_or_else(|| error(format!("priority {priority} hors de 0 à 100")))?;
+        .unwrap_or_else(|| {
+            errors.push(FieldError::new(
+                "priority",
+                format!("priority {priority} hors de 0 à 100"),
+            ));
+            50
+        });
     let max_remarks = raw.max_remarks.unwrap_or(2);
     let max_remarks = u8::try_from(max_remarks)
         .ok()
         .filter(|m| (1..=2).contains(m))
-        .ok_or_else(|| error(format!("max_remarks {max_remarks} hors de 1 à 2")))?;
+        .unwrap_or_else(|| {
+            errors.push(FieldError::new(
+                "max_remarks",
+                format!("max_remarks {max_remarks} hors de 1 à 2"),
+            ));
+            2
+        });
+    let mut choice = |field: &str, value: Option<String>, allowed: &str| {
+        value.and_then(|v| {
+            if allowed.split(", ").any(|a| a == v) {
+                Some(v)
+            } else {
+                errors.push(FieldError::new(
+                    field,
+                    format!("{field} « {v} » inconnu ({allowed})"),
+                ));
+                None
+            }
+        })
+    };
+    let mode = choice("mode", raw.mode, "proactive, strong-signal, on-demand")
+        .and_then(|m| Mode::from_name(&m))
+        .unwrap_or(Mode::Proactive);
+    let model = choice("model", raw.model, "fast, strong")
+        .and_then(|m| ModelTier::from_name(&m))
+        .unwrap_or(ModelTier::Fast);
+    let entry_level = choice(
+        "entry_level",
+        raw.entry_level,
+        "indice, question, piste, exemple",
+    )
+    .and_then(|l| Level::from_name(&l))
+    .unwrap_or(Level::Indice);
 
     let mut globs = GlobSetBuilder::new();
-    for pattern in &raw.triggers.paths {
-        let glob = Glob::new(pattern)
-            .map_err(|e| error(format!("motif de chemin « {pattern} » invalide : {e}")))?;
-        globs.add(glob);
+    for (index, pattern) in raw.triggers.paths.iter().enumerate() {
+        match Glob::new(pattern) {
+            Ok(glob) => {
+                globs.add(glob);
+            }
+            Err(e) => errors.push(FieldError::new(
+                &format!("triggers.paths[{index}]"),
+                format!("motif de chemin « {pattern} » invalide : {e}"),
+            )),
+        }
     }
-    let path_globs = globs
-        .build()
-        .map_err(|e| error(format!("motifs de chemin invalides : {e}")))?;
-
-    Ok(Parsed::Active(Box::new(Mentor {
+    let path_globs = match globs.build() {
+        Ok(globs) => globs,
+        Err(e) => {
+            errors.push(FieldError::new(
+                "triggers.paths",
+                format!("motifs de chemin invalides : {e}"),
+            ));
+            GlobSet::empty()
+        }
+    };
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    let form = MentorForm {
         id,
         name,
         initials: initials.to_uppercase(),
         role,
-        mode: raw.mode.unwrap_or(Mode::Proactive),
-        model: raw.model.unwrap_or(ModelTier::Fast),
-        priority,
-        entry_level: raw.entry_level.unwrap_or(Level::Indice),
-        max_remarks,
+        enabled: raw.enabled != Some(false),
+        mode,
+        model,
+        priority: i64::from(priority),
+        entry_level,
+        max_remarks: i64::from(max_remarks),
         on_open: raw.on_open.unwrap_or(false),
+        triggers: raw.triggers,
+    };
+    Ok((form, path_globs))
+}
+
+/// Valide un fichier de mentor avec toutes ses erreurs, champ par champ : c'est la
+/// règle du chargeur ([`parse`]) et de l'écran des réglages. Les champs inconnus
+/// sont ignorés.
+pub fn validate(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, Vec<FieldError>> {
+    let (raw, body) = read(text)?;
+    let id = check_id(&raw)?;
+    if raw.enabled == Some(false) {
+        return Ok(Parsed::Disabled { id });
+    }
+    let (form, path_globs) = check_fields(raw, id)?;
+    Ok(Parsed::Active(Box::new(Mentor {
+        id: form.id,
+        name: form.name,
+        initials: form.initials,
+        role: form.role,
+        mode: form.mode,
+        model: form.model,
+        priority: u8::try_from(form.priority).unwrap_or(50),
+        entry_level: form.entry_level,
+        max_remarks: u8::try_from(form.max_remarks).unwrap_or(2),
+        on_open: form.on_open,
         triggers: Triggers {
-            paths: raw.triggers.paths,
-            languages: raw.triggers.languages,
-            headings: raw.triggers.headings,
-            keywords: raw.triggers.keywords,
+            paths: form.triggers.paths,
+            languages: form.triggers.languages,
+            headings: form.triggers.headings,
+            keywords: form.triggers.keywords,
         },
         body,
         origin,
@@ -224,6 +386,87 @@ pub fn parse(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, Me
         source_text: text.to_owned(),
         path_globs,
     })))
+}
+
+/// Lit un fichier de mentor. Les champs inconnus sont ignorés ; plusieurs erreurs
+/// sont réunies en un message.
+pub fn parse(text: &str, origin: Origin, source_name: &str) -> Result<Parsed, MentorError> {
+    validate(text, origin, source_name).map_err(|errors| MentorError(join(&errors)))
+}
+
+/// Message du chargeur pour une liste d'erreurs.
+pub fn join(errors: &[FieldError]) -> String {
+    errors
+        .iter()
+        .map(|e| e.message.as_str())
+        .collect::<Vec<_>>()
+        .join(" ; ")
+}
+
+/// Champs et posture d'un mentor complet, actif ou désactivé ; une surcharge
+/// minimale (`id` et `enabled: false` seuls) n'a pas de formulaire.
+pub fn read_form(text: &str) -> Result<(MentorForm, String), Vec<FieldError>> {
+    let (raw, body) = read(text)?;
+    let id = check_id(&raw)?;
+    let (form, _) = check_fields(raw, id)?;
+    Ok((form, body))
+}
+
+/// Ordre et style des mentors livrés : listes de déclencheurs sur une ligne.
+#[derive(Serialize)]
+struct Written<'a> {
+    id: &'a str,
+    name: &'a str,
+    initials: &'a str,
+    role: &'a str,
+    enabled: bool,
+    mode: Mode,
+    model: ModelTier,
+    priority: i64,
+    entry_level: Level,
+    max_remarks: i64,
+    on_open: bool,
+    triggers: WrittenTriggers<'a>,
+}
+
+#[derive(Serialize)]
+struct WrittenTriggers<'a> {
+    paths: FlowSeq<&'a [String]>,
+    languages: FlowSeq<&'a [String]>,
+    headings: FlowSeq<&'a [String]>,
+    keywords: FlowSeq<&'a [String]>,
+}
+
+/// Fichier de mentor écrit depuis le formulaire : frontmatter puis posture. Les
+/// commentaires d'un frontmatter existant ne sont pas repris.
+pub fn render(form: &MentorForm, body: &str) -> Result<String, MentorError> {
+    let written = Written {
+        id: &form.id,
+        name: &form.name,
+        initials: &form.initials,
+        role: &form.role,
+        enabled: form.enabled,
+        mode: form.mode,
+        model: form.model,
+        priority: form.priority,
+        entry_level: form.entry_level,
+        max_remarks: form.max_remarks,
+        on_open: form.on_open,
+        triggers: WrittenTriggers {
+            paths: FlowSeq(&form.triggers.paths),
+            languages: FlowSeq(&form.triggers.languages),
+            headings: FlowSeq(&form.triggers.headings),
+            keywords: FlowSeq(&form.triggers.keywords),
+        },
+    };
+    let yaml = serde_saphyr::to_string(&written)
+        .map_err(|e| MentorError(format!("frontmatter impossible à écrire : {e}")))?;
+    Ok(format!("---\n{yaml}---\n{}\n", body.trim()))
+}
+
+/// Surcharge minimale qui désactive le mentor `id` des niveaux inférieurs.
+pub fn minimal_override(id: &str) -> String {
+    format!("---\nid: {id}\nenabled: false\n---\n")
 }
 
 #[cfg(test)]
@@ -317,8 +560,76 @@ Vous accompagnez {name} en {language}.
         assert!(error(&VALID.replace("priority: 60", "priority: 300")).contains("priority"));
         assert!(error(&VALID.replace("max_remarks: 1", "max_remarks: 5")).contains("max_remarks"));
         assert!(
-            error(&VALID.replace("mode: strong-signal", "mode: bavard")).contains("YAML invalide")
+            error(&VALID.replace("mode: strong-signal", "mode: bavard"))
+                .contains("mode « bavard » inconnu")
         );
         assert!(error(&VALID.replace("**/*.test.ts", "a[")).contains("motif"));
+    }
+
+    #[test]
+    fn la_validation_collecte_chaque_erreur_avec_son_champ() {
+        let text = VALID
+            .replace("initials: te", "initials: ABC")
+            .replace("priority: 60", "priority: 300")
+            .replace("mode: strong-signal", "mode: bavard")
+            .replace("\"**/*.test.ts\"", "\"**/*.ts\", \"a[\"");
+        let errors = validate(&text, Origin::User, "x.md").unwrap_err();
+        let fields: Vec<&str> = errors.iter().map(|e| e.field.as_str()).collect();
+        assert_eq!(
+            fields,
+            ["initials", "priority", "mode", "triggers.paths[1]"]
+        );
+        // Le chargeur dit la même chose, en un message.
+        assert_eq!(error(&text), join(&errors));
+    }
+
+    #[test]
+    fn le_formulaire_reecrit_un_mentor_identique() {
+        for text in [
+            include_str!("../../../mentors/architecte.md"),
+            include_str!("../../../mentors/mentor-langage.md"),
+            include_str!("../../../mentors/mentor-produit.md"),
+            VALID,
+        ] {
+            let (form, body) = read_form(text).unwrap();
+            let written = render(&form, &body).unwrap();
+            let (again, again_body) = read_form(&written).unwrap();
+            assert_eq!(again, form, "{written}");
+            assert_eq!(again_body, body);
+            assert!(written.starts_with("---\nid: "), "{written}");
+            let Parsed::Active(before) = parse(text, Origin::User, "a.md").unwrap() else {
+                panic!("désactivé");
+            };
+            let Parsed::Active(after) = parse(&written, Origin::User, "a.md").unwrap() else {
+                panic!("désactivé");
+            };
+            assert_eq!(after.triggers.paths, before.triggers.paths);
+            assert_eq!(after.body, before.body);
+        }
+        let (form, _) = read_form(include_str!("../../../mentors/architecte.md")).unwrap();
+        let written = render(&form, "Posture.").unwrap();
+        // Même style que les fichiers livrés : listes sur une ligne, guillemets si besoin.
+        assert!(
+            written.contains("  paths: [docs/architecture/**, \"**/adr/*.md\", docs/design/**]\n"),
+            "{written}"
+        );
+    }
+
+    #[test]
+    fn desactiver_garde_le_mentor_et_la_surcharge_minimale_n_a_pas_de_formulaire() {
+        let (mut form, body) = read_form(VALID).unwrap();
+        form.enabled = false;
+        let written = render(&form, &body).unwrap();
+        assert!(matches!(
+            parse(&written, Origin::User, "a.md"),
+            Ok(Parsed::Disabled { id }) if id == "testeur"
+        ));
+        assert!(!read_form(&written).unwrap().0.enabled);
+        let minimal = minimal_override("architecte");
+        assert!(matches!(
+            parse(&minimal, Origin::User, "a.md"),
+            Ok(Parsed::Disabled { id }) if id == "architecte"
+        ));
+        assert!(read_form(&minimal).is_err());
     }
 }

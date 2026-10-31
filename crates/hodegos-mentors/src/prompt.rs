@@ -114,22 +114,32 @@ pub struct Prompt {
     pub user: String,
 }
 
-/// Le cadre commun vient toujours en premier ; la posture est ajoutée après lui,
-/// jamais à sa place, avec `{name}` et `{language}` pour seules substitutions.
-pub fn build_prompt(input: &PromptInput<'_>) -> Prompt {
-    let mentor = input.mentor;
+/// Prompt système : le cadre commun vient toujours en premier ; la posture est ajoutée
+/// après lui, jamais à sa place, avec `{name}` et `{language}` pour seules substitutions.
+pub fn system_prompt(mentor: &Mentor, level: Level, language: &str, follow_up: bool) -> String {
     let frame = COMMON_FRAME
         .replace("{name}", &mentor.name)
-        .replace("{level}", input.level.as_str())
+        .replace("{level}", level.as_str())
         .replace("{max_remarks}", &mentor.max_remarks.to_string());
     let posture = mentor
         .body
-        .replace("{language}", input.language)
+        .replace("{language}", language)
         .replace("{name}", &mentor.name);
-    let system = match input.follow_up {
-        Some(_) => format!("{frame}\n\n{FOLLOW_UP_FRAME}\n\n{posture}"),
-        None => format!("{frame}\n\n{posture}"),
-    };
+    if follow_up {
+        format!("{frame}\n\n{FOLLOW_UP_FRAME}\n\n{posture}")
+    } else {
+        format!("{frame}\n\n{posture}")
+    }
+}
+
+pub fn build_prompt(input: &PromptInput<'_>) -> Prompt {
+    let mentor = input.mentor;
+    let system = system_prompt(
+        mentor,
+        input.level,
+        input.language,
+        input.follow_up.is_some(),
+    );
 
     let thread = input.follow_up.map(thread_block).unwrap_or_default();
     let user = format!(

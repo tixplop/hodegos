@@ -138,6 +138,45 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-eval[hidden] { display: none; }
 .app-eval button { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 
+/* Réglages des mentors (phase 8e), maquette 08-5. */
+.app-mentors__list { flex: 0 0 340px; min-height: 0; overflow: auto; padding: 20px 16px; border-right: 1px solid var(--border); background: var(--surface-0); display: flex; flex-direction: column; gap: 10px; }
+.app-mentors__list[hidden], .app-mentors[hidden], .app-settings[hidden] { display: none; }
+.app-mentors__list-head { justify-content: space-between; }
+.app-mentors__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.app-mentors__item { width: 100%; padding: 10px 12px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.app-mentors__item:hover { background: var(--surface-50); }
+.app-mentors__item--error { border-color: var(--danger); }
+.app-mentors__item-head { gap: var(--space-2); flex-wrap: nowrap; }
+.app-mentors__badge { margin-left: auto; }
+.app-mentors__meta, .app-mentors__legend, .app-mentors__hint, .app-mentors__note { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.app-mentors__legend { margin: 8px 0 0; }
+.app-mentors__error, .app-mentors__field-error { font-size: 12px; line-height: 16px; color: var(--danger); }
+.app-mentors { padding: 20px 28px; gap: 16px; overflow: auto; min-width: 0; }
+.app-mentors__head { align-items: flex-start; flex-wrap: wrap; }
+.app-mentors__titles { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.app-mentors__where { font-size: 13px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.app-mentors__actions { margin-left: auto; }
+.app-mentors__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.app-mentors__grid .app-settings__field--wide { grid-column: span 2; }
+.app-mentors__field .hd-input { flex: none; }
+.app-mentors__hint { margin: 0; align-self: end; }
+.app-mentors__triggers { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px; }
+.app-mentors__triggers legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+.app-mentors__tags { gap: 6px; }
+.app-mentors__tags-label { width: 90px; flex: none; }
+.app-mentors__tag { display: inline-flex; align-items: center; gap: 2px; }
+.app-mentors__tag--error { outline: 1px solid var(--danger); }
+.app-mentors__remove { border: 0; padding: 0 2px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.app-mentors__add { flex: 0 1 200px; height: 32px; font-size: 13px; }
+.app-mentors__none { font-size: 13px; }
+.app-mentors__check { gap: 8px; font-size: 13px; }
+.app-mentors__posture { display: flex; flex-direction: column; gap: 6px; }
+.app-mentors__editor { height: 260px; display: flex; flex-direction: column; border: 1px solid var(--border-control); border-radius: var(--radius-md); overflow: hidden; }
+.app-mentors__errors { margin: 0; padding-left: 18px; }
+.app-mentors__prompt { margin: 0; max-height: 320px; overflow: auto; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-0); border: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; line-height: 18px; white-space: pre-wrap; }
+.app-mentors__footer { justify-content: flex-end; }
+.app-mentors__footer .app-mentors__note { margin-right: auto; }
+
 /* Écran étroit : les colonnes passent les unes sous les autres. */
 @media (max-width: 720px) {
   body.hd-app { height: auto; min-height: 100vh; overflow: visible; }
@@ -147,5 +186,7 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
   .app-read__doc { padding: var(--space-4); }
   .app-modes__hint { display: none; }
   .app-settings__nav { max-width: none; flex: 1 1 100%; }
-  .app-settings { padding: var(--space-4); }
+  .app-settings, .app-mentors { padding: var(--space-4); }
+  .app-mentors__list { flex: 1 1 100%; border-right: 0; }
+  .app-mentors__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

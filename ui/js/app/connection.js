@@ -3,10 +3,12 @@ const RECONNECT_MS = 2000;
 
 /** Erreur renvoyée par le serveur (`error`) ou connexion perdue (`disconnected`). */
 export class ServerError extends Error {
-  constructor({ code, message, version = null }) {
+  constructor({ code, message, version = null, errors = [] }) {
     super(message);
     this.code = code;
     this.version = version;
+    /** Erreurs champ par champ (`mentor_invalid`). */
+    this.errors = errors;
   }
 }
 

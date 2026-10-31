@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use hodegos_llm::Effort;
+use hodegos_mentors::{FieldError, MentorForm, Mode, ModelTier, Origin};
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -50,6 +51,7 @@ impl Outgoing {
                 code,
                 message: message.into(),
                 version: None,
+                errors: Vec::new(),
             },
         )
     }
@@ -143,6 +145,39 @@ pub enum ClientMessage {
         key: Secret,
     },
     ProviderTest,
+    /// Mentors connus (phase 8e).
+    MentorsList,
+    MentorGet {
+        id: String,
+        origin: Origin,
+    },
+    /// Écrit un mentor personnel ou du projet : le fichier brut (`content`), ou le
+    /// formulaire et la posture (`form`, `body`).
+    MentorSave {
+        origin: Origin,
+        id: String,
+        #[serde(default)]
+        content: Option<String>,
+        #[serde(default)]
+        form: Option<Box<MentorForm>>,
+        #[serde(default)]
+        body: Option<String>,
+    },
+    /// Personnaliser : copie le mentor actif dans les mentors personnels ou du projet.
+    MentorEject {
+        id: String,
+        to: Origin,
+    },
+    MentorDelete {
+        id: String,
+        origin: Origin,
+    },
+    /// Prompt système assemblé ; `content` : celui d'un brouillon non enregistré.
+    MentorPrompt {
+        id: String,
+        #[serde(default)]
+        content: Option<String>,
+    },
 }
 
 /// Texte confidentiel (clé d'API) : masqué par `Debug`.
@@ -258,6 +293,9 @@ pub enum ServerMessage {
         /// Version sur disque, pour `version_conflict`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         version: Option<String>,
+        /// Erreurs champ par champ, pour `mentor_invalid`.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        errors: Vec<FieldError>,
     },
     EntryCreated {
         path: String,
@@ -316,6 +354,55 @@ pub enum ServerMessage {
         cost: f64,
     },
     EvalDone(Box<EvalResult>),
+    /// Réponse à `mentors_list` ; poussé après un enregistrement ou une suppression.
+    Mentors {
+        items: Vec<MentorItem>,
+        /// Fichiers ignorés par le chargeur, avec ses erreurs.
+        errors: Vec<MentorFileErrors>,
+    },
+    MentorFile(Box<MentorFileInfo>),
+    MentorPrompt {
+        text: String,
+    },
+}
+
+/// Un mentor connu : son fichier retenu et les niveaux qu'il remplace.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MentorItem {
+    pub id: String,
+    pub name: String,
+    pub initials: String,
+    pub origin: Origin,
+    pub path: Option<String>,
+    /// Niveaux inférieurs qui définissent aussi cet identifiant (remplacés).
+    pub overrides: Vec<Origin>,
+    pub enabled: bool,
+    pub mode: Option<Mode>,
+    pub model: Option<ModelTier>,
+    pub on_open: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MentorFileErrors {
+    pub origin: Origin,
+    pub path: String,
+    /// Identifiant lu, sinon nom du fichier sans `.md`.
+    pub id: String,
+    pub errors: Vec<FieldError>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MentorFileInfo {
+    pub id: String,
+    pub origin: Origin,
+    pub path: Option<String>,
+    pub content: String,
+    /// Faux pour un mentor livré : il se lit, il se personnalise.
+    pub editable: bool,
+    /// Champs du formulaire ; absent pour un fichier invalide ou une surcharge minimale.
+    pub form: Option<MentorForm>,
+    pub body: Option<String>,
+    pub errors: Vec<FieldError>,
 }
 
 /// Réglages personnels, tels que lus et appliqués. La clé n'y figure jamais.
@@ -613,6 +700,8 @@ pub enum ErrorCode {
     EvalRunning,
     /// Valeur de réglage hors limites, ou réglages non modifiables.
     InvalidSettings,
+    /// Mentor refusé par les règles du chargeur ; `errors` les donne champ par champ.
+    MentorInvalid,
 }
 
 /// Message illisible : la réponse sera `error` avec le code `bad_message`.
@@ -866,6 +955,7 @@ mod tests {
                 code: ErrorCode::VersionConflict,
                 message: "x".to_owned(),
                 version: Some("abc".to_owned()),
+                errors: Vec::new(),
             },
         );
         assert_eq!(
@@ -1029,6 +1119,7 @@ mod tests {
                 code: ErrorCode::BadMessage,
                 message: "x".to_owned(),
                 version: None,
+                errors: Vec::new(),
             },
             ServerMessage::EntryCreated {
                 path: "src".to_owned(),

@@ -142,7 +142,7 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 
 ## Contrat : format d'un mentor
 
-Un mentor est un fichier Markdown : un frontmatter YAML qui dit quand il intervient, puis sa posture en texte libre, injectée dans le prompt système. Exemples complets dans `mentors/`.
+Un mentor est un fichier Markdown : un frontmatter YAML qui dit quand il intervient, puis sa posture en texte libre, injectée dans le prompt système. Exemples complets dans `mentors/`. Depuis la phase 8e, ils s'éditent aussi dans Réglages · Mentors : un mentor livré se personnalise (copie personnelle ou de projet), le serveur valide avec les règles du chargeur avant d'écrire, et le cadre commun reste hors d'atteinte.
 
 ```markdown
 ---

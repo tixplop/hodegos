@@ -9,6 +9,7 @@ pub mod eval;
 mod followup;
 mod git;
 mod guard;
+mod mentor_settings;
 mod mentors;
 mod pass;
 pub mod protocol;

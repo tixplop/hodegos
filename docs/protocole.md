@@ -49,6 +49,12 @@ connexion reste ouverte.
 | `settings_set` | `fast`, `strong`, `fast_effort`, `strong_effort` (`default`, `low`, `medium` ou `high`), `budget` (`monthly_cap_usd`, `warn_at`), `confirm_eval` (facultatif, `false`) | Écrit `config.toml` et applique les réglages ; renvoie `settings`. Si un niveau change de modèle ou d'effort vers un réglage non retenu, renvoie d'abord `eval_required` sans rien écrire ; la même demande avec `confirm_eval: true` écrit, puis lance l'évaluation (voir plus bas) |
 | `model_check` | `id` | Renvoie `model_info`, d'après le catalogue public d'OpenRouter |
 | `api_key_set` | `key` | Écrit `credentials.toml` (droits 600) et refait le client ; renvoie `settings`, jamais la clé. Refusé (`key_from_env`) si `OPENROUTER_API_KEY` est définie |
+| `mentors_list` | — | Renvoie `mentors` (phase 8e) |
+| `mentor_get` | `id`, `origin` (`builtin`, `user` ou `project`) | Renvoie `mentor_file` |
+| `mentor_save` | `origin` (`user` ou `project`), `id`, puis `content` (fichier brut) ou `form` et `body` (formulaire et posture) | Valide avec les règles du chargeur, écrit `<dossier>/<id>.md` (ou le fichier qui définit déjà cet `id` à ce niveau), recharge les mentors ; renvoie `mentor_file`. Refus : `mentor_invalid` avec `errors` |
+| `mentor_eject` | `id`, `to` (`user` ou `project`) | « Personnaliser » : copie le mentor actif, comme `hodegos mentors eject` ; renvoie `mentor_file` de la copie |
+| `mentor_delete` | `id`, `origin` (`user` ou `project`) | Supprime le fichier de ce niveau (le mentor revient au niveau inférieur, ou disparaît) ; renvoie `mentors` |
+| `mentor_prompt` | `id`, `content` (facultatif : brouillon) | Renvoie `mentor_prompt` |
 | `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
 
 ## Du backend vers le front
@@ -76,7 +82,10 @@ connexion reste ouverte.
 | `provider_test_result` | `ok`, `message` | réponse à `provider_test` |
 | `eval_progress` | `level`, `done`, `total`, `cost` | poussé à toutes les fenêtres au début et à la fin de chaque cas d'une évaluation |
 | `eval_done` | un résultat d'évaluation (voir plus bas) | poussé à toutes les fenêtres à la fin d'une évaluation, suivi de `settings` et `status` |
-| `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
+| `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
+| `mentor_file` | `id`, `origin`, `path`, `content`, `editable`, `form`, `body`, `errors` | réponse à `mentor_get`, `mentor_save` et `mentor_eject` |
+| `mentor_prompt` | `text` | réponse à `mentor_prompt` |
+| `error` | `code`, `message`, `version` (seulement pour `version_conflict`), `errors` (seulement pour `mentor_invalid`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
 
@@ -253,6 +262,32 @@ Détails des réglages (phase 8d, ADR 0007) :
   changement, pour « Revenir à l'ancien réglage ». `last_eval` donne le dernier
   résultat du réglage actuel de chaque niveau, `null` s'il n'a jamais été évalué.
 
+Détails des mentors (phase 8e) :
+
+- Validation : exactement celle du chargeur (`validate` dans `hodegos-mentors`),
+  qui collecte toutes les erreurs ; chacune porte son champ (`id`, `name`,
+  `initials`, `role`, `mode`, `model`, `priority`, `entry_level`, `max_remarks`,
+  `triggers.paths[N]`, `frontmatter`, `yaml`). Le message du chargeur est leur
+  réunion, séparée par « ; ». S'y ajoutent l'identifiant déjà défini au même
+  niveau et l'identifiant qui change à l'enregistrement.
+- `items` : un par identifiant, le niveau le plus précis l'emporte ; `overrides`
+  liste les niveaux inférieurs qui le définissent aussi. Un mentor désactivé garde
+  le nom du niveau qu'il désactive. `errors` : fichiers ignorés par le chargeur.
+- `form` (dans `mentor_file`) : `{ id, name, initials, role, enabled, mode, model,
+  priority, entry_level, max_remarks, on_open, triggers { paths, languages,
+  headings, keywords } }`, absent pour un fichier invalide ou une surcharge
+  minimale (`id` et `enabled: false` seuls). Le formulaire réécrit le frontmatter
+  dans l'ordre des mentors livrés, sans ses commentaires ; `content` garde le
+  fichier tel quel.
+- Un mentor livré n'est jamais écrit (`invalid_settings`). Désactiver un mentor
+  livré écrit une surcharge minimale dans les mentors personnels (ou du projet) ;
+  désactiver sa propre copie y pose `enabled: false`. `.hodegos/mentors/` n'est
+  créé qu'à l'enregistrement d'un mentor de projet.
+- Après une écriture, les mentors sont rechargés aussitôt : `mentors_changed` et
+  `casting` recalculé, comme pour une modification à la main.
+- `mentor_prompt` : cadre commun puis posture, au palier d'entrée du mentor,
+  `{language}` remplacé par son premier langage déclencheur (sinon `rust`).
+
 ## Codes d'erreur
 
 | Code | Sens |
@@ -269,6 +304,7 @@ Détails des réglages (phase 8d, ADR 0007) :
 | `key_from_env` | `api_key_set` : `OPENROUTER_API_KEY` est définie et prime (phase 8d) |
 | `model_refused` | `settings_set` : modèle inconnu, sans sorties structurées, ou effort non accepté |
 | `eval_running` | `settings_set` : une évaluation tourne déjà |
+| `mentor_invalid` | `mentor_save`, `mentor_prompt` : le chargeur refuse le mentor ; `errors` champ par champ |
 | `invalid_settings` | `settings_set`, `api_key_set` : valeur hors limites, deux niveaux à évaluer à la fois, clé vide, ou réglages en lecture seule |
 
 Conflit : si `base_version` ne correspond plus à la version sur disque, le serveur

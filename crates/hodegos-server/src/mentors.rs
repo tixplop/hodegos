@@ -65,6 +65,11 @@ impl Mentors {
         (mentors, changed)
     }
 
+    /// Dossiers des mentors personnels et du projet.
+    pub(crate) fn sources(&self) -> &MentorSources {
+        &self.sources
+    }
+
     pub(crate) fn registry(&self) -> Arc<Registry> {
         match self.registry.read() {
             Ok(registry) => registry.clone(),

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use rust_embed::Embed;
 
-use crate::mentor::{Mentor, Origin, Parsed, parse};
+use crate::mentor::{FieldError, Mentor, Origin, Parsed, parse, validate};
 
 /// Mentors livrés, intégrés au binaire.
 #[derive(Embed)]
@@ -146,6 +146,45 @@ impl Registry {
     pub fn warnings(&self) -> &[Warning] {
         &self.warnings
     }
+}
+
+/// Fichier de mentor lu à un niveau, valide ou non (écran des réglages).
+#[derive(Debug)]
+pub struct MentorFile {
+    pub origin: Origin,
+    /// Chemin sur disque ; `None` pour un mentor livré.
+    pub path: Option<PathBuf>,
+    /// Nom affiché, comme dans les avertissements du chargeur.
+    pub name: String,
+    pub text: String,
+    /// Les mêmes règles que le chargeur.
+    pub result: Result<Parsed, Vec<FieldError>>,
+}
+
+/// Tous les fichiers de mentors, livrés, personnels puis du projet, dans l'ordre du
+/// chargeur ; les dossiers illisibles sont ignorés (le chargeur les signale).
+pub fn inventory(sources: &MentorSources) -> Vec<MentorFile> {
+    let mut files = Vec::new();
+    let mut ignored = Vec::new();
+    for origin in [Origin::Builtin, Origin::User, Origin::Project] {
+        let found = match origin {
+            Origin::Builtin => builtin_files(),
+            _ => match sources.dir(origin) {
+                Some(dir) => dir_files(dir, &mut ignored),
+                None => Vec::new(),
+            },
+        };
+        for (name, text) in found {
+            files.push(MentorFile {
+                origin,
+                path: (origin != Origin::Builtin).then(|| PathBuf::from(&name)),
+                result: validate(&text, origin, &name),
+                name,
+                text,
+            });
+        }
+    }
+    files
 }
 
 fn builtin_files() -> Vec<(String, String)> {

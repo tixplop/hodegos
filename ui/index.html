@@ -70,10 +70,10 @@
 <div class="hd-nav">
 <div class="hd-nav__group">
 <span class="hd-nav__label">Réglages personnels</span>
-<a class="hd-nav__item" href="#reglages-modeles" aria-current="page">Modèles et effort</a>
-<a class="hd-nav__item" href="#reglages-cle">Clé d'API <span id="nav-cle" class="hd-nav__meta"></span></a>
-<a class="hd-nav__item" href="#reglages-budget">Budget <span id="nav-budget" class="hd-nav__meta"></span></a>
-<span class="hd-nav__item app-settings__soon" aria-disabled="true">Mentors <span class="hd-nav__meta">bientôt</span></span>
+<a class="hd-nav__item" data-page="modeles" href="#reglages-modeles" aria-current="page">Modèles et effort</a>
+<a class="hd-nav__item" data-page="modeles" href="#reglages-cle">Clé d'API <span id="nav-cle" class="hd-nav__meta"></span></a>
+<a class="hd-nav__item" data-page="modeles" href="#reglages-budget">Budget <span id="nav-budget" class="hd-nav__meta"></span></a>
+<a class="hd-nav__item" href="#mentors" data-page="mentors">Mentors <span id="nav-mentors" class="hd-nav__meta"></span></a>
 </div>
 <div class="hd-nav__group">
 <span class="hd-nav__label">Où c'est écrit</span>
@@ -81,7 +81,7 @@
 </div>
 </div>
 </nav>
-<main class="hd-main app-settings">
+<main id="page-modeles" class="hd-main app-settings">
 <div id="reglages-modeles" class="app-settings__intro">
 <h1 class="app-settings__h1">Modèles et effort</h1>
 <p class="hd-muted app-settings__lead">Deux niveaux, partagés par les mentors selon leur champ <span class="hd-mono">model</span>. Effet à la passe suivante, sans redémarrage.</p>
@@ -145,6 +145,14 @@
 <button id="reglages-annuler" class="hd-btn hd-btn--secondary" type="button">Annuler les changements</button>
 <button id="reglages-enregistrer" class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
 </div>
+</main>
+<section id="mentors-liste" class="app-mentors__list" aria-labelledby="mentors-titre" hidden>
+<div class="hd-row app-mentors__list-head"><h2 id="mentors-titre" class="app-settings__title">Mentors</h2><button id="mentor-nouveau" class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Nouveau mentor</button></div>
+<ul id="mentors-items" class="app-mentors__items"></ul>
+<p class="app-mentors__legend">Ordre de priorité à identifiant égal : projet, puis personnel, puis livré. Un mentor livré n'est jamais modifié : on le personnalise.</p>
+</section>
+<main id="mentors-fiche" class="hd-main app-mentors" aria-live="polite" hidden>
+<p class="hd-muted">Choisissez un mentor dans la liste.</p>
 </main>
 </div>
 <footer class="hd-statusbar">

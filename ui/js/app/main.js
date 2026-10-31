@@ -10,6 +10,7 @@ import { icon } from './icons.js';
 import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
+import { createMentorsSettings } from './mentors-settings.js';
 import { createSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -118,9 +119,14 @@ const reader = createReader(ui.reading, {
 for (const choice of ui.modes.querySelectorAll('[data-value]')) {
   choice.addEventListener('click', () => setMarkdownMode(choice.dataset.value));
 }
+const mentorsPage = createMentorsSettings($('mentors-liste'), $('mentors-fiche'), {
+  request: (type, payload) => server.request(type, payload),
+  onCount: (count) => { $('nav-mentors').textContent = String(count); },
+});
 const settings = createSettings(ui.settings, {
   request: (type, payload) => server.request(type, payload),
   onSettings: renderEvaluation,
+  mentors: mentorsPage,
 });
 ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden));
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
@@ -149,6 +155,7 @@ function onState(state) {
     setBadge('Connecté', 'success');
     tree.load();
     settings.load();
+    mentorsPage.count();
     if (wasConnected) resync();
     wasConnected = true;
   } else {
@@ -168,6 +175,7 @@ function onPush(message) {
   }
   if (message.type === 'mentors_changed') {
     showMentorWarnings(message.payload.warnings);
+    mentorsPage.reloaded();
     return;
   }
   if (message.type === 'pass_started') {
