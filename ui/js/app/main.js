@@ -12,12 +12,15 @@ import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
 import { createSettings } from './settings.js';
+import { createTerminalPanel } from './terminal.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = {
   path: $('chemin'),
   theme: $('theme'),
   openSettings: $('ouvrir-reglages'),
+  openTerminal: $('ouvrir-terminal'),
+  terminals: $('terminaux'),
   ide: $('ide'),
   settings: $('reglages'),
   evaluation: $('evaluation'),
@@ -129,6 +132,21 @@ const settings = createSettings(ui.settings, {
   mentors: mentorsPage,
 });
 ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden));
+const terminalPanel = createTerminalPanel({
+  section: $('terminal'),
+  handle: $('terminal-poignee'),
+  request: (type, payload) => server.request(type, payload),
+  send: (type, payload) => server.send(type, payload),
+  onCount: (count) => {
+    ui.terminals.hidden = count === 0;
+    ui.terminals.textContent = count === 1 ? '1 terminal' : `${count} terminaux`;
+  },
+  onToggle: (open) => ui.openTerminal.setAttribute('aria-expanded', String(open)),
+});
+ui.openTerminal.addEventListener('click', () => {
+  if (!ui.settings.hidden) showSettings(false);
+  terminalPanel.toggle();
+});
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => {
@@ -160,6 +178,7 @@ function onState(state) {
     wasConnected = true;
   } else {
     setBadge('Déconnecté', 'danger');
+    terminalPanel.disconnected();
   }
 }
 
@@ -202,6 +221,14 @@ function onPush(message) {
       }
     }
     applyRemark(remark);
+    return;
+  }
+  if (message.type === 'term_output') {
+    terminalPanel.output(message.payload);
+    return;
+  }
+  if (message.type === 'term_exited') {
+    terminalPanel.exited(message.payload);
     return;
   }
   if (message.type === 'settings') {
@@ -1072,6 +1099,16 @@ document.addEventListener('keydown', (event) => {
     setMarkdownMode(markdownMode === 'reading' ? editMode : 'reading');
   }
 });
+
+// Ctrl+` : terminal ouvert ou replié, même quand le focus est dans le terminal.
+document.addEventListener('keydown', (event) => {
+  if (!event.ctrlKey || event.altKey || event.metaKey) return;
+  if (event.key !== '`' && event.code !== 'Backquote') return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!ui.settings.hidden) showSettings(false);
+  terminalPanel.toggle();
+}, true);
 
 window.addEventListener('beforeunload', (event) => {
   if ([...tabs.values()].some(isDirty)) event.preventDefault();

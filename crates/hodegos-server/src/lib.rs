@@ -16,6 +16,7 @@ pub mod protocol;
 mod secret;
 mod settings;
 mod store;
+mod terminal;
 mod ws;
 
 use std::future::Future;
@@ -33,6 +34,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{Notify, broadcast};
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
+pub use terminal::{Bind, BindMode, TerminalOptions, default_binds, load_binds};
 
 use crate::git::GitTracker;
 use crate::mentors::Mentors;
@@ -124,6 +126,8 @@ pub struct ServerOptions {
     /// Données de l'utilisateur : `$XDG_DATA_HOME/hodegos` (budget, historique).
     pub data_dir: PathBuf,
     pub llm: Llm,
+    /// Terminal intégré et confiné (phase 8f).
+    pub terminal: TerminalOptions,
     /// Fichier que le front ouvre à la connexion (`hodegos new` : `docs/vision.md`).
     pub initial_file: Option<String>,
 }
@@ -151,6 +155,7 @@ struct AppState {
     /// Messages pour toutes les connexions : réglages, évaluation, état.
     events: broadcast::Sender<ServerMessage>,
     data_dir: PathBuf,
+    terminals: terminal::Terminals,
     budget: Budget,
     store: Store,
     /// Fournisseur joignable, et sinon pourquoi.
@@ -264,6 +269,7 @@ impl Server {
             mentors: sources,
             data_dir,
             llm,
+            terminal,
             initial_file,
         } = options;
         let bind_error = |source: std::io::Error| match source.kind() {
@@ -321,6 +327,7 @@ impl Server {
             eval_running: Mutex::new(None),
             events,
             data_dir,
+            terminals: terminal::Terminals::new(terminal),
             budget,
             store,
             provider: Mutex::new(provider),

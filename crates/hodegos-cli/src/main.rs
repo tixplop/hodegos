@@ -17,7 +17,8 @@ use hodegos_core::Project;
 use hodegos_llm::{ApiKey, LlmClient, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry, default_user_dir, eject};
 use hodegos_server::{
-    Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, client_for,
+    Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, TerminalOptions, client_for,
+    load_binds,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -193,6 +194,13 @@ async fn run(projet: PathBuf, port: u16, initial_file: Option<String>) -> anyhow
         mentors: MentorSources::for_project(&root),
         data_dir,
         llm: llm(&config_dir),
+        terminal: {
+            let (binds, warning) = load_binds(&config_dir);
+            if let Some(message) = &warning {
+                tracing::warn!(%message, "montages du terminal");
+            }
+            TerminalOptions::from_env(binds, warning)
+        },
         initial_file,
     };
     if let Err(message) = &options.llm.client {

@@ -432,6 +432,21 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
 
 ---
 
+### Précisions retenues à l'implémentation (31 octobre 2026)
+
+- Ligne de commande `bwrap` d'après le prototype (ADR 0005) : `--remount-ro /`,
+  cible de `/etc/resolv.conf` montée, `~/.nvm` dans les montages, pas de
+  `--new-session`. `HOME` du shell suit les montages.
+- `[terminal] binds` remplace la liste par défaut ; une entrée invalide garde la
+  liste par défaut et le dit (`term_opened.warning`, journal).
+- xterm.js (`ui/vendor/xterm.js`) n'est chargé qu'à la première ouverture d'un
+  terminal ; rendu canvas et cale des `<style>` vers `adoptedStyleSheets`.
+- Tuer `bwrap` suffit à tuer tout ce que le terminal a lancé (`--unshare-pid`) ;
+  `--die-with-parent` couvre un arrêt brutal de Hodegos.
+- Limite héritée de 8a : l'observateur ne suit que les dossiers des fichiers
+  ouverts et `.git` ; un fichier créé dans le terminal, non commité, dans un autre
+  dossier, n'apparaît dans l'arbre qu'au rafraîchissement suivant du statut git.
+
 ## Protocole : récapitulatif des ajouts
 
 | Sens | Messages |
@@ -450,6 +465,9 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   conflits, noms avec espaces) ; dépôt absent.
 - 8b : `activate` lance une passe sur la section du curseur, sans `no_change` ;
   `skip_pass` ; budget dépassé sans confirmation.
+- 8f : `tests/terminal.rs` : protocole et limites avec un faux `bwrap` (toujours) ;
+  confinement, arrêt et commit avec le vrai (ignorés s'il est indisponible) ; tests
+  de `terminal::sandbox` et `terminal::session` sans `bwrap`.
 - 8e : `tests/mentor_settings.rs` et les tests de `hodegos-mentors` (validation
   collectée, formulaire réécrit à l'identique, surcharge minimale).
 - 8d : `tests/settings.rs` (faux OpenRouter local pour le catalogue et la clé,

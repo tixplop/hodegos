@@ -68,6 +68,7 @@ pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
         mentors: sources_in(dir),
         data_dir: data_dir(dir),
         llm,
+        terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
         initial_file: None,
     }
 }

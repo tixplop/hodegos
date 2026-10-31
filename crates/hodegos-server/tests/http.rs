@@ -38,13 +38,22 @@ async fn ecoute_sur_le_port_demande_et_refuse_un_port_occupe() {
     assert!(err.to_string().contains("--port"), "{err}");
 
     drop(server);
-    assert_eq!(
-        Server::bind(project_in(dir.path()), options(dir.path(), port, no_llm()))
-            .await
-            .unwrap()
-            .port(),
-        port
-    );
+    // Le port libéré peut être repris un instant par un autre test lancé en parallèle
+    // (port 0 attribué par le système) : on réessaie un peu.
+    let mut again = None;
+    for _ in 0..40 {
+        match Server::bind(project_in(dir.path()), options(dir.path(), port, no_llm())).await {
+            Ok(server) => {
+                again = Some(server);
+                break;
+            }
+            Err(ServerError::PortInUse(_)) => {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+            Err(err) => panic!("{err:?}"),
+        }
+    }
+    assert_eq!(again.expect("port de nouveau libre").port(), port);
 }
 
 #[tokio::test]

@@ -55,6 +55,10 @@ connexion reste ouverte.
 | `mentor_eject` | `id`, `to` (`user` ou `project`) | « Personnaliser » : copie le mentor actif, comme `hodegos mentors eject` ; renvoie `mentor_file` de la copie |
 | `mentor_delete` | `id`, `origin` (`user` ou `project`) | Supprime le fichier de ce niveau (le mentor revient au niveau inférieur, ou disparaît) ; renvoie `mentors` |
 | `mentor_prompt` | `id`, `content` (facultatif : brouillon) | Renvoie `mentor_prompt` |
+| `term_open` | `cols`, `rows` | Ouvre un terminal confiné dans la racine du projet (phase 8f) ; renvoie `term_opened`, ou `terminal_unavailable`, ou `terminal_limit` (4 par fenêtre) |
+| `term_input` | `term_id`, `data` (base64, 64 Kio au plus après décodage) | Saisie ; sans `id`, aucune réponse si elle passe |
+| `term_resize` | `term_id`, `cols`, `rows` | Redimensionne le pseudo-terminal ; aucune réponse |
+| `term_close` | `term_id` | Tue le shell et tout ce qu'il a lancé ; `term_exited` suit |
 | `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
 
 ## Du backend vers le front
@@ -85,6 +89,9 @@ connexion reste ouverte.
 | `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
 | `mentor_file` | `id`, `origin`, `path`, `content`, `editable`, `form`, `body`, `errors` | réponse à `mentor_get`, `mentor_save` et `mentor_eject` |
 | `mentor_prompt` | `text` | réponse à `mentor_prompt` |
+| `term_opened` | `term_id`, `shell` (nom court, pour l'onglet), `warning` (`[terminal] binds` invalide) | réponse à `term_open` |
+| `term_output` | `term_id`, `data` (base64 : octets bruts, pas forcément de l'UTF-8) | sortie du terminal, regroupée toutes les 16 ms au plus, 64 Kio au plus par message |
+| `term_exited` | `term_id`, `code` (`null` si tué par un signal) | fin du shell (`exit`, `term_close`) |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`), `errors` (seulement pour `mentor_invalid`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -288,6 +295,21 @@ Détails des mentors (phase 8e) :
 - `mentor_prompt` : cadre commun puis posture, au palier d'entrée du mentor,
   `{language}` remplacé par son premier langage déclencheur (sinon `rust`).
 
+Détails du terminal (phase 8f, ADR 0005) :
+
+- Le shell (`$SHELL`, sinon `/bin/bash`) tourne dans bubblewrap avec votre UID,
+  dans la racine du projet : système en lecture seule, `/dev`, `/proc` et `/tmp`
+  neufs, `$HOME` vide sauf les montages, projet en lecture-écriture, racine remise
+  en lecture seule ; `--unshare-pid`, `--die-with-parent`, réseau conservé.
+- Environnement : le vôtre, moins `OPENROUTER_API_KEY` et `HODEGOS_*` ;
+  `TERM=xterm-256color`, historique et caches dans le `/tmp` du terminal.
+- Contre-pression : si la WebSocket ne suit pas, la lecture du pseudo-terminal est
+  suspendue (rien ne s'accumule sans borne) ; les autres messages passent entre deux
+  sorties. Une saisie que le terminal ne lit plus reçoit `terminal_limit`.
+- Les terminaux d'une fenêtre meurent avec elle (WebSocket fermée) et avec Hodegos.
+- Rien de ce qui passe dans un terminal n'est journalisé (seulement des tailles, au
+  niveau `trace`) ni envoyé à un mentor.
+
 ## Codes d'erreur
 
 | Code | Sens |
@@ -304,6 +326,8 @@ Détails des mentors (phase 8e) :
 | `key_from_env` | `api_key_set` : `OPENROUTER_API_KEY` est définie et prime (phase 8d) |
 | `model_refused` | `settings_set` : modèle inconnu, sans sorties structurées, ou effort non accepté |
 | `eval_running` | `settings_set` : une évaluation tourne déjà |
+| `terminal_unavailable` | `term_open` : pas de confinement possible (bwrap absent, espaces de noms refusés) ; le message dit pourquoi et comment y remédier |
+| `terminal_limit` | `term_open` : 4 terminaux déjà ouverts ; `term_input` : saisie que le terminal ne lit plus |
 | `mentor_invalid` | `mentor_save`, `mentor_prompt` : le chargeur refuse le mentor ; `errors` champ par champ |
 | `invalid_settings` | `settings_set`, `api_key_set` : valeur hors limites, deux niveaux à évaluer à la fois, clé vide, ou réglages en lecture seule |
 

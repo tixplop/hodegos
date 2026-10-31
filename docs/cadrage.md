@@ -473,7 +473,7 @@ La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son prin
 - **8c** : Markdown en trois modes (source, aperçu en direct, lecture), sans nouvelle bibliothèque.
 - **8d** : écran Réglages (modèles, effort de raisonnement, clé d'API, budget) ; tout changement de modèle ou d'effort d'un niveau lance, après annonce du coût, une évaluation sur les cas intégrés au binaire (ADR 0007).
 - **8e** : édition des mentors depuis les réglages, validée comme au chargement ; un mentor livré n'est jamais écrit.
-- **8f** : terminal intégré, confiné au projet par bubblewrap, sur la même WebSocket (ADR 0005) ; rien de ce qui y passe n'est envoyé aux mentors.
+- **8f** : terminal intégré, confiné au projet par bubblewrap, sur la même WebSocket (ADR 0005) ; rien de ce qui y passe n'est envoyé aux mentors. Panneau sous l'éditeur (Ctrl+`), onglets, xterm.js en rendu canvas chargé à la première ouverture ; montages de `$HOME` réglables par `[terminal] binds`.
 
 Inchangés : la garde « pas de solution », le cadre commun des prompts, ce qui part vers le modèle, l'écoute sur `127.0.0.1` avec le jeton (aucun port ni service en plus), les réglages et données personnels hors du dépôt. Plusieurs éléments « hors MVP » du tableau du périmètre y entrent : terminal intégré, git dans l'interface, réglages graphiques, éditeur graphique de mentors.
 

@@ -178,6 +178,25 @@ pub enum ClientMessage {
         #[serde(default)]
         content: Option<String>,
     },
+    /// Ouvre un terminal confiné dans la racine du projet (phase 8f).
+    TermOpen {
+        cols: u16,
+        rows: u16,
+    },
+    /// Saisie, en base64 (octets bruts), 64 Kio au plus après décodage.
+    TermInput {
+        term_id: u32,
+        data: String,
+    },
+    TermResize {
+        term_id: u32,
+        cols: u16,
+        rows: u16,
+    },
+    /// Ferme le terminal : son shell et tout ce qu'il a lancé sont tués.
+    TermClose {
+        term_id: u32,
+    },
 }
 
 /// Texte confidentiel (clé d'API) : masqué par `Debug`.
@@ -363,6 +382,24 @@ pub enum ServerMessage {
     MentorFile(Box<MentorFileInfo>),
     MentorPrompt {
         text: String,
+    },
+    TermOpened {
+        term_id: u32,
+        /// Nom du shell, pour l'onglet (`zsh`).
+        shell: String,
+        /// `[terminal] binds` invalide : montages par défaut, et pourquoi.
+        warning: Option<String>,
+    },
+    /// Sortie, en base64 (octets bruts, pas forcément de l'UTF-8), regroupée toutes
+    /// les 16 ms au plus.
+    TermOutput {
+        term_id: u32,
+        data: String,
+    },
+    /// Fin du shell ; `code` absent s'il a été tué par un signal.
+    TermExited {
+        term_id: u32,
+        code: Option<i32>,
     },
 }
 
@@ -702,6 +739,11 @@ pub enum ErrorCode {
     InvalidSettings,
     /// Mentor refusé par les règles du chargeur ; `errors` les donne champ par champ.
     MentorInvalid,
+    /// Pas de confinement possible (bwrap absent, espaces de noms refusés) : pas de
+    /// terminal ; le message dit pourquoi et comment y remédier.
+    TerminalUnavailable,
+    /// Quatre terminaux déjà ouverts dans cette fenêtre, ou saisie que le terminal ne lit plus.
+    TerminalLimit,
 }
 
 /// Message illisible : la réponse sera `error` avec le code `bad_message`.

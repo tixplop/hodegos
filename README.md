@@ -22,6 +22,7 @@ l'extrait modifié et son contexte partent vers OpenRouter.
 - Un compilateur C pour les grammaires tree-sitter : `sudo apt install build-essential git`
 - Un navigateur côté Windows (Edge ou Chrome)
 - Une clé OpenRouter
+- Pour le terminal intégré : `sudo apt install bubblewrap` (sans lui, pas de terminal)
 - Node.js et npm, seulement pour régénérer `ui/vendor/` et `ui/fonts/`
   (`scripts/vendor-codemirror.sh`) ; les fichiers produits sont commités
 
@@ -119,6 +120,34 @@ contexte de part et d'autre et le chemin du fichier, secrets reconnaissables
 masqués. Les fichiers ignorés par git, `.env*`, `*.pem`, `*.key`, les clés SSH
 et les fichiers contenant une clé privée ne partent jamais.
 
+## Terminal
+
+Le bouton « Terminal » (ou Ctrl+`) ouvre sous l'éditeur un shell dans la racine du
+projet, avec votre compte, **confiné** par bubblewrap (ADR 0005) : seuls le système
+(en lecture seule), le projet et quelques dossiers de `$HOME` y sont visibles.
+Ce qui s'y tape et s'y affiche n'est jamais envoyé aux mentors ; fermer l'onglet,
+la fenêtre ou Hodegos tue le shell et tout ce qu'il a lancé.
+
+Montages par défaut, ignorés s'ils n'existent pas : `~/.gitconfig`, `~/.cargo`
+(caches `registry` et `git` en écriture, le reste en lecture seule), `~/.rustup`,
+`~/.npm` (écriture), `~/.nvm`, `~/.local/bin`, et la configuration du shell
+(`.zshrc`, `.bashrc`, `.profile`, `.oh-my-zsh`…). `~/.ssh` n'est jamais monté par
+défaut. Pour changer la liste, qui remplace alors celle par défaut :
+
+```toml
+# ~/.config/hodegos/config.toml
+[terminal]
+binds = [
+  { path = "~/.gitconfig", mode = "ro" },
+  { path = "~/.ssh", mode = "ro" },
+  { path = "~/.cargo/registry", mode = "rw" },
+]
+```
+
+L'historique du shell et les caches vont dans le `/tmp` du terminal, perdus à la
+fermeture. Limite connue : `~/.npm/_npx` contient du code que `npx` exécute, aussi
+hors du terminal.
+
 ## Mentors
 
 ```sh
@@ -184,6 +213,12 @@ apparaissent.
   suivant (UTC) ou jusqu'à un relèvement de `monthly_cap_usd` ; « Palier
   suivant » et « Répondre » demandent confirmation.
 - **« le projet … est sur un disque Windows (/mnt/) »** : déplacez le projet dans `~/`.
+- **« bubblewrap (bwrap) est introuvable »** : `sudo apt install bubblewrap`.
+  « bwrap refuse de créer les espaces de noms » : vérifiez
+  `kernel.unprivileged_userns_clone` et `kernel.apparmor_restrict_unprivileged_userns`.
+  Hodegos n'ouvre jamais de terminal sans confinement.
+- **Une commande est introuvable dans le terminal** : son dossier n'est pas monté ;
+  ajoutez-le à `[terminal] binds`.
 
 ## Développer
 

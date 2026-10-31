@@ -20,6 +20,7 @@
 <span class="hd-muted" aria-hidden="true">/</span>
 <span id="chemin" class="hd-mono app-path"></span>
 <span class="hd-row app-header__end">
+<button id="ouvrir-terminal" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="terminal" title="Terminal (Ctrl+`)">Terminal</button>
 <button id="ouvrir-reglages" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="reglages">Réglages</button>
 <button id="theme" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
 </span>
@@ -54,6 +55,18 @@
 <p id="vide" class="hd-muted app-empty">Choisissez un fichier dans l'arborescence.</p>
 <div id="editeur" class="app-editor" role="tabpanel" hidden></div>
 <div id="lecture" class="app-read" role="tabpanel" tabindex="0" hidden></div>
+<div id="terminal-poignee" class="app-term__handle" role="separator" aria-orientation="horizontal" aria-label="Hauteur du terminal" aria-controls="terminal" tabindex="0" hidden></div>
+<section id="terminal" class="app-term" aria-label="Terminal" hidden>
+<div class="app-term__bar">
+<div id="terminal-onglets" class="app-term__tabs" role="tablist" aria-label="Terminaux"></div>
+<button id="terminal-nouveau" class="hd-btn hd-btn--ghost hd-btn--sm app-icon-btn" type="button" aria-label="Nouveau terminal" title="Nouveau terminal">+</button>
+<span class="app-term__note" title="Ce que vous tapez et ce qui s'affiche dans le terminal n'est jamais envoyé aux mentors. Il tourne avec votre compte, dans la racine du projet, confiné par bubblewrap, et s'arrête avec Hodegos.">Privé : jamais envoyé aux mentors · votre compte, racine du projet, confiné</span>
+<button id="terminal-reduire" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réduire (Ctrl+`)</button>
+<button id="terminal-fermer" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Fermer</button>
+</div>
+<p id="terminal-message" class="app-term__message" role="alert" hidden></p>
+<div id="terminal-vues" class="app-term__views"></div>
+</section>
 </main>
 <aside class="hd-panel app-panel" aria-label="Mentors">
 <div class="app-panel__head">
@@ -164,6 +177,7 @@
 <span id="mentors-erreurs" hidden></span>
 <span id="passe" role="status"></span>
 <span id="evaluation" role="status" hidden></span>
+<span id="terminaux" hidden></span>
 <span id="message" role="status"></span>
 <span class="hd-statusbar__end hd-row">
 <span id="budget" hidden></span>

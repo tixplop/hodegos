@@ -234,8 +234,16 @@ confirmer à la main dans le navigateur Windows.
 ### 8f — Terminal intégré et confiné
 
 - [x] Prototype consigné dans l'ADR 0005 (confinement sous WSL2, xterm.js sous la CSP, débit)
-- [ ] Terminal dans la racine du projet, avec l'UID de l'utilisateur ; `cd /` puis `ls ~` ne montre
+- [x] Terminal dans la racine du projet, avec l'UID de l'utilisateur ; `cd /` puis `ls ~` ne montre
   que les montages ; écrire hors du projet et des montages `rw` échoue
-- [ ] Sans `bwrap` utilisable : pas de terminal, message explicite
-- [ ] Fermer l'onglet, la fenêtre ou Hodegos tue le shell et ses descendants ; un commit fait dans
+- [x] Sans `bwrap` utilisable : pas de terminal, message explicite
+- [x] Fermer l'onglet, la fenêtre ou Hodegos tue le shell et ses descendants ; un commit fait dans
   le terminal met l'arbre à jour
+
+Vérification le 31 octobre 2026 : `tests/terminal.rs` (vrai `bwrap` : `ls ~` réduit aux montages,
+écriture refusée dans `~` et `/usr`, fermeture de l'onglet et de la fenêtre sans processus
+restant, commit qui pousse `git_status` ; faux `bwrap` : protocole et limites ; `bwrap` absent :
+message), puis un parcours scripté dans Chromium sans écran dans les deux thèmes : shell dans le
+projet, `OPENROUTER_API_KEY` absente, couleurs, redimensionnement par la poignée, Ctrl+` qui
+replie sans tuer, deux onglets, fermeture qui tue les descendants, arbre mis à jour après un
+commit, aucune erreur dans la console. Reste à confirmer à la main dans le navigateur Windows.

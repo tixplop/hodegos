@@ -8,6 +8,7 @@ use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use base64::Engine as _;
 use hodegos_core::{
     DeletePlan, EntryKind, FileError, GitFileStatus, Language, RelPath, Section, Session, UserId,
     Version, section_at, sections,
@@ -28,6 +29,7 @@ use crate::protocol::{
     Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
 };
 use crate::settings;
+use crate::terminal;
 
 /// Longueur maximale d'une réponse de l'utilisateur.
 const MAX_REPLY_CHARS: usize = 2000;
@@ -98,6 +100,11 @@ struct Connection {
     opening: HashSet<RelPath>,
     /// Réponses des demandes traitées en tâche de fond (réglages).
     background: mpsc::UnboundedSender<Vec<Outgoing>>,
+    /// Terminaux de cette fenêtre : ils meurent avec elle.
+    terminals: HashMap<u32, terminal::Session>,
+    next_terminal: u32,
+    /// Sorties des terminaux ; borné : une fenêtre lente suspend leur lecture.
+    terminal_events: mpsc::Sender<terminal::Event>,
 }
 
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
@@ -108,6 +115,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let (passes, mut finished) = mpsc::unbounded_channel();
     let (followups, mut followed) = mpsc::unbounded_channel();
     let (background, mut answered) = mpsc::unbounded_channel();
+    let (terminal_events, mut terminal_output) = mpsc::channel(16);
     let mut events = state.events.subscribe();
     let mut connection = Connection {
         state,
@@ -121,6 +129,9 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         busy: HashSet::new(),
         opening: HashSet::new(),
         background,
+        terminals: HashMap::new(),
+        next_terminal: 0,
+        terminal_events,
     };
     let mut pending = vec![
         Outgoing::push(connection.state.connection_status()),
@@ -168,6 +179,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
             Some(result) = finished.recv() => connection.pass_finished(result),
             Some(done) = followed.recv() => connection.followup_finished(done),
             Some(replies) = answered.recv() => replies,
+            Some(event) = terminal_output.recv() => connection.terminal_event(event),
             event = events.recv() => match event {
                 Ok(message) => vec![Outgoing::push(message)],
                 Err(RecvError::Lagged(_)) => vec![
@@ -181,6 +193,85 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
 }
 
 impl Connection {
+    fn open_terminal(&mut self, re: Option<String>, cols: u16, rows: u16) -> Outgoing {
+        let terminals = &self.state.terminals;
+        if let Err(message) = terminals.check() {
+            return Outgoing::error(re, ErrorCode::TerminalUnavailable, message);
+        }
+        if self.terminals.len() >= terminal::MAX_PER_WINDOW {
+            return Outgoing::error(
+                re,
+                ErrorCode::TerminalLimit,
+                format!("{} terminaux au plus par fenêtre", terminal::MAX_PER_WINDOW),
+            );
+        }
+        self.next_terminal += 1;
+        let id = self.next_terminal;
+        let launch = terminals.launch(self.state.project.root());
+        match terminal::spawn(launch, id, cols, rows, self.terminal_events.clone()) {
+            Ok(session) => {
+                self.terminals.insert(id, session);
+                tracing::info!(terminal = id, "terminal ouvert");
+                Outgoing::reply(
+                    re,
+                    ServerMessage::TermOpened {
+                        term_id: id,
+                        shell: terminals.shell_name(),
+                        warning: terminals.warning(),
+                    },
+                )
+            }
+            Err(message) => Outgoing::error(re, ErrorCode::Internal, message),
+        }
+    }
+
+    fn terminal_input(&mut self, re: Option<String>, id: u32, data: &str) -> Vec<Outgoing> {
+        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data) else {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BadMessage,
+                "saisie : base64 attendu",
+            )];
+        };
+        if bytes.len() > terminal::MAX_INPUT {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BadMessage,
+                "saisie de plus de 64 Kio : envoyez-la en plusieurs fois",
+            )];
+        }
+        let Some(session) = self.terminals.get(&id) else {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::NotFound,
+                format!("terminal {id} fermé"),
+            )];
+        };
+        match session.write(bytes) {
+            Ok(()) => Vec::new(),
+            Err(message) => vec![Outgoing::error(re, ErrorCode::TerminalLimit, message)],
+        }
+    }
+
+    fn terminal_event(&mut self, event: terminal::Event) -> Vec<Outgoing> {
+        match event {
+            terminal::Event::Output { id, data } => {
+                vec![Outgoing::push(ServerMessage::TermOutput {
+                    term_id: id,
+                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                })]
+            }
+            terminal::Event::Exited { id, code } => {
+                self.terminals.remove(&id);
+                tracing::info!(terminal = id, ?code, "terminal terminé");
+                vec![Outgoing::push(ServerMessage::TermExited {
+                    term_id: id,
+                    code,
+                })]
+            }
+        }
+    }
+
     /// Traite une demande de réglages en tâche de fond (catalogue, évaluation, réseau) ;
     /// la réponse revient par `background`.
     fn in_background<F, Fut>(&self, re: Option<String>, work: F)
@@ -293,6 +384,27 @@ impl Connection {
                 re,
                 mentor_settings::prompt(&self.state, &id, content.as_deref()),
             )]),
+            ClientMessage::TermOpen { cols, rows } => Ok(vec![self.open_terminal(re, cols, rows)]),
+            ClientMessage::TermInput { term_id, data } => {
+                Ok(self.terminal_input(re, term_id, &data))
+            }
+            ClientMessage::TermResize {
+                term_id,
+                cols,
+                rows,
+            } => {
+                if let Some(session) = self.terminals.get(&term_id) {
+                    session.resize(cols, rows);
+                }
+                Ok(Vec::new())
+            }
+            ClientMessage::TermClose { term_id } => {
+                // Le shell tué, `term_exited` suit.
+                if let Some(mut session) = self.terminals.remove(&term_id) {
+                    session.kill();
+                }
+                Ok(Vec::new())
+            }
             ClientMessage::ProviderTest => {
                 self.in_background(re, |state| async move {
                     Ok(settings::provider_test(&state).await)
