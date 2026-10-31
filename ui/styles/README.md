@@ -82,6 +82,11 @@ Les colonnes passent les unes sous les autres sur écran étroit.
 - Les paliers d'aide sont une liste ordonnée avec `aria-current="step"` sur le palier courant.
 - Cible tactile de 32px minimum (`hd-btn--sm`), 36–40px par défaut.
 
+## Menus et confirmations
+
+- **Menu contextuel** (`hd-menu`, `hd-menu__item`) : liste `role="menu"` d'éléments `role="menuitem"`, ouverte au clic droit ou par la touche Menu, fermée par Échap, un clic ailleurs ou le choix d'un élément ; flèches haut et bas pour se déplacer. Une action destructrice porte `hd-menu__item--danger` et finit par « … » si elle demande confirmation (« Supprimer… »).
+- **Confirmation** (`hd-dialog`) : `<dialog>` natif ouvert par `showModal()`, `role="alertdialog"` quand l'action est destructrice. Un titre qui nomme l'objet (« Supprimer `reserver.ts` ? »), le texte qui dit ce qui est récupérable, puis les boutons alignés à droite : « Annuler » (`hd-btn--secondary`, focus par défaut) et l'action (`hd-btn--danger`), dont le libellé dit l'effet (« Supprimer définitivement »). Échap annule. Jamais `window.confirm` pour une action nouvelle.
+
 ## Iconographie
 
 Aucune bibliothèque d'icônes n'est retenue. Icônes SVG en ligne, trait de 2px, 16px, `stroke="currentColor"`, `aria-hidden="true"` quand un libellé les accompagne. Pas d'emoji. Les glyphes `→` et `✓` sont admis dans les étapes et les paliers. Les mentors sont représentés par un avatar de deux lettres en `text-code` (AR, TS, UX), jamais par un visage.

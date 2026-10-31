@@ -8,8 +8,8 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use hodegos_core::{
-    EntryKind, FileError, Language, RelPath, Section, Session, UserId, Version, section_at,
-    sections,
+    DeletePlan, EntryKind, FileError, GitFileStatus, Language, RelPath, Section, Session, UserId,
+    Version, section_at, sections,
 };
 use hodegos_mentors::{CastRequest, FollowUpKind, Registry, cast};
 use jiff::Timestamp;
@@ -98,6 +98,7 @@ struct Connection {
 async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let mut changes = state.changes.subscribe();
     let mut reloaded = state.mentors.reloaded.subscribe();
+    let mut git = state.git.updates.subscribe();
     let session = state.project.session(user);
     let (passes, mut finished) = mpsc::unbounded_channel();
     let (followups, mut followed) = mpsc::unbounded_channel();
@@ -113,7 +114,10 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         busy: HashSet::new(),
         opening: HashSet::new(),
     };
-    let mut pending = vec![Outgoing::push(connection.state.connection_status())];
+    let mut pending = vec![
+        Outgoing::push(connection.state.connection_status()),
+        Outgoing::push(ServerMessage::GitStatus(connection.state.git.current())),
+    ];
     pending.extend(connection.mentor_warnings(false));
     loop {
         for reply in pending.drain(..) {
@@ -146,6 +150,13 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
                 Ok(()) | Err(RecvError::Lagged(_)) => connection.mentor_warnings(true),
                 Err(RecvError::Closed) => break,
             },
+            update = git.recv() => match update {
+                Ok(status) => vec![Outgoing::push(ServerMessage::GitStatus(status))],
+                Err(RecvError::Lagged(_)) => {
+                    vec![Outgoing::push(ServerMessage::GitStatus(connection.state.git.current()))]
+                }
+                Err(RecvError::Closed) => break,
+            },
             Some(result) = finished.recv() => connection.pass_finished(result),
             Some(done) = followed.recv() => connection.followup_finished(done),
         };
@@ -175,32 +186,7 @@ impl Connection {
             ClientMessage::Ping => Ok(vec![Outgoing::reply(re, ServerMessage::Pong)]),
             ClientMessage::ListDir { path } => {
                 let rel = RelPath::parse(&path)?;
-                let registry = self.state.mentors.registry();
-                let entries = project
-                    .list_dir(&self.session, &rel)?
-                    .into_iter()
-                    .map(|entry| {
-                        let (kind, mentors) = match entry.kind {
-                            EntryKind::Dir => (protocol::EntryKind::Dir, Vec::new()),
-                            EntryKind::File => (
-                                protocol::EntryKind::File,
-                                file_mentors(&registry, rel.join(&entry.name).as_str()),
-                            ),
-                        };
-                        DirEntry {
-                            name: entry.name,
-                            kind,
-                            mentors,
-                        }
-                    })
-                    .collect();
-                Ok(vec![Outgoing::reply(
-                    re,
-                    ServerMessage::Dir {
-                        path: rel.to_string(),
-                        entries,
-                    },
-                )])
+                Ok(vec![Outgoing::reply(re, self.dir(&rel)?)])
             }
             ClientMessage::OpenFile { path } => {
                 let rel = RelPath::parse(&path)?;
@@ -238,6 +224,7 @@ impl Connection {
                 let rel = RelPath::parse(&path)?;
                 let base = Version::from_client(base_version);
                 let version = project.write_file(&self.session, &rel, &content, &base)?;
+                self.state.git.refresh();
                 self.watch(&rel);
                 let language = Language::of(rel.as_str());
                 let old = self
@@ -330,6 +317,134 @@ impl Connection {
                     .ok_or_else(|| FileError::NotFound(format!("remarque {remark_id}")))?;
                 Ok(vec![remark_update(re, remark)])
             }
+            ClientMessage::CreateEntry { path, kind } => {
+                if path.split('/').any(|part| part.is_empty() || part == ".") {
+                    return Err(FileError::InvalidName(path));
+                }
+                let rel = RelPath::parse(&path)?;
+                let core_kind = match kind {
+                    protocol::EntryKind::Dir => EntryKind::Dir,
+                    protocol::EntryKind::File => EntryKind::File,
+                };
+                project.create_entry(&self.session, &rel, core_kind)?;
+                self.state.git.refresh();
+                Ok(vec![
+                    Outgoing::reply(
+                        re,
+                        ServerMessage::EntryCreated {
+                            path: rel.to_string(),
+                            kind,
+                        },
+                    ),
+                    Outgoing::push(self.dir(&rel.parent())?),
+                ])
+            }
+            ClientMessage::DeletePreview { path } => {
+                let rel = RelPath::parse(&path)?;
+                let plan = project.delete_preview(&self.session, &rel)?;
+                Ok(vec![Outgoing::reply(re, self.delete_preview(&rel, &plan))])
+            }
+            ClientMessage::DeleteEntry { path } => {
+                let rel = RelPath::parse(&path)?;
+                let plan = project.delete_entry(&self.session, &rel)?;
+                self.state.git.refresh();
+                self.forget(&plan);
+                Ok(vec![
+                    Outgoing::reply(
+                        re,
+                        ServerMessage::EntryDeleted {
+                            path: rel.to_string(),
+                            kind: protocol_kind(plan.kind),
+                        },
+                    ),
+                    Outgoing::push(self.dir(&rel.parent())?),
+                ])
+            }
+        }
+    }
+
+    /// Entrées d'un dossier, avec les mentors de chaque fichier.
+    fn dir(&self, rel: &RelPath) -> Result<ServerMessage, FileError> {
+        let registry = self.state.mentors.registry();
+        let entries = self
+            .state
+            .project
+            .list_dir(&self.session, rel)?
+            .into_iter()
+            .map(|entry| {
+                let mentors = match entry.kind {
+                    EntryKind::Dir => Vec::new(),
+                    EntryKind::File => file_mentors(&registry, rel.join(&entry.name).as_str()),
+                };
+                DirEntry {
+                    name: entry.name,
+                    kind: protocol_kind(entry.kind),
+                    mentors,
+                }
+            })
+            .collect();
+        Ok(ServerMessage::Dir {
+            path: rel.to_string(),
+            entries,
+        })
+    }
+
+    /// Ce que la suppression emporterait, d'après le statut git actuel.
+    fn delete_preview(&self, rel: &RelPath, plan: &DeletePlan) -> ServerMessage {
+        let project = &self.state.project;
+        let git = project
+            .git_repo(&self.session)
+            .ok()
+            .flatten()
+            .and_then(|repo| project.git_status(&self.session, &repo).ok().flatten());
+        let statuses: HashMap<&str, GitFileStatus> = git
+            .iter()
+            .flat_map(|status| &status.entries)
+            .map(|entry| (entry.path.as_str(), entry.status))
+            .collect();
+        let (mut untracked, mut modified, mut ignored) = (0, 0, 0);
+        for file in &plan.files {
+            if file.ignored {
+                ignored += 1;
+                continue;
+            }
+            match statuses.get(file.path.as_str()) {
+                _ if git.is_none() => untracked += 1,
+                Some(GitFileStatus::Untracked | GitFileStatus::Added) => untracked += 1,
+                Some(_) => modified += 1,
+                None => {}
+            }
+        }
+        ServerMessage::DeletePreview {
+            path: rel.to_string(),
+            kind: protocol_kind(plan.kind),
+            files: plan.files.len(),
+            untracked,
+            modified,
+            ignored,
+            restorable: git.is_some() && untracked + modified + ignored == 0,
+        }
+    }
+
+    /// Fichiers supprimés depuis Hodegos : remarques, choix forcés et passe d'ouverture
+    /// oubliés (ADR 0006), onglets fermés côté serveur, passes en cours caduques.
+    fn forget(&mut self, plan: &DeletePlan) {
+        let paths: HashSet<String> = plan.files.iter().map(|f| f.path.to_string()).collect();
+        self.state.store.forget(&paths);
+        self.state.mentors.forget(&paths);
+        for file in &plan.files {
+            if self.open.remove(&file.path).is_some() {
+                *self.generations.entry(file.path.clone()).or_insert(0) += 1;
+            }
+            self.opening.remove(&file.path);
+        }
+        if self
+            .cursor
+            .as_ref()
+            .is_some_and(|(path, _)| paths.contains(path.as_str()))
+        {
+            self.cursor = None;
+            self.last_casting = None;
         }
     }
 
@@ -727,6 +842,13 @@ impl Connection {
     }
 }
 
+fn protocol_kind(kind: EntryKind) -> protocol::EntryKind {
+    match kind {
+        EntryKind::Dir => protocol::EntryKind::Dir,
+        EntryKind::File => protocol::EntryKind::File,
+    }
+}
+
 /// Titulaire et consultant d'un fichier, sur son chemin et son langage seulement.
 fn file_mentors(registry: &Registry, path: &str) -> Vec<MentorRef> {
     let casting = cast(
@@ -771,6 +893,8 @@ fn error_reply(re: Option<String>, err: FileError) -> Outgoing {
     let code = match err {
         FileError::Forbidden(_) => ErrorCode::PathForbidden,
         FileError::NotFound(_) => ErrorCode::NotFound,
+        FileError::AlreadyExists(_) => ErrorCode::AlreadyExists,
+        FileError::InvalidName(_) => ErrorCode::BadMessage,
         FileError::NotText(_) => ErrorCode::NotText,
         FileError::Conflict { current, .. } => {
             return Outgoing::reply(

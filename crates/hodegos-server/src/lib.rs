@@ -6,6 +6,7 @@
 mod assets;
 mod auth;
 mod followup;
+mod git;
 mod guard;
 mod mentors;
 mod pass;
@@ -21,15 +22,16 @@ use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::routing::get;
-use hodegos_core::{FileError, FileWatcher, Project, RelPath};
+use hodegos_core::{FileError, FileWatcher, Project, RelPath, UserId};
 use hodegos_llm::{Budget, LlmClient, LlmConfig};
 use hodegos_mentors::MentorSources;
 use jiff::Timestamp;
 use tokio::net::TcpListener;
-use tokio::sync::broadcast;
+use tokio::sync::{Notify, broadcast};
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
 
+use crate::git::GitTracker;
 use crate::mentors::Mentors;
 use crate::protocol::{BudgetLevel, LastPass, ServerMessage};
 use crate::store::Store;
@@ -88,6 +90,8 @@ struct AppState {
     project: Project,
     watcher: FileWatcher,
     changes: broadcast::Sender<Changes>,
+    /// Statut git, recalculé après chaque changement.
+    git: Arc<GitTracker>,
     mentors: Mentors,
     llm: Llm,
     budget: Budget,
@@ -185,11 +189,20 @@ impl Server {
         let access_url = format!("http://127.0.0.1:{port}/?token={}", auth.launch_token());
         let (changes, _) = broadcast::channel(64);
         let sender = changes.clone();
+        let refresh = Arc::new(Notify::new());
+        let git_refresh = refresh.clone();
         let watcher = project
             .watch(move |paths| {
                 let _ = sender.send(Arc::new(paths));
+                git_refresh.notify_one();
             })
             .map_err(ServerError::Watch)?;
+        let git = GitTracker::new(project.clone(), project.session(UserId::local()), refresh);
+        let first = git.clone();
+        if let Err(err) = tokio::task::spawn_blocking(move || first.init()).await {
+            tracing::warn!(error = %err, "statut git initial non calculé");
+        }
+        tokio::spawn(git.clone().run());
         let project_dir = data_dir.join(project.id().as_str());
         let (mentors, mut mentor_changes) =
             Mentors::start(sources, Some(project_dir.join("overrides.json")));
@@ -205,6 +218,7 @@ impl Server {
             project,
             watcher,
             changes,
+            git,
             mentors,
             llm,
             budget,

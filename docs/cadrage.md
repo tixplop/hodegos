@@ -61,11 +61,11 @@ Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, a
   - CodeMirror est monté dans un shadow root : il y pose ses styles par `adoptedStyleSheets`, que la CSP stricte autorise, alors qu'elle bloque les balises `<style>` qu'il insère dans un document.
   - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP ; aperçu en direct et lecture en phase 8c).
   - Frappe par-dessus une sélection de plusieurs lignes : l'éditeur remplace lui-même la sélection (`beforeinput`). Laissé au navigateur, Chrome fusionne les lignes en posant des attributs `style`, que la CSP bloque (corrigé après la phase 5).
-  - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2.
+  - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2 (création et suppression depuis l'arbre en phase 8a).
   - Version d'un fichier : empreinte SHA-256 du contenu (16 caractères hexadécimaux).
   - Écriture par fichier temporaire renommé, droits conservés, contenu écrit tel quel (fins de ligne, BOM).
   - Modifications externes : seuls les dossiers des fichiers ouverts sont observés (sans récursion, pour ménager inotify) ; `file_changed` n'est envoyé que si la version sur disque diffère de la dernière connue, ce qui écarte les enregistrements faits par Hodegos.
-  - Arborescence chargée dossier par dossier, sans rafraîchissement automatique en phase 2 ; plusieurs onglets.
+  - Arborescence chargée dossier par dossier, sans rafraîchissement automatique en phase 2 (depuis la phase 8a, les dossiers dépliés sont rechargés à chaque `git_status`) ; plusieurs onglets.
   - Thème : préférence du système, bascule dans l'en-tête, choix mémorisé dans le `localStorage` du navigateur (rien dans le dépôt).
 - **Lancement** : `hodegos ~/projets/troc` démarre le serveur sur le port 7420 (ou celui de `--port`), génère un jeton, puis affiche dans le terminal l'URL d'accès (`http://127.0.0.1:PORT/?token=…`) ; un Ctrl+clic l'ouvre dans le navigateur Windows. L'ouverture automatique viendra plus tard.
 - **Port fixe** (décidé le 29 octobre 2026) : 7420 par défaut, `--port N` pour en changer. Un port tiré au hasard ne convient pas sous WSL2 en mode NAT : la redirection de `localhost` vers Windows échoue sans message si le port tombe dans une plage réservée par Windows (Hyper-V, WinNAT ; voir `netsh interface ipv4 show excludedportrange protocol=tcp`), et le navigateur répond `ERR_CONNECTION_REFUSED`. Si le port est occupé, le lancement échoue avec un message qui renvoie à `--port`. `--port 0` laisse le système choisir (tests).

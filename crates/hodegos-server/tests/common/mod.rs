@@ -158,9 +158,17 @@ pub async fn open_socket_with(dir: &Path, llm: Llm) -> Socket {
     let (port, cookie) = start_with(dir, llm).await;
     let origin = format!("http://127.0.0.1:{port}");
     let mut socket = connect(port, Some(&origin), Some(&cookie)).await.unwrap();
-    let status = next(&mut socket).await;
-    assert_eq!(status["type"], "status", "{status}");
+    welcome(&mut socket).await;
     socket
+}
+
+/// Messages qui ouvrent toute connexion : `status`, puis `git_status` ; renvoie le `status`.
+pub async fn welcome(socket: &mut Socket) -> Value {
+    let status = next(socket).await;
+    assert_eq!(status["type"], "status", "{status}");
+    let git = next(socket).await;
+    assert_eq!(git["type"], "git_status", "{git}");
+    status
 }
 
 pub fn refused_with(result: Result<Socket, Error>) -> StatusCode {
@@ -196,4 +204,34 @@ pub async fn next(socket: &mut Socket) -> Value {
 pub async fn exchange(socket: &mut Socket, message: Value) -> Value {
     send_raw(socket, &message.to_string()).await;
     next(socket).await
+}
+
+/// Lance `git` dans `dir`, sans dépendre de la configuration de l'utilisateur pour
+/// l'auteur ni la signature ; `false` si git est absent ou échoue.
+pub fn git(dir: &Path, args: &[&str]) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=Test", "-c", "user.email=test@example.org"])
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "init.defaultBranch=main",
+        ])
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+/// Dépôt git initialisé dans `dir` ; `false` (et un message) si git est absent.
+pub fn git_init(dir: &Path) -> bool {
+    if git(dir, &["init", "-q"]) {
+        true
+    } else {
+        eprintln!("git absent : test ignoré");
+        false
+    }
 }

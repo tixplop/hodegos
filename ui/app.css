@@ -50,7 +50,28 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-remark__note { margin: 0; font-size: 12px; }
 .app-remark__actions { gap: var(--space-1); }
 .app-provider { display: inline-flex; align-items: center; gap: 6px; }
-.app-tree__item .hd-nav__meta { margin-left: auto; font-family: var(--font-mono); }
+.app-tree__item .hd-nav__meta { font-family: var(--font-mono); }
+
+/* Arbre : création, statut git (phase 8a). */
+.app-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.app-sidebar { display: flex; flex-direction: column; }
+.app-tree__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.app-tree__actions { gap: 2px; }
+.app-icon-btn { width: 32px; padding: 0; justify-content: center; }
+.app-tree__end { flex: none; margin-left: auto; gap: var(--space-2); }
+.app-tree__git { flex: none; width: 12px; text-align: center; font-family: var(--font-mono); font-weight: 600; }
+.app-tree__git--warning, .app-tree__item--warning { color: var(--warning); }
+.app-tree__git--success, .app-tree__item--success { color: var(--success); }
+.app-tree__git--danger, .app-tree__item--danger { color: var(--danger); }
+.app-tree__dot { flex: none; margin-left: auto; background: var(--warning); }
+.app-tree__new { display: flex; flex-direction: column; gap: var(--space-1); padding: 2px 0 2px calc(10px + 24px + var(--depth, 0) * 16px); }
+.app-tree__input { flex: none; height: 30px; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: 13px; font-variant-ligatures: none; }
+.app-tree__hint { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.app-tree__hint--error { color: var(--danger); }
+.app-tree__legend { margin: auto 0 0; padding-top: var(--space-3); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.app-tree__legend[hidden] { display: none; }
+.app-tree__legend strong { font-family: var(--font-mono); }
+.app-git { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Écran étroit : les colonnes passent les unes sous les autres. */
 @media (max-width: 720px) {

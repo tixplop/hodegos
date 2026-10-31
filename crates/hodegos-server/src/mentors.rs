@@ -1,6 +1,6 @@
 //! Mentors côté serveur : registre rechargé à chaud et choix forcés en mémoire.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -106,6 +106,22 @@ impl Mentors {
             Some(id) => overrides.insert(key, id),
             None => overrides.remove(&key),
         };
+        self.persist(&overrides);
+    }
+
+    /// Oublie les choix forcés de fichiers supprimés depuis Hodegos (ADR 0006).
+    pub(crate) fn forget(&self, paths: &HashSet<String>) {
+        let Ok(mut overrides) = self.overrides.lock() else {
+            return;
+        };
+        let before = overrides.len();
+        overrides.retain(|(path, _), _| !paths.contains(path));
+        if overrides.len() != before {
+            self.persist(&overrides);
+        }
+    }
+
+    fn persist(&self, overrides: &HashMap<(String, String), String>) {
         let Some(file) = &self.overrides_path else {
             return;
         };

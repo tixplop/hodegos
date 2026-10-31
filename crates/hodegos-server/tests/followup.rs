@@ -226,7 +226,7 @@ async fn une_remarque_monte_de_l_indice_a_l_exemple_puis_s_arrete() {
     let mut socket = common::connect(port, Some(&origin), Some(&cookie))
         .await
         .unwrap();
-    next(&mut socket).await;
+    common::welcome(&mut socket).await;
     let file = open(&mut socket).await;
     let remarks = file["payload"]["remarks"].as_array().unwrap();
     assert_eq!(remarks[0]["level"], "exemple");

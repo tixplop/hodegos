@@ -2,7 +2,7 @@
 //! historique des remarques et fichiers déjà vus par une passe d'ouverture. Rien
 //! n'est jamais écrit dans le dépôt.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -91,9 +91,31 @@ impl Store {
         let Ok(mut opened) = self.opened.lock() else {
             return;
         };
-        if !opened.insert(path.to_owned()) {
-            return;
+        if opened.insert(path.to_owned()) {
+            self.persist_opened(&opened);
         }
+    }
+
+    /// Oublie des fichiers supprimés depuis Hodegos (ADR 0006) : leurs remarques,
+    /// quel que soit leur statut, et leur passe d'ouverture.
+    pub(crate) fn forget(&self, paths: &HashSet<String>) {
+        if let Ok(mut remarks) = self.remarks.lock() {
+            let before = remarks.len();
+            remarks.retain(|r| !paths.contains(&r.path));
+            if remarks.len() != before {
+                self.persist(&remarks);
+            }
+        }
+        if let Ok(mut opened) = self.opened.lock() {
+            let before = opened.len();
+            opened.retain(|path| !paths.contains(path));
+            if opened.len() != before {
+                self.persist_opened(&opened);
+            }
+        }
+    }
+
+    fn persist_opened(&self, opened: &BTreeSet<String>) {
         let Some(dir) = &self.dir else {
             return;
         };

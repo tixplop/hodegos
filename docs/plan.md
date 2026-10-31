@@ -146,11 +146,20 @@ clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans 
 
 ### 8a — Fichiers et statut git
 
-- [ ] Créer un fichier et un dossier depuis l'arbre ; les refus s'affichent à côté du champ
-- [ ] Supprimer un fichier suivi, un fichier non suivi et un dossier : la confirmation dit ce qui est
+- [x] Créer un fichier et un dossier depuis l'arbre ; les refus s'affichent à côté du champ
+  (core `entries`, `crates/hodegos-server/tests/entries.rs`)
+- [x] Supprimer un fichier suivi, un fichier non suivi et un dossier : la confirmation dit ce qui est
   récupérable ; remarques, choix forcés et passe d'ouverture des fichiers supprimés sont retirés
-- [ ] Lettres et couleurs git à jour après un enregistrement, un commit et un checkout faits hors de
+  (`tests/entries.rs` : aperçu avec un vrai dépôt, oubli des données, suppression externe qui les garde)
+- [x] Lettres et couleurs git à jour après un enregistrement, un commit et un checkout faits hors de
   Hodegos ; « Pas de dépôt git » sans dépôt
+  (core `git`, `crates/hodegos-server/tests/git.rs` : sous-dossier de dépôt, HEAD détachée)
+
+Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, projet local) dans les deux thèmes : création et refus à côté du champ, menu contextuel,
+lettres et point des dossiers, commit et checkout faits hors de Hodegos, trois confirmations de
+suppression, Échap, « Pas de dépôt git », aucune erreur dans la console. Reste à confirmer à la main
+dans le navigateur Windows.
 
 ### 8b — Sélection et activation d'un mentor
 

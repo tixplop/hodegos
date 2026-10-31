@@ -1,7 +1,9 @@
-/* Hodegos — application : arborescence, onglets, éditeur, enregistrement, modifications externes,
-   interlocuteurs de la section courante, remarques et état des passes. */
+/* Hodegos — application : arborescence (création, suppression, statut git), onglets, éditeur,
+   enregistrement, modifications externes, interlocuteurs de la section courante, remarques et
+   état des passes. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
+import { confirmDeletion } from './deletion.js';
 import { createEditor, LANGUAGE_NAMES, locate } from './editor.js';
 import { icon } from './icons.js';
 import { createPanel } from './panel.js';
@@ -18,6 +20,10 @@ const ui = {
   editor: $('editeur'),
   position: $('position'),
   language: $('langage'),
+  git: $('git'),
+  gitLegend: $('legende-git'),
+  newFile: $('nouveau-fichier'),
+  newDir: $('nouveau-dossier'),
   saveState: $('etat'),
   message: $('message'),
   connection: $('connexion'),
@@ -60,6 +66,8 @@ let activeRemark = null;
 const mentorNames = new Map();
 /** Dernier message d'indisponibilité du fournisseur affiché. */
 let shownProviderMessage = null;
+/** Dernier `git_status` reçu : `null` sans dépôt, `undefined` avant le premier. */
+let gitStatus;
 /** Dernier curseur envoyé : `{ path, line }`. */
 let sentCursor = null;
 let cursorTimer = null;
@@ -79,9 +87,18 @@ const tree = createTree(ui.tree, {
     for (const entry of reply.payload.entries) rememberMentors(entry.mentors);
     return reply.payload.entries;
   }),
+  create: (path, kind) => server.request('create_entry', { path, kind }),
   onOpen: openFile,
+  onCreated: (path, kind) => {
+    if (kind === 'file') openFile(path);
+  },
+  onDelete: deleteEntry,
   onError: showError,
 });
+ui.newFile.append(icon('file-plus'));
+ui.newDir.append(icon('folder-plus'));
+ui.newFile.addEventListener('click', () => tree.startCreate('', 'file'));
+ui.newDir.addEventListener('click', () => tree.startCreate('', 'dir'));
 
 /* ---------- Connexion ---------- */
 
@@ -133,6 +150,12 @@ function onPush(message) {
     applyRemark(remark);
     return;
   }
+  if (message.type === 'git_status') {
+    gitStatus = message.payload;
+    tree.setGit(gitStatus);
+    renderGit();
+    return;
+  }
   if (message.type === 'status') {
     applyStatus(message.payload);
     // Premier status après `hodegos new` : la vision s'ouvre d'elle-même.
@@ -146,6 +169,59 @@ function onPush(message) {
   if (!tab || version === tab.version) return;
   tab.banner = version === null ? { kind: 'deleted' } : { kind: 'changed', version };
   render();
+}
+
+/* ---------- Git et suppression ---------- */
+
+function plural(count, one, many, none) {
+  if (count === 0 && none) return none;
+  return count === 1 ? `1 ${one}` : `${count} ${many}`;
+}
+
+function renderGit() {
+  ui.git.replaceChildren();
+  ui.gitLegend.hidden = !gitStatus;
+  if (gitStatus === undefined) return;
+  if (gitStatus === null) {
+    ui.git.className = '';
+    ui.git.textContent = 'Pas de dépôt git';
+    return;
+  }
+  const branch = document.createElement('span');
+  branch.className = 'hd-mono';
+  branch.textContent = gitStatus.detached ? 'HEAD détachée' : gitStatus.branch;
+  const parts = [plural(gitStatus.changes, 'changement', 'changements', 'aucun changement')];
+  if (gitStatus.conflicts) parts.push(plural(gitStatus.conflicts, 'conflit', 'conflits'));
+  ui.git.className = 'app-git';
+  ui.git.append(icon('branch'), branch, ` · ${parts.join(' · ')}`);
+}
+
+/** « Supprimer… » : aperçu, confirmation qui dit ce qui est récupérable, puis suppression. */
+async function deleteEntry(path, button) {
+  let preview;
+  try {
+    preview = (await server.request('delete_preview', { path })).payload;
+  } catch (error) {
+    showError(error);
+    return;
+  }
+  const affected = [...tabs.keys()].filter((p) => p === path || p.startsWith(`${path}/`));
+  const confirmed = await confirmDeletion(preview, {
+    repo: Boolean(gitStatus),
+    tabs: affected.length,
+    dirty: affected.filter((p) => isDirty(tabs.get(p))).length,
+    returnFocus: button,
+  });
+  if (!confirmed) return;
+  try {
+    await server.request('delete_entry', { path });
+  } catch (error) {
+    showError(error);
+    return;
+  }
+  for (const p of affected) dropTab(p);
+  tree.refresh();
+  showMessage(`Supprimé : ${path}`);
 }
 
 /* ---------- Mentors ---------- */
@@ -550,6 +626,13 @@ function closeTab(path) {
   const tab = tabs.get(path);
   if (!tab) return;
   if (isDirty(tab) && !window.confirm(`Fermer ${tab.path} sans enregistrer vos modifications ?`)) return;
+  dropTab(path);
+}
+
+/** Ferme un onglet sans rien demander (fichier supprimé, onglet déjà confirmé). */
+function dropTab(path) {
+  const tab = tabs.get(path);
+  if (!tab) return;
   if (path === currentPath) tab.state = editor.state;
   tabs.delete(path);
   castings.delete(path);

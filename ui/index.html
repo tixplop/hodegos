@@ -25,10 +25,17 @@
 <nav class="hd-sidebar app-sidebar" aria-label="Fichiers du projet">
 <div class="hd-nav">
 <div class="hd-nav__group">
+<div class="app-tree__head">
 <span class="hd-nav__label">Fichiers</span>
+<span class="hd-row app-tree__actions">
+<button id="nouveau-fichier" class="hd-btn hd-btn--ghost hd-btn--sm app-icon-btn" type="button" aria-label="Nouveau fichier à la racine" title="Nouveau fichier"></button>
+<button id="nouveau-dossier" class="hd-btn hd-btn--ghost hd-btn--sm app-icon-btn" type="button" aria-label="Nouveau dossier à la racine" title="Nouveau dossier"></button>
+</span>
+</div>
 <ul id="arborescence" class="app-tree"></ul>
 </div>
 </div>
+<p id="legende-git" class="app-tree__legend" hidden><span><strong class="app-tree__git--warning">M</strong> modifié · <strong class="app-tree__git--warning">R</strong> renommé · <strong class="app-tree__git--success">A</strong> ajouté · <strong class="app-tree__git--success">U</strong> non suivi · <strong class="app-tree__git--danger">C</strong> conflit</span><span>Point orange : le dossier contient un changement. Fichiers ignorés par git masqués.</span></p>
 </nav>
 <main class="hd-main app-main">
 <div id="onglets" class="hd-tabs app-tabs" role="tablist" aria-label="Fichiers ouverts" hidden></div>
@@ -49,6 +56,7 @@
 <footer class="hd-statusbar">
 <span id="position" class="hd-mono"></span>
 <span id="langage"></span>
+<span id="git"></span>
 <span id="etat"></span>
 <span id="titulaire"></span>
 <span id="mentors-erreurs" hidden></span>

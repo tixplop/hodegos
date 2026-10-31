@@ -99,6 +99,18 @@ pub enum ClientMessage {
         remark_id: String,
         reason: DismissReason,
     },
+    /// Crée un fichier vide ou un dossier (phase 8a).
+    CreateEntry {
+        path: String,
+        kind: EntryKind,
+    },
+    /// Ce qu'emporterait la suppression, avant la confirmation.
+    DeletePreview {
+        path: String,
+    },
+    DeleteEntry {
+        path: String,
+    },
 }
 
 /// Pourquoi une remarque est fermée ; c'est aussi son nouveau statut.
@@ -189,6 +201,62 @@ pub enum ServerMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         version: Option<String>,
     },
+    EntryCreated {
+        path: String,
+        kind: EntryKind,
+    },
+    /// Réponse à `delete_preview` : nombres de fichiers, dossiers non compris.
+    DeletePreview {
+        path: String,
+        kind: EntryKind,
+        files: usize,
+        /// Non suivis ou seulement ajoutés à l'index : git ne peut pas les restaurer.
+        untracked: usize,
+        /// Suivis avec des modifications non commitées.
+        modified: usize,
+        /// Exclus par `.gitignore`, absents de l'arbre.
+        ignored: usize,
+        /// Git peut tout restaurer : fichiers suivis, sans modification.
+        restorable: bool,
+    },
+    EntryDeleted {
+        path: String,
+        kind: EntryKind,
+    },
+    /// Statut git du projet ; `None` (`null`) sans dépôt ou sans git.
+    GitStatus(Option<GitStatusInfo>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitStatusInfo {
+    /// `None` si `HEAD` est détachée.
+    pub branch: Option<String>,
+    pub detached: bool,
+    pub entries: Vec<GitStatusEntry>,
+    /// Changements du projet, fichiers supprimés compris.
+    pub changes: usize,
+    pub conflicts: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitStatusEntry {
+    pub path: String,
+    pub status: GitLetter,
+}
+
+/// Lettre affichée dans l'arbre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GitLetter {
+    /// Modifié.
+    M,
+    /// Ajouté à l'index.
+    A,
+    /// Non suivi.
+    U,
+    /// En conflit.
+    C,
+    /// Renommé.
+    R,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -336,6 +404,7 @@ pub enum ErrorCode {
     BadMessage,
     PathForbidden,
     NotFound,
+    AlreadyExists,
     VersionConflict,
     NotText,
     BudgetExceeded,
@@ -520,6 +589,22 @@ mod tests {
     }
 
     #[test]
+    fn git_status_sans_depot_porte_une_charge_nulle() {
+        assert_eq!(
+            serde_json::to_value(Outgoing::push(ServerMessage::GitStatus(None))).unwrap(),
+            json!({ "v": 1, "type": "git_status", "payload": null })
+        );
+        let entry = GitStatusEntry {
+            path: "a.rs".to_owned(),
+            status: GitLetter::U,
+        };
+        assert_eq!(
+            serde_json::to_value(entry).unwrap(),
+            json!({ "path": "a.rs", "status": "U" })
+        );
+    }
+
+    #[test]
     fn forme_des_messages_envoyes() {
         let changed = Outgoing::push(ServerMessage::FileChanged {
             path: "a.rs".to_owned(),
@@ -581,6 +666,16 @@ mod tests {
             ClientMessage::RemarkDismiss {
                 remark_id: "rm_01".to_owned(),
                 reason: DismissReason::Resolved,
+            },
+            ClientMessage::CreateEntry {
+                path: "src/a.rs".to_owned(),
+                kind: EntryKind::File,
+            },
+            ClientMessage::DeletePreview {
+                path: "src".to_owned(),
+            },
+            ClientMessage::DeleteEntry {
+                path: "src".to_owned(),
             },
         ] {
             let incoming = Incoming {
@@ -679,6 +774,34 @@ mod tests {
                 message: "x".to_owned(),
                 version: None,
             },
+            ServerMessage::EntryCreated {
+                path: "src".to_owned(),
+                kind: EntryKind::Dir,
+            },
+            ServerMessage::DeletePreview {
+                path: "src".to_owned(),
+                kind: EntryKind::Dir,
+                files: 4,
+                untracked: 1,
+                modified: 1,
+                ignored: 2,
+                restorable: false,
+            },
+            ServerMessage::EntryDeleted {
+                path: "a.rs".to_owned(),
+                kind: EntryKind::File,
+            },
+            ServerMessage::GitStatus(None),
+            ServerMessage::GitStatus(Some(GitStatusInfo {
+                branch: Some("main".to_owned()),
+                detached: false,
+                entries: vec![GitStatusEntry {
+                    path: "a.rs".to_owned(),
+                    status: GitLetter::M,
+                }],
+                changes: 2,
+                conflicts: 0,
+            })),
         ] {
             let outgoing = Outgoing::reply(Some("c-7".to_owned()), message);
             let text = serde_json::to_string(&outgoing).unwrap();

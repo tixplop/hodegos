@@ -9,6 +9,10 @@ pub enum FileError {
     Forbidden(String),
     #[error("introuvable : {0}")]
     NotFound(String),
+    #[error("« {0} » existe déjà")]
+    AlreadyExists(String),
+    #[error("nom invalide : {0}")]
+    InvalidName(String),
     #[error("{0} n'est pas un texte UTF-8 de 2 Mo au plus")]
     NotText(String),
     #[error("{path} a changé sur le disque depuis son ouverture")]

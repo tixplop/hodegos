@@ -42,6 +42,9 @@ connexion reste ouverte.
 | `remark_reply` | `remark_id`, `text` (2 000 caractères au plus), `confirm_over_budget` (facultatif) | Ajoute votre réponse et renvoie `remark_update` ; le mentor est relancé au même palier, ce qui pousse un second `remark_update`, puis `status` |
 | `remark_dismiss` | `remark_id`, `reason` (`ignored` ou `resolved`) | Ferme la remarque (le statut prend la valeur de `reason`) ; renvoie `remark_update` |
 | `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler) | Force un interlocuteur pour la section ou le fichier ; renvoie `casting` (ou `not_found` si le mentor n'est pas actif) |
+| `create_entry` | `path`, `kind` (`file` ou `dir`) | Crée un fichier vide ou un dossier (phase 8a) ; renvoie `entry_created`, puis pousse `dir` du dossier parent |
+| `delete_preview` | `path` | Renvoie `delete_preview` : ce qu'emporterait la suppression, sans rien supprimer |
+| `delete_entry` | `path` | Supprime pour de bon (pas de corbeille) un fichier ou un dossier ; renvoie `entry_deleted`, puis pousse `dir` du dossier parent |
 
 ## Du backend vers le front
 
@@ -58,6 +61,10 @@ connexion reste ouverte.
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
 | `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass`, `initial_file` | à la connexion, puis après chaque passe (enregistrement ou ouverture) |
+| `entry_created` | `path`, `kind` | réponse à `create_entry` |
+| `delete_preview` | `path`, `kind`, `files`, `untracked`, `modified`, `ignored`, `restorable` | réponse à `delete_preview` |
+| `entry_deleted` | `path`, `kind` | réponse à `delete_entry` |
+| `git_status` | `branch`, `detached`, `entries` (`path`, `status`), `changes`, `conflicts` ; `null` sans dépôt ou sans git | à la connexion, juste après le premier `status`, puis à chaque changement du statut |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -142,6 +149,44 @@ Détails du casting :
   et seulement si la version sur disque diffère de la dernière connue : un
   enregistrement fait par Hodegos ne le déclenche pas.
 
+Détails de l'arbre (phase 8a) :
+
+- `create_entry` : `path` est le chemin complet de l'entrée nouvelle (dossier parent
+  puis nom). Refus : chemin vide, composant vide ou `.` (`bad_message`) ; `..`, `\0`,
+  `.git`, chemin exclu par `.gitignore` ou qui sort de la racine (`path_forbidden`) ;
+  dossier parent absent (`not_found`, aucun dossier intermédiaire n'est créé) ; nom
+  déjà pris, lien symbolique compris (`already_exists`). Un fichier est créé vide, avec
+  les droits par défaut de l'utilisateur ; le front l'ouvre ensuite par `open_file`.
+- `delete_preview` et `delete_entry` refusent la racine, `.git`, un chemin exclu ou
+  hors de la racine (`path_forbidden`) et un chemin absent (`not_found`). Un lien
+  symbolique est supprimé lui-même, jamais suivi (`kind: "file"`, même vers un
+  dossier). Un dossier est supprimé avec tout son contenu, fichiers ignorés par git
+  compris.
+- Comptes de `delete_preview` (fichiers seulement, dossiers non compris) : `files` en
+  tout ; `ignored`, exclus par `.gitignore` ou sous un `.git` imbriqué, absents de
+  l'arbre ; `untracked`, non suivis ou seulement ajoutés à l'index (tous les fichiers
+  non ignorés sans dépôt) ; `modified`, suivis avec des modifications non commitées
+  (`M`, `R`, `C`). `restorable` vaut `true` s'il y a un dépôt et que les trois
+  derniers comptes sont nuls.
+- Une suppression faite par `delete_entry` oublie, pour chaque fichier supprimé, ses
+  remarques quel que soit leur statut, ses choix forcés et sa passe d'ouverture
+  (`docs/adr/0006-suppression-des-remarques.md`) ; une passe en cours sur ce fichier
+  devient caduque, et la fenêtre ne reçoit pas de `file_changed` pour lui. Une
+  suppression faite hors de Hodegos garde tout.
+- `git_status` : calculé par `git status --porcelain=v2 -z --branch
+  --untracked-files=all -- .` lancé à la racine du projet, avec `GIT_OPTIONAL_LOCKS=0`
+  et la configuration git de l'utilisateur. `status` vaut `M` (modifié dans l'index ou
+  l'arbre de travail), `A` (ajouté à l'index, ou copié), `U` (non suivi), `C` (en
+  conflit) ou `R` (renommé). Un fichier suivi supprimé n'est pas dans `entries` mais
+  compte dans `changes`. `branch` est `null` quand `detached` vaut `true`. Un projet
+  dans un sous-dossier d'un dépôt, ou dans un worktree, reçoit des chemins relatifs à
+  sa racine ; ce qui est hors du projet n'apparaît pas.
+- Recalcul, après 300 ms de regroupement : après `save`, `create_entry`,
+  `delete_entry`, toute modification observée dans les dossiers suivis, et quand
+  `HEAD`, `index`, `packed-refs` ou `refs/` changent dans le dossier git (commit,
+  checkout faits ailleurs). `git_status` n'est poussé que si le statut a changé ; à
+  chaque `git_status`, le front recharge (`list_dir`) les dossiers dépliés.
+
 Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 « Contrat : format d'une remarque ». Un mentor dans `titular`, `consultants` et
 `available` est décrit par `id`, `name`, `initials`, `role`.
@@ -150,9 +195,10 @@ Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 
 | Code | Sens |
 | --- | --- |
-| `bad_message` | JSON invalide, type inconnu ou charge utile incorrecte |
+| `bad_message` | JSON invalide, type inconnu ou charge utile incorrecte ; nom invalide pour `create_entry` |
 | `path_forbidden` | chemin absolu, avec `..`, hors de la racine (lien symbolique compris), sous `.git` ou exclu par `.gitignore` |
 | `not_found` | fichier ou remarque introuvable |
+| `already_exists` | `create_entry` : le nom est déjà pris (phase 8a) |
 | `version_conflict` | `base_version` ne correspond plus à la version sur disque |
 | `not_text` | fichier qui n'est pas un texte UTF-8 de 2 Mo au plus |
 | `budget_exceeded` | budget mensuel atteint : demande explicite non confirmée |

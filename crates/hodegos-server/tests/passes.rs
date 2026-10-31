@@ -195,7 +195,7 @@ async fn enregistrer_produit_au_plus_deux_remarques_ancrees_et_persistees() {
     let mut socket = common::connect(port, Some(&origin), Some(&cookie))
         .await
         .unwrap();
-    next(&mut socket).await;
+    common::welcome(&mut socket).await;
     let after_restart = open(&mut socket, "src/emprunts/reserver.ts").await;
     assert_eq!(
         after_restart["payload"]["remarks"]

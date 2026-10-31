@@ -4,8 +4,10 @@
 
 mod comments;
 mod diff;
+mod entries;
 mod error;
 mod files;
+mod git;
 mod ignore_rules;
 mod language;
 mod paths;
@@ -18,8 +20,10 @@ mod watch;
 
 pub use comments::{strip_html_comments, strip_html_comments_in_diff};
 pub use diff::{SectionChange, changed_sections};
+pub use entries::{DeletePlan, DeletedFile};
 pub use error::FileError;
 pub use files::{MAX_TEXT_BYTES, TextFile, Version};
+pub use git::{GitEntry, GitFileStatus, GitRepo, GitStatus, GitWatcher, parse_porcelain_v2};
 pub use language::Language;
 pub use paths::RelPath;
 pub use project::{Project, ProjectError};

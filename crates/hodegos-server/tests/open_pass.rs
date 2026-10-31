@@ -71,8 +71,7 @@ async fn start(dir: &Path, llm: Llm, initial_file: Option<&str>) -> (Socket, Val
     let mut socket = common::connect(port, Some(&origin), Some(&cookie))
         .await
         .unwrap();
-    let status = next(&mut socket).await;
-    assert_eq!(status["type"], "status", "{status}");
+    let status = common::welcome(&mut socket).await;
     (socket, status)
 }
 
