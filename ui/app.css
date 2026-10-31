@@ -17,13 +17,22 @@ body.hd-app { height: 100vh; display: flex; flex-direction: column; overflow: hi
 .app-tree__file { padding-left: calc(8px + 24px + var(--depth, 0) * 12px); }
 .app-tree__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.app-tabbar { flex: none; display: flex; align-items: center; background: var(--surface-0); border-bottom: 1px solid var(--border); }
+/* Barres d'onglets : 32 px de haut, contrôles de 24 px (cible minimale WCAG 2.2) ; .hd-tab et .hd-btn--sm restent intacts ailleurs.
+   Le séparateur est une ombre intérieure : le soulignement de l'onglet actif le recouvre, collé au bas de la barre. */
+.app-tabbar { flex: none; display: flex; align-items: stretch; height: 32px; padding: 0; background: var(--surface-0); box-shadow: inset 0 -1px 0 var(--border); }
 .app-tabbar[hidden] { display: none; }
-.app-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; background: var(--surface-0); border-bottom: 0; }
-.app-tab { display: flex; align-items: center; }
-.app-tab .hd-tab { font-family: var(--font-mono); font-variant-ligatures: none; font-size: 13px; white-space: nowrap; }
+.app-tabs { flex: 1 1 auto; min-width: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; background: transparent; border-bottom: 0; }
+.app-tab { flex: none; display: flex; align-items: stretch; }
+.app-tab .hd-tab, .app-term__tab { display: flex; align-items: center; height: 100%; padding: 0 10px; line-height: 18px; white-space: nowrap; }
+.app-tab .hd-tab { font-family: var(--font-mono); font-variant-ligatures: none; font-size: 13px; }
+.app-tab .hd-tab:focus-visible, .app-term__tab:focus-visible { outline-offset: -2px; }
 .app-tab__dirty { margin-left: var(--space-2); font-family: var(--font-sans); font-size: 12px; color: var(--ink-muted); font-weight: 400; }
-.app-tab__close { width: 32px; padding: 0; color: var(--ink-muted); }
+.app-tab__close { align-self: center; width: 24px; height: 24px; padding: 0; color: var(--ink-muted); }
+.app-tab__close svg { width: 14px; height: 14px; }
+/* Fermeture : visible au survol, sur l'onglet actif et au focus ; transparente sinon, jamais retirée de l'arbre d'accessibilité. */
+@media (hover: hover) {
+  .app-tab:not(:hover):not(:focus-within):not(:has(.hd-tab[aria-selected="true"])) .app-tab__close { opacity: 0; }
+}
 
 .app-banner { flex: none; margin: var(--space-3) var(--space-4) 0; }
 .app-banner p { margin: 0; }
@@ -80,9 +89,15 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-git { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Markdown : mode d'affichage et lecture (phase 8c). L'aperçu est stylé dans md-live.js. */
-.app-modes { flex: none; flex-wrap: nowrap; gap: var(--space-1); margin-left: auto; padding: 0 var(--space-3); }
+/* Sélecteur de mode : contrôle segmenté de 24 px, boutons accolés sous une bordure commune. */
+.app-modes { flex: none; flex-wrap: nowrap; gap: 0; margin-left: auto; padding: 0 8px; }
+.app-modes .hd-btn { position: relative; height: 24px; padding: 0 8px; font-size: 12px; border-radius: 0; }
+.app-modes .hd-btn + .hd-btn { margin-left: -1px; }
+.app-modes .hd-btn:first-of-type { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.app-modes .hd-btn:last-of-type { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.app-modes .hd-btn[aria-pressed="true"], .app-modes .hd-btn:focus-visible { z-index: 1; }
 .app-modes[hidden] { display: none; }
-.app-modes__hint { margin-left: 6px; font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+.app-modes__hint { margin-left: 6px; font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
 .app-read { flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--surface-0); }
 .app-read[hidden] { display: none; }
 .app-read:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -191,9 +206,12 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-term__handle:hover, .app-term__handle:focus-visible { background: var(--accent-soft); outline: none; }
 .app-term__handle[hidden], .app-term[hidden] { display: none; }
 .app-term { flex: none; height: 40%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-0); }
-.app-term__bar { flex: none; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2) 0 var(--space-3); border-bottom: 1px solid var(--border); }
-.app-term__tabs { display: flex; gap: var(--space-1); min-width: 0; overflow-x: auto; }
-.app-term__tab { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+/* Même hauteur que la barre d'onglets des fichiers pour que les deux s'alignent. */
+.app-term__bar { flex: none; display: flex; align-items: center; gap: var(--space-1); height: 32px; padding: 0 8px; box-shadow: inset 0 -1px 0 var(--border); }
+.app-term__tabs { display: flex; align-self: stretch; gap: var(--space-1); min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.app-term__tab { flex: none; font-family: var(--font-mono); font-size: 13px; }
+.app-term__bar .hd-btn { height: 24px; }
+.app-term__bar .app-icon-btn { width: 24px; }
 .app-term__note { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 12px; color: var(--ink-muted); }
 .app-term__message { flex: none; margin: var(--space-2) var(--space-3); color: var(--danger); font-size: 13px; }
 .app-term__message[hidden] { display: none; }
