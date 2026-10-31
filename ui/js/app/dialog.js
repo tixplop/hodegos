@@ -1,16 +1,18 @@
-/* Confirmation (hd-dialog) : <dialog> natif, « Annuler » a le focus, Échap annule. */
+/* Dialogues (hd-dialog) : <dialog> natif, Échap annule. */
 
 let counter = 0;
 
 /**
- * `title` et `body` : nœuds ou textes. Renvoie une promesse : `true` si l'action est
- * confirmée.
+ * `title` et `body` : nœuds ou textes. `choices` : `{ value, label, variant }` dans l'ordre
+ * d'affichage (`variant` : primary, secondary, ghost ou danger) ; `focus` : valeur du
+ * bouton qui a le focus ; `alert` : action destructrice. Renvoie une promesse de la
+ * valeur choisie, `null` si le dialogue est fermé par Échap.
  */
-export function confirmDialog({ title, body, confirmLabel, returnFocus }) {
+export function chooseDialog({ title, body, choices, focus, alert = false, returnFocus }) {
   const id = `dialogue-${++counter}`;
   const dialog = document.createElement('dialog');
   dialog.className = 'hd-dialog';
-  dialog.setAttribute('role', 'alertdialog');
+  if (alert) dialog.setAttribute('role', 'alertdialog');
   dialog.setAttribute('aria-labelledby', `${id}-titre`);
   dialog.setAttribute('aria-describedby', `${id}-texte`);
 
@@ -24,30 +26,48 @@ export function confirmDialog({ title, body, confirmLabel, returnFocus }) {
   text.id = `${id}-texte`;
   text.append(...body);
 
-  const cancel = document.createElement('button');
-  cancel.type = 'button';
-  cancel.className = 'hd-btn hd-btn--secondary';
-  cancel.textContent = 'Annuler';
-  const confirm = document.createElement('button');
-  confirm.type = 'button';
-  confirm.className = 'hd-btn hd-btn--danger';
-  confirm.textContent = confirmLabel;
   const actions = document.createElement('div');
   actions.className = 'hd-dialog__actions';
-  actions.append(cancel, confirm);
+  let focused = null;
+  for (const choice of choices) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `hd-btn hd-btn--${choice.variant}`;
+    button.textContent = choice.label;
+    button.addEventListener('click', () => dialog.close(choice.value));
+    actions.append(button);
+    if (choice.value === focus) focused = button;
+  }
 
   dialog.append(heading, text, actions);
   document.body.append(dialog);
 
   return new Promise((resolve) => {
-    cancel.addEventListener('click', () => dialog.close('cancel'));
-    confirm.addEventListener('click', () => dialog.close('confirm'));
     dialog.addEventListener('close', () => {
       dialog.remove();
       if (returnFocus?.isConnected) returnFocus.focus();
-      resolve(dialog.returnValue === 'confirm');
+      resolve(dialog.returnValue || null);
     });
     dialog.showModal();
-    cancel.focus();
+    focused?.focus();
   });
+}
+
+/**
+ * Confirmation d'une action destructrice : « Annuler » a le focus. Renvoie une promesse :
+ * `true` si l'action est confirmée.
+ */
+export async function confirmDialog({ title, body, confirmLabel, returnFocus }) {
+  const choice = await chooseDialog({
+    title,
+    body,
+    choices: [
+      { value: 'cancel', label: 'Annuler', variant: 'secondary' },
+      { value: 'confirm', label: confirmLabel, variant: 'danger' },
+    ],
+    focus: 'cancel',
+    alert: true,
+    returnFocus,
+  });
+  return choice === 'confirm';
 }

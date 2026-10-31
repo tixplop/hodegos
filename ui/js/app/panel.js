@@ -1,4 +1,4 @@
-/* Panneau des interlocuteurs : titulaire, consultant, raisons, choix forcé. */
+/* Panneau des interlocuteurs : titulaire, consultant, raisons, mentor activé. */
 
 /** « chemin docs/architecture/** » → « Chemin » suivi du motif en mono. */
 function reasonNode(reason) {
@@ -15,7 +15,7 @@ function reasonNode(reason) {
   return span;
 }
 
-function mentorRow(mentor, badgeText, badgeVariant, reasons) {
+function mentorRow(mentor, badgeText, badgeVariant, reasons, reviewing) {
   const row = document.createElement('div');
   row.className = 'hd-mentor';
   const avatar = document.createElement('span');
@@ -34,6 +34,12 @@ function mentorRow(mentor, badgeText, badgeVariant, reasons) {
   badge.className = `hd-badge${badgeVariant ? ` hd-badge--${badgeVariant}` : ''}`;
   badge.textContent = badgeText;
   head.append(name, badge);
+  if (reviewing) {
+    const busy = document.createElement('span');
+    busy.className = 'hd-badge hd-badge--mentor';
+    busy.textContent = 'Relit la section…';
+    head.append(busy);
+  }
 
   const why = document.createElement('span');
   why.className = 'hd-mentor__why';
@@ -55,8 +61,11 @@ function ghostButton(label, onClick) {
   return button;
 }
 
-/** `onForce(mentorId | null)` impose un titulaire, ou revient au choix automatique. */
-export function createPanel(root, { onForce }) {
+/**
+ * `onActivate(mentor, button)` rend le mentor titulaire et lui demande une relecture ;
+ * `onAutomatic()` revient au choix automatique.
+ */
+export function createPanel(root, { onActivate, onAutomatic }) {
   function note(text) {
     const p = document.createElement('p');
     p.className = 'hd-muted app-panel__note';
@@ -65,8 +74,11 @@ export function createPanel(root, { onForce }) {
   }
 
   return {
-    /** Affiche un `casting`, ou l'état vide si `casting` est nul. */
-    render(casting) {
+    /**
+     * Affiche un `casting`, ou l'état vide si `casting` est nul ; `reviewing` : mentors
+     * dont une passe sur cette section est en cours.
+     */
+    render(casting, reviewing = new Set()) {
       if (!casting) {
         root.replaceChildren(note('Ouvrez un fichier pour voir qui vous accompagne.'));
         return;
@@ -90,12 +102,18 @@ export function createPanel(root, { onForce }) {
 
       if (casting.titular) {
         // Un choix forcé se lit dans les raisons (« Choisi par vous »), pas dans le badge.
-        items.push(mentorRow(casting.titular, 'Titulaire', 'info', casting.reasons[casting.titular.id]));
+        items.push(mentorRow(
+          casting.titular,
+          'Titulaire',
+          'info',
+          casting.reasons[casting.titular.id],
+          reviewing.has(casting.titular.id),
+        ));
       } else {
         items.push(note('Aucun mentor pour cette section.'));
       }
       for (const consultant of casting.consultants) {
-        items.push(mentorRow(consultant, 'Consultant', null, casting.reasons[consultant.id]));
+        items.push(mentorRow(consultant, 'Consultant', null, casting.reasons[consultant.id], reviewing.has(consultant.id)));
       }
 
       const actions = document.createElement('div');
@@ -106,13 +124,17 @@ export function createPanel(root, { onForce }) {
         label.textContent = 'Disponibles :';
         actions.append(label);
         for (const mentor of casting.available) {
-          actions.append(ghostButton(`Choisir ${mentor.name}`, () => onForce(mentor.id)));
+          const button = ghostButton(`Activer ${mentor.name}`, () => onActivate(mentor, button));
+          actions.append(button);
         }
       }
       if (casting.forced === 'user') {
-        actions.append(ghostButton('Revenir au choix automatique', () => onForce(null)));
+        actions.append(ghostButton('Revenir au choix automatique', () => onAutomatic()));
       }
       if (actions.childElementCount) items.push(actions);
+      if (casting.available.length) {
+        items.push(note('Activer un mentor le rend titulaire et lui demande aussitôt une relecture de la section du curseur.'));
+      }
       root.replaceChildren(...items);
     },
   };

@@ -133,6 +133,8 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
 - Vérifier le contraste du texte sur la sélection (4,5:1) dans les deux thèmes,
   sur `surface-0` ; ajuster le pourcentage si besoin et le consigner dans
   `ui/styles/README.md`.
+  Mesuré en 8b : à 25 %, le texte secondaire, les chaînes et les nombres passent
+  sous 4,5:1 en thème clair ; la sélection est ramenée à 18 % (minimum 4,54:1).
 
 ### Activer un mentor (UC-8.6 à UC-8.8)
 
@@ -153,6 +155,8 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
   « Version enregistrée » / « Annuler ». « Enregistrer et demander » envoie
   `save { …, skip_pass: true }` puis `cast_override { activate: true }` : une
   seule passe, avec le mentor activé.
+  Ce dialogue est un `hd-dialog` modal (décision du 31 octobre 2026), pas
+  l'encadré du panneau de la maquette 08-2.
 - « Revenir au choix automatique » (`mentor_id: null`) ne lance rien ;
   `activate` y est ignoré.
 

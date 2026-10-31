@@ -67,6 +67,9 @@ pub enum ClientMessage {
         path: String,
         content: String,
         base_version: String,
+        /// Enregistrer sans passe : l'activation d'un mentor qui suit la lancera.
+        #[serde(default)]
+        skip_pass: bool,
     },
     /// Ligne et colonne à partir de 1.
     Cursor {
@@ -82,6 +85,12 @@ pub enum ClientMessage {
         /// `null` : revenir au choix automatique.
         #[serde(default)]
         mentor_id: Option<String>,
+        /// Activer : choix forcé et passe demandée sur la section (phase 8b).
+        #[serde(default)]
+        activate: bool,
+        /// Budget du mois atteint : la passe demandée part quand même.
+        #[serde(default)]
+        confirm_over_budget: bool,
     },
     HintNext {
         remark_id: String,
@@ -488,7 +497,8 @@ mod tests {
             ClientMessage::Save {
                 path: "a.rs".to_owned(),
                 content: "x".to_owned(),
-                base_version: "v".to_owned()
+                base_version: "v".to_owned(),
+                skip_pass: false,
             }
         );
     }
@@ -503,7 +513,9 @@ mod tests {
             ClientMessage::CastOverride {
                 path: "a.md".to_owned(),
                 section_id: None,
-                mentor_id: None
+                mentor_id: None,
+                activate: false,
+                confirm_over_budget: false,
             }
         );
     }
@@ -643,6 +655,7 @@ mod tests {
                 path: "a.rs".to_owned(),
                 content: "x".to_owned(),
                 base_version: "v".to_owned(),
+                skip_pass: true,
             },
             ClientMessage::Cursor {
                 path: "a.rs".to_owned(),
@@ -653,6 +666,15 @@ mod tests {
                 path: "a.rs".to_owned(),
                 section_id: Some("fn:a".to_owned()),
                 mentor_id: None,
+                activate: false,
+                confirm_over_budget: false,
+            },
+            ClientMessage::CastOverride {
+                path: "a.rs".to_owned(),
+                section_id: None,
+                mentor_id: Some("architecte".to_owned()),
+                activate: true,
+                confirm_over_budget: true,
             },
             ClientMessage::HintNext {
                 remark_id: "rm_01".to_owned(),

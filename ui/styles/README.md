@@ -38,11 +38,13 @@ Deux thèmes, `light` (par défaut) et `dark`, posés sur `data-theme="…"`.
 - Fond d'application `surface-50` ; éditeur, panneaux, cartes `surface-0` ; remplissages discrets `surface-100`.
 - Texte `ink` ; métadonnées et numéros de ligne `ink-muted`. Les deux restent au-dessus de 4.5:1 sur `surface-0`, `surface-50` et `surface-100` dans les deux thèmes.
 - Séparateurs `border` ; contours de champs et boutons secondaires `border-control` (3:1 minimum).
-- Bouton principal : fond `accent`, texte `on-accent`. Ligne courante de l'éditeur et fichier ouvert : `accent-soft`, texte `accent-ink`.
+- Bouton principal : fond `accent`, texte `on-accent`. Fichier ouvert : `accent-soft`, texte `accent-ink`.
+- Ligne courante de l'éditeur : sans fond (il masquerait la sélection), liseré gauche `accent` de 3 px sur la marge et numéro en `accent-ink` gras.
+- Sélection dans l'éditeur : `color-mix(in srgb, var(--accent) 18%, transparent)` quand il a le focus, `surface-100` sinon. À 25 %, le texte secondaire, les chaînes et les nombres passaient sous 4.5:1 en thème clair ; à 18 %, tout le texte de l'éditeur reste au-dessus (minimum 4.54:1, `syntax-number` en clair ; 5.18:1 en sombre).
 - Mentors : nom et avatar en `mentor` sur `mentor-soft` ou `surface-0` ; encarts de proposition sur `mentor-soft`.
 - Statuts : `success`, `warning`, `danger`, chacun avec son fond `-soft`. Le mot du badge est obligatoire.
 - Passage visé : fond `highlight`, soulignement `highlight-edge`, texte `ink`.
-- Coloration du code : `syntax-keyword`, `syntax-string`, `syntax-number`, `syntax-comment`, `syntax-type`, `syntax-function`, dans l'éditeur seulement. Chacune reste au-dessus de 4.5:1 sur `surface-0`, `surface-50` et `accent-soft` (ligne courante) dans les deux thèmes. Elles n'empruntent ni `accent`, ni `mentor`, ni `highlight`, réservées à leur rôle.
+- Coloration du code : `syntax-keyword`, `syntax-string`, `syntax-number`, `syntax-comment`, `syntax-type`, `syntax-function`, dans l'éditeur seulement. Chacune reste au-dessus de 4.5:1 sur `surface-0`, `surface-50`, `accent-soft` et la sélection dans les deux thèmes. Elles n'empruntent ni `accent`, ni `mentor`, ni `highlight`, réservées à leur rôle.
 
 ## Typographie
 
@@ -86,6 +88,7 @@ Les colonnes passent les unes sous les autres sur écran étroit.
 
 - **Menu contextuel** (`hd-menu`, `hd-menu__item`) : liste `role="menu"` d'éléments `role="menuitem"`, ouverte au clic droit ou par la touche Menu, fermée par Échap, un clic ailleurs ou le choix d'un élément ; flèches haut et bas pour se déplacer. Une action destructrice porte `hd-menu__item--danger` et finit par « … » si elle demande confirmation (« Supprimer… »).
 - **Confirmation** (`hd-dialog`) : `<dialog>` natif ouvert par `showModal()`, `role="alertdialog"` quand l'action est destructrice. Un titre qui nomme l'objet (« Supprimer `reserver.ts` ? »), le texte qui dit ce qui est récupérable, puis les boutons alignés à droite : « Annuler » (`hd-btn--secondary`, focus par défaut) et l'action (`hd-btn--danger`), dont le libellé dit l'effet (« Supprimer définitivement »). Échap annule. Jamais `window.confirm` pour une action nouvelle.
+- **Choix** (`hd-dialog` sans `role="alertdialog"`) : quand l'action n'est pas destructrice mais demande une décision (fichier non enregistré avant d'activer un mentor, budget atteint). « Annuler » (`hd-btn--ghost` ou `--secondary`) à gauche, l'action principale (`hd-btn--primary`) à droite ; une seule action principale.
 
 ## Iconographie
 

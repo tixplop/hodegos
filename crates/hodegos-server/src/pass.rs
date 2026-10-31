@@ -1,6 +1,7 @@
-//! Passe proactive après un enregistrement, ou à la première ouverture d'un fichier
-//! dont un titulaire a `on_open` : sections, casting, exclusion des secrets, budget,
-//! appel au titulaire, validation et ancrage des remarques.
+//! Passe proactive après un enregistrement, à la première ouverture d'un fichier
+//! dont un titulaire a `on_open`, ou demandée en activant un mentor : sections,
+//! casting, exclusion des secrets, budget, appel au titulaire, validation et ancrage
+//! des remarques.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -36,6 +37,9 @@ pub(crate) enum Trigger {
     /// Première ouverture : toutes les sections dont le titulaire a `on_open`, dans
     /// l'ordre du fichier, le fichier étant traité comme créé.
     Open,
+    /// Mentor activé par l'utilisateur : la section demandée, version enregistrée,
+    /// diff vide, même sans changement.
+    Request,
 }
 
 impl Trigger {
@@ -43,6 +47,7 @@ impl Trigger {
         match self {
             Self::Save => "enregistrement",
             Self::Open => "ouverture",
+            Self::Request => "demande",
         }
     }
 }
@@ -182,7 +187,8 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
     }
 
     let cast_changes: Vec<_> = match request.trigger {
-        Trigger::Save => {
+        // Une passe demandée passe par `prepare_request` ; ici, comme un enregistrement.
+        Trigger::Save | Trigger::Request => {
             // La section du curseur d'abord, puis les plus modifiées.
             changes.sort_by_key(|c| {
                 let at_cursor = request
@@ -226,17 +232,61 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
     if cast_changes.is_empty() {
         return Prepared::Done(PassOutcome::NoMentor);
     }
+    // Fournisseur absent avant budget atteint, comme l'issue le dira.
+    if state.llm.client.is_ok()
+        && state.budget.state(Timestamp::now()).level == BudgetLevel::Exceeded
+    {
+        return Prepared::Done(PassOutcome::BudgetExceeded);
+    }
+    let picks = cast_changes
+        .into_iter()
+        .map(|(change, mentor)| (change.section, change.diff, mentor))
+        .collect();
+    launch(state, registry, request, picks)
+}
 
+/// Passe demandée : `mentor` relit la section `section_id` de la version enregistrée
+/// (`request.new`). Le budget a déjà été vérifié (ou son dépassement confirmé) par l'appelant.
+pub(crate) fn prepare_request(
+    state: &AppState,
+    registry: &Registry,
+    request: &PassRequest,
+    section_id: &str,
+    mentor: &Mentor,
+) -> Prepared {
+    if exclusion(request.path.as_str(), &request.new).is_some() {
+        tracing::info!(path = %request.path, "fichier sensible : rien n'est envoyé au modèle");
+        return Prepared::Done(PassOutcome::Excluded);
+    }
+    let Some(section) = sections(request.language, &request.new)
+        .into_iter()
+        .find(|s| s.id == section_id)
+    else {
+        return Prepared::Done(PassOutcome::NoMentor);
+    };
+    launch(
+        state,
+        registry,
+        request,
+        vec![(section, String::new(), mentor.clone())],
+    )
+}
+
+/// Prépare un appel par section retenue (section, diff, mentor).
+fn launch(
+    state: &AppState,
+    registry: &Registry,
+    request: &PassRequest,
+    picks: Vec<(Section, String, Mentor)>,
+) -> Prepared {
+    let path = request.path.as_str();
     if let Err(message) = &state.llm.client {
         state.set_provider(false, Some(message.clone()));
         return Prepared::Done(PassOutcome::ProviderError);
     }
-    if state.budget.state(Timestamp::now()).level == BudgetLevel::Exceeded {
-        return Prepared::Done(PassOutcome::BudgetExceeded);
-    }
 
     let mut jobs = Vec::new();
-    for (change, mentor) in cast_changes {
+    for (section, diff, mentor) in picks {
         let Some(model) = model_for(state, &mentor) else {
             let tier = match mentor.model {
                 ModelTier::Fast => "fast",
@@ -248,7 +298,6 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
             );
             return Prepared::Done(PassOutcome::ProviderError);
         };
-        let section = change.section;
         let prompt = section_prompt(&SectionRequest {
             mentor: &mentor,
             level: mentor.entry_level,
@@ -256,7 +305,7 @@ pub(crate) fn prepare(state: &AppState, registry: &Registry, request: &PassReque
             language: request.language.as_str(),
             content: &request.new,
             section: &section,
-            diff: &change.diff,
+            diff: &diff,
             thread: None,
         });
         jobs.push(Job {

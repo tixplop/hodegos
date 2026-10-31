@@ -285,7 +285,7 @@ Le casting est déterministe et sans appel au modèle : un score par mentor et p
 
 Dans un document Markdown, un frontmatter `mentors: [architecte]` force le titulaire pour tout le fichier, comme un `cast_override` permanent.
 
-Un choix forcé depuis le panneau vaut pour la section (ou pour le fichier sans `section_id`) ; il l'emporte sur le frontmatter et reste en mémoire tant que le serveur tourne (persistance en phase 4). Le titulaire forcé peut être n'importe quel mentor actif, `on-demand` compris.
+Un choix forcé depuis le panneau vaut pour la section (ou pour le fichier sans `section_id`) ; il l'emporte sur le frontmatter et reste en mémoire tant que le serveur tourne (persistance en phase 4). Le titulaire forcé peut être n'importe quel mentor actif, `on-demand` compris. Depuis la phase 8b, le panneau dit « Activer X » : le choix forcé s'accompagne d'une passe demandée sur la section du curseur, version enregistrée (`docs/phase8.md`, 8b).
 
 ## Paliers d'aide
 

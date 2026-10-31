@@ -76,10 +76,13 @@ const theme = EditorView.theme({
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--ink)', borderLeftWidth: '2px' },
   '.cm-gutters': { backgroundColor: 'var(--surface-0)', color: 'var(--ink-muted)', border: 'none' },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '52px', padding: '0 var(--space-4) 0 0', textAlign: 'right' },
-  '.cm-activeLine': { backgroundColor: 'var(--accent-soft)' },
-  '.cm-activeLineGutter': { backgroundColor: 'var(--accent-soft)', color: 'var(--accent-ink)', fontWeight: '600' },
-  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'var(--surface-100)' },
-  '&.cm-focused .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--accent) 25%, transparent)' },
+  // Ligne active sans fond, qui masquerait la sélection : liseré et numéro seulement.
+  '.cm-activeLine': { backgroundColor: 'transparent' },
+  '.cm-activeLineGutter': { backgroundColor: 'transparent', boxShadow: 'inset 3px 0 0 var(--accent)', color: 'var(--accent-ink)', fontWeight: '600' },
+  // Sélection : accent à 18 % avec le focus (contraste vérifié, voir ui/styles/README.md),
+  // surface-100 sans. Même sélecteur que le thème de base de CodeMirror pour l'emporter.
+  '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--surface-100)' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)' },
   '.cm-selectionMatch': { backgroundColor: 'var(--surface-100)' },
   '&.cm-focused .cm-matchingBracket': { backgroundColor: 'var(--surface-100)', outline: '1px solid var(--border-control)' },
   '.cm-panels': { backgroundColor: 'var(--surface-50)', color: 'var(--ink)' },

@@ -4,6 +4,7 @@
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
 import { confirmDeletion } from './deletion.js';
+import { chooseDialog } from './dialog.js';
 import { createEditor, LANGUAGE_NAMES, locate } from './editor.js';
 import { icon } from './icons.js';
 import { createPanel } from './panel.js';
@@ -66,6 +67,11 @@ let activeRemark = null;
 const mentorNames = new Map();
 /** Dernier message d'indisponibilité du fournisseur affiché. */
 let shownProviderMessage = null;
+/** Passe en cours : `{ path, sections, mentors, since }`, `since` étant la dernière passe
+    connue à son départ ; elle s'achève au `status` qui en annonce une autre. */
+let passing = null;
+/** `at` de la dernière passe annoncée par `status`. */
+let lastPassAt = null;
 /** Dernier `git_status` reçu : `null` sans dépôt, `undefined` avant le premier. */
 let gitStatus;
 /** Dernier curseur envoyé : `{ path, line }`. */
@@ -81,7 +87,7 @@ const editor = createEditor(ui.editor, {
   },
   onAnchor: (id) => selectRemark(id, false),
 });
-const panel = createPanel(ui.mentors, { onForce: forceMentor });
+const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => {
     for (const entry of reply.payload.entries) rememberMentors(entry.mentors);
@@ -128,9 +134,12 @@ function onPush(message) {
     return;
   }
   if (message.type === 'pass_started') {
-    rememberMentors(message.payload.mentors);
-    const names = message.payload.mentors.map((m) => m.name).join(', ');
-    ui.pass.textContent = `Passe en cours : ${names}…`;
+    const { path, sections, mentors } = message.payload;
+    rememberMentors(mentors);
+    passing = { path, sections, mentors: new Set(mentors.map((m) => m.id)), since: lastPassAt };
+    const names = mentors.map((m) => m.name).join(', ');
+    ui.pass.textContent = `Passe en cours : ${names} sur ${sections.join(', ')}…`;
+    if (path === currentPath) renderMentors();
     return;
   }
   if (message.type === 'remarks') {
@@ -257,14 +266,76 @@ function applyCasting(casting) {
   if (casting.path === currentPath) renderMentors();
 }
 
-async function forceMentor(mentorId) {
+/** Rend `mentor` titulaire et lui demande une relecture de la section du curseur. */
+async function activateMentor(mentor, button) {
+  const casting = castings.get(currentPath);
+  const tab = tabs.get(currentPath);
+  if (!casting || !tab) return;
+  if (isDirty(tab)) {
+    const name = document.createElement('span');
+    name.className = 'hd-mono';
+    name.textContent = tab.path.split('/').pop();
+    const text = document.createElement('p');
+    text.textContent = `${mentor.name} relit la version enregistrée. Que voulez-vous qu'il lise ?`;
+    const choice = await chooseDialog({
+      title: [name, ' a des modifications non enregistrées'],
+      body: [text],
+      choices: [
+        { value: 'cancel', label: 'Annuler', variant: 'ghost' },
+        { value: 'saved', label: 'Version enregistrée', variant: 'secondary' },
+        { value: 'save', label: 'Enregistrer et demander', variant: 'primary' },
+      ],
+      focus: 'save',
+      returnFocus: button,
+    });
+    if (choice !== 'saved' && choice !== 'save') return;
+    // Une seule passe : l'enregistrement n'en lance pas, l'activation s'en charge.
+    if (choice === 'save' && !(await save(undefined, { skipPass: true }))) return;
+  }
+  await requestActivation(tab.path, casting.section_id, mentor, false, button);
+}
+
+async function requestActivation(path, sectionId, mentor, confirm, button) {
+  try {
+    const reply = await server.request('cast_override', {
+      path,
+      section_id: sectionId,
+      mentor_id: mentor.id,
+      activate: true,
+      confirm_over_budget: confirm,
+    });
+    applyCasting(reply.payload);
+  } catch (error) {
+    if (error.code !== 'budget_exceeded' || confirm) {
+      showError(error);
+      return;
+    }
+    const text = document.createElement('p');
+    text.textContent = `Le budget du mois est atteint. Demander quand même une relecture à ${mentor.name} ? Son coût s'ajoutera au mois en cours.`;
+    const choice = await chooseDialog({
+      title: 'Budget du mois atteint',
+      body: [text],
+      choices: [
+        { value: 'cancel', label: 'Annuler', variant: 'secondary' },
+        { value: 'confirm', label: 'Demander quand même', variant: 'primary' },
+      ],
+      focus: 'cancel',
+      returnFocus: button,
+    });
+    if (choice === 'confirm') await requestActivation(path, sectionId, mentor, true, button);
+    else showMessage('Budget du mois atteint : aucune relecture demandée.');
+  }
+}
+
+/** Revient au choix automatique : rien n'est relu. */
+async function automaticMentor() {
   const casting = castings.get(currentPath);
   if (!casting) return;
   try {
     const reply = await server.request('cast_override', {
       path: currentPath,
       section_id: casting.section_id,
-      mentor_id: mentorId,
+      mentor_id: null,
     });
     applyCasting(reply.payload);
   } catch (error) {
@@ -274,7 +345,9 @@ async function forceMentor(mentorId) {
 
 function renderMentors() {
   const casting = castings.get(currentPath) ?? null;
-  panel.render(casting);
+  const reviewing = passing && casting && passing.path === casting.path
+    && passing.sections.includes(casting.section_id) ? passing.mentors : new Set();
+  panel.render(casting, reviewing);
   ui.titular.replaceChildren();
   if (!casting) return;
   if (!casting.titular) {
@@ -463,6 +536,12 @@ const money = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD
 
 function applyStatus(status) {
   const last = status.last_pass;
+  lastPassAt = last?.at ?? null;
+  if (passing && lastPassAt !== passing.since) {
+    const { path } = passing;
+    passing = null;
+    if (path === currentPath) renderMentors();
+  }
   if (last) {
     let text = OUTCOMES[last.outcome];
     if (last.outcome === 'ok') {
@@ -567,26 +646,32 @@ async function reload(tab) {
   }
 }
 
-/** Enregistre l'onglet courant ; `baseVersion` force l'écrasement après un conflit. */
-async function save(baseVersion) {
+/**
+ * Enregistre l'onglet courant ; `baseVersion` force l'écrasement après un conflit,
+ * `skipPass` enregistre sans passe. Renvoie `true` si le fichier est enregistré.
+ */
+async function save(baseVersion, { skipPass = false } = {}) {
   const tab = tabs.get(currentPath);
-  if (!tab) return;
+  if (!tab) return false;
   if (tab.banner?.kind === 'deleted') {
     showMessage('Ce fichier a été supprimé ; il ne peut plus être enregistré.');
-    return;
+    return false;
   }
-  if (tab.saving) return;
+  if (tab.saving) return false;
   tab.saving = true;
   const doc = editor.state.doc;
+  let saved = false;
   try {
     const { payload } = await server.request('save', {
       path: tab.path,
       content: doc.toString(),
       base_version: baseVersion ?? tab.version,
+      skip_pass: skipPass,
     });
     tab.version = payload.version;
     tab.savedDoc = doc;
     tab.banner = null;
+    saved = true;
     showMessage('');
   } catch (error) {
     if (error.code === 'version_conflict') {
@@ -598,6 +683,7 @@ async function save(baseVersion) {
     tab.saving = false;
   }
   render();
+  return saved;
 }
 
 function isDirty(tab) {

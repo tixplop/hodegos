@@ -220,6 +220,7 @@ impl Connection {
                 path,
                 content,
                 base_version,
+                skip_pass,
             } => {
                 let rel = RelPath::parse(&path)?;
                 let base = Version::from_client(base_version);
@@ -245,6 +246,12 @@ impl Connection {
                 )];
                 replies.extend(self.reanchor(&rel));
                 replies.extend(self.casting_if_changed());
+                if skip_pass {
+                    // La passe viendra de l'activation qui suit ; une passe plus ancienne
+                    // ne s'applique plus à cette version.
+                    *self.generations.entry(rel).or_insert(0) += 1;
+                    return Ok(replies);
+                }
                 replies.extend(self.start_pass(PassRequest {
                     path: rel,
                     language,
@@ -269,6 +276,8 @@ impl Connection {
                 path,
                 section_id,
                 mentor_id,
+                activate,
+                confirm_over_budget,
             } => {
                 let rel = RelPath::parse(&path)?;
                 if let Some(id) = &mentor_id {
@@ -276,10 +285,23 @@ impl Connection {
                         return Err(FileError::NotFound(format!("mentor {id}")));
                     }
                 }
-                let section = section_id.unwrap_or_default();
+                // Revenir au choix automatique ne lance rien.
+                let activate = activate && mentor_id.is_some();
+                if activate
+                    && !confirm_over_budget
+                    && self.state.budget.state(Timestamp::now()).level
+                        == hodegos_llm::BudgetLevel::Exceeded
+                {
+                    return Ok(vec![Outgoing::error(
+                        re,
+                        ErrorCode::BudgetExceeded,
+                        "budget du mois atteint : confirmez pour demander cette relecture",
+                    )]);
+                }
+                let section = section_id.clone().unwrap_or_default();
                 self.state
                     .mentors
-                    .set_forced(rel.as_str(), &section, mentor_id);
+                    .set_forced(rel.as_str(), &section, mentor_id.clone());
                 if !self.open.contains_key(&rel) {
                     return Err(FileError::NotFound(rel.to_string()));
                 }
@@ -294,7 +316,17 @@ impl Connection {
                 self.cursor = Some((rel.clone(), line));
                 let casting = self.casting(&rel, line);
                 self.last_casting = Some(casting.clone());
-                Ok(vec![Outgoing::reply(re, casting)])
+                let mut replies = vec![Outgoing::reply(re, casting)];
+                if let (true, Some(mentor_id)) = (activate, &mentor_id) {
+                    let target = section_id.or_else(|| {
+                        section_at(&self.open[&rel].sections, line).map(|s| s.id.clone())
+                    });
+                    match target {
+                        Some(target) => replies.extend(self.request_pass(&rel, &target, mentor_id)),
+                        None => tracing::info!(path = %rel, "aucune section à relire"),
+                    }
+                }
+                Ok(replies)
             }
             ClientMessage::HintNext {
                 remark_id,
@@ -707,18 +739,31 @@ impl Connection {
     /// Lance la passe qui suit un enregistrement ou une ouverture, ou en donne l'issue
     /// tout de suite.
     fn start_pass(&mut self, request: PassRequest) -> Vec<Outgoing> {
+        self.begin_pass(&request.path, request.trigger, |state, registry| {
+            pass::prepare(state, registry, &request)
+        })
+    }
+
+    /// Prépare une passe (nouvelle génération pour le fichier) puis la lance en tâche
+    /// de fond, ou en donne l'issue tout de suite.
+    fn begin_pass(
+        &mut self,
+        path: &RelPath,
+        trigger: Trigger,
+        prepare: impl FnOnce(&AppState, &Registry) -> Prepared,
+    ) -> Vec<Outgoing> {
         let started = Instant::now();
         let generation = {
-            let counter = self.generations.entry(request.path.clone()).or_insert(0);
+            let counter = self.generations.entry(path.clone()).or_insert(0);
             *counter += 1;
             *counter
         };
         let registry = self.state.mentors.registry();
-        match pass::prepare(&self.state, &registry, &request) {
+        match prepare(&self.state, &registry) {
             Prepared::Done(outcome) => {
                 self.record_pass(
-                    &request.path,
-                    request.trigger,
+                    path,
+                    trigger,
                     outcome,
                     0,
                     started.elapsed().as_millis(),
@@ -737,6 +782,28 @@ impl Connection {
                 vec![started_message]
             }
         }
+    }
+
+    /// Passe demandée en activant `mentor_id` : la section `section_id` de la version
+    /// enregistrée, même sans changement.
+    fn request_pass(&mut self, rel: &RelPath, section_id: &str, mentor_id: &str) -> Vec<Outgoing> {
+        let file = &self.open[rel];
+        let request = PassRequest {
+            path: rel.clone(),
+            language: file.language,
+            old: file.content.clone(),
+            new: file.content.clone(),
+            cursor_line: None,
+            trigger: Trigger::Request,
+        };
+        self.begin_pass(rel, Trigger::Request, |state, registry| {
+            match registry.get(mentor_id) {
+                Some(mentor) => {
+                    pass::prepare_request(state, registry, &request, section_id, mentor)
+                }
+                None => Prepared::Done(PassOutcome::NoMentor),
+            }
+        })
     }
 
     /// Remarques d'une passe terminée, persistées puis envoyées, et nouvel état.

@@ -158,15 +158,26 @@ clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans 
 Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
 (Playwright, projet local) dans les deux thèmes : création et refus à côté du champ, menu contextuel,
 lettres et point des dossiers, commit et checkout faits hors de Hodegos, trois confirmations de
-suppression, Échap, « Pas de dépôt git », aucune erreur dans la console. Reste à confirmer à la main
-dans le navigateur Windows.
+suppression, Échap, « Pas de dépôt git », aucune erreur dans la console. Confirmé à la main dans le
+navigateur Windows le 31 octobre 2026.
 
 ### 8b — Sélection et activation d'un mentor
 
-- [ ] La sélection reste lisible sur la ligne active, contraste vérifié dans les deux thèmes
-- [ ] « Activer X » rend X titulaire et lance une passe sur la section du curseur ; fichier non
+- [x] La sélection reste lisible sur la ligne active, contraste vérifié dans les deux thèmes
+  (ligne active sans fond ; sélection ramenée de 25 % à 18 % d'`accent`, minimum 4,54:1 en clair,
+  consigné dans `ui/styles/README.md`)
+- [x] « Activer X » rend X titulaire et lance une passe sur la section du curseur ; fichier non
   enregistré : une seule passe après « Enregistrer et demander » ; « Revenir au choix automatique »
   ne lance rien
+  (`crates/hodegos-server/tests/activate.rs` : section du curseur ou du message, sans `no_change`,
+  `skip_pass`, budget dépassé sans confirmation, fichier sensible)
+
+Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, faux fournisseur local) dans les deux thèmes : sélection en accent à 18 % sur la ligne
+active avec liseré et numéro en gras, badge « Relit la section… » puis remarque, « Revenir au choix
+automatique » sans appel, dialogue d'un fichier non enregistré (Échap annule, « Enregistrer et
+demander » ne fait qu'un appel), aucune erreur dans la console. Reste à confirmer à la main dans le
+navigateur Windows.
 
 ### 8c — Markdown : source, aperçu en direct, lecture
 

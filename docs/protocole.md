@@ -36,12 +36,12 @@ connexion reste ouverte.
 | `ping` | — | Renvoie `pong` (phase 1) |
 | `list_dir` | `path` (`""` pour la racine) | Renvoie `dir` (entrées, en excluant `.git` et les fichiers ignorés) |
 | `open_file` | `path` | Renvoie `file` (contenu, `version`, langage, sections, remarques ouvertes), puis toujours un `casting` (curseur en ligne 1) ; si une passe d'ouverture est due (phase 7), `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
-| `save` | `path`, `content`, `base_version` | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe : `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu |
+| `save` | `path`, `content`, `base_version`, `skip_pass` (facultatif, `false`) | Écrit sur disque un fichier existant, renvoie `saved`, puis déclenche une passe : `pass_started` puis `remarks` et `status`, ou directement `status` si aucun appel n'a lieu. Avec `skip_pass: true`, aucune passe (phase 8b : l'activation qui suit s'en charge) |
 | `cursor` | `path`, `line`, `col` (à partir de 1) | Met à jour la section courante, envoie `casting` s'il change ; sans `id`, aucune autre réponse |
 | `hint_next` | `remark_id`, `confirm_over_budget` (facultatif, `false`) | Demande le palier suivant au mentor de la remarque ; renvoie `remark_update` quand il a répondu, puis `status` |
 | `remark_reply` | `remark_id`, `text` (2 000 caractères au plus), `confirm_over_budget` (facultatif) | Ajoute votre réponse et renvoie `remark_update` ; le mentor est relancé au même palier, ce qui pousse un second `remark_update`, puis `status` |
 | `remark_dismiss` | `remark_id`, `reason` (`ignored` ou `resolved`) | Ferme la remarque (le statut prend la valeur de `reason`) ; renvoie `remark_update` |
-| `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler) | Force un interlocuteur pour la section ou le fichier ; renvoie `casting` (ou `not_found` si le mentor n'est pas actif) |
+| `cast_override` | `path`, `section_id` (facultatif), `mentor_id` (ou `null` pour annuler), `activate` et `confirm_over_budget` (facultatifs, `false`) | Force un interlocuteur pour la section ou le fichier ; renvoie `casting` (ou `not_found` si le mentor n'est pas actif). Avec `activate: true` et un `mentor_id`, lance ensuite une passe demandée (phase 8b, voir plus bas) |
 | `create_entry` | `path`, `kind` (`file` ou `dir`) | Crée un fichier vide ou un dossier (phase 8a) ; renvoie `entry_created`, puis pousse `dir` du dossier parent |
 | `delete_preview` | `path` | Renvoie `delete_preview` : ce qu'emporterait la suppression, sans rien supprimer |
 | `delete_entry` | `path` | Supprime pour de bon (pas de corbeille) un fichier ou un dossier ; renvoie `entry_deleted`, puis pousse `dir` du dossier parent |
@@ -108,7 +108,9 @@ Détails des passes :
   `provider_error`, `invalid_response`.
 - Les codes `budget_exceeded` et `provider_error` servent aux demandes explicites
   (`hint_next`, `remark_reply`) ; une passe proactive les signale par `status`,
-  jamais par `error`.
+  jamais par `error`. Une passe demandée (`cast_override` avec `activate`) reçoit
+  `budget_exceeded` par `error`, comme une demande explicite ; une panne du
+  fournisseur arrive par `status`, comme pour une passe.
 
 Détails des remarques (phase 5) :
 
@@ -144,6 +146,20 @@ Détails du casting :
   "titre « Décision »"] }` pour le titulaire et les consultants.
 - `forced` : `"user"` (choix fait par `cast_override`), `"frontmatter"`
   (`mentors:` en tête du document) ou `null`.
+- Activer un mentor (phase 8b) : `cast_override` avec `activate: true` applique le
+  choix forcé, renvoie `casting`, puis lance une passe demandée avec ce mentor :
+  `pass_started`, `remarks` et `status`, ou directement `status` (fichier sensible :
+  `excluded` ; fournisseur absent : `provider_error`). La section relue est
+  `section_id`, sinon celle du dernier `cursor` ; la passe porte sur la version
+  enregistrée, avec un diff vide, même si rien n'a changé (pas de `no_change`).
+  Exclusions, masquage des secrets, modèle du palier du mentor et plafond de 2
+  remarques s'appliquent comme pour une passe. Au-delà du budget sans
+  `confirm_over_budget: true` : `error` `budget_exceeded`, et le choix forcé n'est
+  pas appliqué. Avec `mentor_id: null`, `activate` est ignoré et rien n'est relu. Un
+  enregistrement plus récent rend la passe caduque.
+- Fichier non enregistré : le front envoie d'abord `save` avec `skip_pass: true`,
+  puis `cast_override` avec `activate: true` ; il n'y a qu'une passe, celle du
+  mentor activé.
 - Les sections et le casting portent sur la version enregistrée du fichier.
 - `file_changed` ne concerne que les fichiers ouverts ou enregistrés par la fenêtre,
   et seulement si la version sur disque diffère de la dernière connue : un
