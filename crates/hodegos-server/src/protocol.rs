@@ -124,6 +124,13 @@ pub enum ClientMessage {
     DeleteEntry {
         path: String,
     },
+    /// Déplace un fichier ou un dossier dans `to_dir` (`""` : racine), sous-phase 8g.
+    MoveEntry {
+        from: String,
+        to_dir: String,
+    },
+    /// Tous les dossiers du projet, pour choisir une destination au clavier.
+    ListDirs,
     /// Réglages personnels (phase 8d).
     SettingsGet,
     /// Nouveaux réglages ; un niveau dont le modèle ou l'effort change demande une
@@ -337,6 +344,17 @@ pub enum ServerMessage {
     EntryDeleted {
         path: String,
         kind: EntryKind,
+    },
+    EntryMoved {
+        from: String,
+        to: String,
+        kind: EntryKind,
+    },
+    /// Réponse à `list_dirs` : dossiers non exclus, racine non comprise, dans l'ordre de
+    /// l'arbre ; `truncated` au-delà de 5 000.
+    Dirs {
+        paths: Vec<String>,
+        truncated: bool,
     },
     /// Statut git du projet ; `None` (`null`) sans dépôt ou sans git.
     GitStatus(Option<GitStatusInfo>),
@@ -744,6 +762,8 @@ pub enum ErrorCode {
     TerminalUnavailable,
     /// Quatre terminaux déjà ouverts dans cette fenêtre, ou saisie que le terminal ne lit plus.
     TerminalLimit,
+    /// Déplacement dans lui-même, un descendant, ou vers le dossier où l'entrée se trouve déjà.
+    InvalidMove,
 }
 
 /// Message illisible : la réponse sera `error` avec le code `bad_message`.
@@ -1008,6 +1028,55 @@ mod tests {
     }
 
     #[test]
+    fn forme_des_messages_de_deplacement() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "move_entry", "id": "c-3",
+                "payload": { "from": "src/a.rs", "to_dir": "" } }))
+            .unwrap()
+            .1,
+            ClientMessage::MoveEntry {
+                from: "src/a.rs".to_owned(),
+                to_dir: String::new(),
+            }
+        );
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "list_dirs", "id": "c-4" }))
+                .unwrap()
+                .1,
+            ClientMessage::ListDirs
+        );
+        let moved = Outgoing::reply(
+            Some("c-3".to_owned()),
+            ServerMessage::EntryMoved {
+                from: "src/a.rs".to_owned(),
+                to: "a.rs".to_owned(),
+                kind: EntryKind::File,
+            },
+        );
+        assert_eq!(
+            serde_json::to_value(&moved).unwrap(),
+            json!({ "v": 1, "type": "entry_moved", "re": "c-3",
+                "payload": { "from": "src/a.rs", "to": "a.rs", "kind": "file" } })
+        );
+        let dirs = Outgoing::reply(
+            Some("c-4".to_owned()),
+            ServerMessage::Dirs {
+                paths: vec!["src".to_owned()],
+                truncated: false,
+            },
+        );
+        assert_eq!(
+            serde_json::to_value(&dirs).unwrap(),
+            json!({ "v": 1, "type": "dirs", "re": "c-4",
+                "payload": { "paths": ["src"], "truncated": false } })
+        );
+        assert_eq!(
+            serde_json::to_value(ErrorCode::InvalidMove).unwrap(),
+            json!("invalid_move")
+        );
+    }
+
+    #[test]
     fn aller_retour_des_messages() {
         for message in [
             ClientMessage::Ping,
@@ -1065,6 +1134,11 @@ mod tests {
             ClientMessage::DeleteEntry {
                 path: "src".to_owned(),
             },
+            ClientMessage::MoveEntry {
+                from: "src/a.rs".to_owned(),
+                to_dir: String::new(),
+            },
+            ClientMessage::ListDirs,
         ] {
             let incoming = Incoming {
                 v: VERSION,
@@ -1179,6 +1253,15 @@ mod tests {
             ServerMessage::EntryDeleted {
                 path: "a.rs".to_owned(),
                 kind: EntryKind::File,
+            },
+            ServerMessage::EntryMoved {
+                from: "src".to_owned(),
+                to: "lib/src".to_owned(),
+                kind: EntryKind::Dir,
+            },
+            ServerMessage::Dirs {
+                paths: vec!["lib".to_owned(), "lib/src".to_owned()],
+                truncated: false,
             },
             ServerMessage::GitStatus(None),
             ServerMessage::GitStatus(Some(GitStatusInfo {

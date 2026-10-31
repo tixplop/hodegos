@@ -2,7 +2,7 @@
 //! historique des remarques et fichiers déjà vus par une passe d'ouverture. Rien
 //! n'est jamais écrit dans le dépôt.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -22,6 +22,12 @@ struct RemarksFile {
 struct OpenedFile {
     version: u32,
     paths: BTreeSet<String>,
+}
+
+/// État des remarques et des passes d'ouverture, pour revenir en arrière.
+pub(crate) struct Snapshot {
+    remarks: Vec<Remark>,
+    opened: BTreeSet<String>,
 }
 
 pub(crate) struct Store {
@@ -115,17 +121,76 @@ impl Store {
         }
     }
 
+    /// Fait suivre leurs remarques et leur passe d'ouverture à des fichiers déplacés
+    /// depuis Hodegos (ADR 0008), `moves` allant de l'ancien chemin au nouveau. Tout ou
+    /// rien : si un fichier de données ne peut pas être écrit, rien ne change.
+    pub(crate) fn move_paths(&self, moves: &HashMap<String, String>) -> std::io::Result<()> {
+        let poisoned = || std::io::Error::other("verrou empoisonné");
+        let mut remarks = self.remarks.lock().map_err(|_| poisoned())?;
+        let mut opened = self.opened.lock().map_err(|_| poisoned())?;
+        let mut moved_remarks = remarks.clone();
+        let mut remarks_changed = false;
+        for remark in &mut moved_remarks {
+            if let Some(to) = moves.get(&remark.path) {
+                remark.path.clone_from(to);
+                remarks_changed = true;
+            }
+        }
+        let moved_opened: BTreeSet<String> = opened
+            .iter()
+            .map(|path| moves.get(path).unwrap_or(path).clone())
+            .collect();
+        let opened_changed = opened.iter().any(|path| moves.contains_key(path));
+        if remarks_changed {
+            self.write_remarks(&moved_remarks)?;
+        }
+        if opened_changed {
+            if let Err(err) = self.write_opened(&moved_opened) {
+                if remarks_changed {
+                    self.persist(&remarks);
+                }
+                return Err(err);
+            }
+        }
+        *remarks = moved_remarks;
+        *opened = moved_opened;
+        Ok(())
+    }
+
+    pub(crate) fn snapshot(&self) -> Option<Snapshot> {
+        Some(Snapshot {
+            remarks: self.remarks.lock().ok()?.clone(),
+            opened: self.opened.lock().ok()?.clone(),
+        })
+    }
+
+    /// Revient à un état enregistré par [`Self::snapshot`], en mémoire et sur le disque.
+    pub(crate) fn restore(&self, snapshot: Snapshot) {
+        if let Ok(mut remarks) = self.remarks.lock() {
+            self.persist(&snapshot.remarks);
+            *remarks = snapshot.remarks;
+        }
+        if let Ok(mut opened) = self.opened.lock() {
+            self.persist_opened(&snapshot.opened);
+            *opened = snapshot.opened;
+        }
+    }
+
     fn persist_opened(&self, opened: &BTreeSet<String>) {
+        if let Err(err) = self.write_opened(opened) {
+            tracing::error!(error = %err, "opened.json non écrit");
+        }
+    }
+
+    fn write_opened(&self, opened: &BTreeSet<String>) -> std::io::Result<()> {
         let Some(dir) = &self.dir else {
-            return;
+            return Ok(());
         };
         let file = OpenedFile {
             version: 1,
             paths: opened.clone(),
         };
-        if let Err(err) = write_json(&dir.join("opened.json"), &file) {
-            tracing::error!(error = %err, "opened.json non écrit");
-        }
+        write_json(&dir.join("opened.json"), &file)
     }
 
     /// Remarques d'un fichier affichées dans le panneau : ouvertes, répondues ou détachées.
@@ -205,16 +270,20 @@ impl Store {
     }
 
     fn persist(&self, remarks: &[Remark]) {
+        if let Err(err) = self.write_remarks(remarks) {
+            tracing::error!(error = %err, "historique des remarques non écrit");
+        }
+    }
+
+    fn write_remarks(&self, remarks: &[Remark]) -> std::io::Result<()> {
         let Some(dir) = &self.dir else {
-            return;
+            return Ok(());
         };
         let file = RemarksFile {
             version: 1,
             remarks: remarks.to_vec(),
         };
-        if let Err(err) = write_json(&dir.join("remarks.json"), &file) {
-            tracing::error!(error = %err, "historique des remarques non écrit");
-        }
+        write_json(&dir.join("remarks.json"), &file)
     }
 }
 

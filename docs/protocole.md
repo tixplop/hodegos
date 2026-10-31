@@ -45,6 +45,8 @@ connexion reste ouverte.
 | `create_entry` | `path`, `kind` (`file` ou `dir`) | Crée un fichier vide ou un dossier (phase 8a) ; renvoie `entry_created`, puis pousse `dir` du dossier parent |
 | `delete_preview` | `path` | Renvoie `delete_preview` : ce qu'emporterait la suppression, sans rien supprimer |
 | `delete_entry` | `path` | Supprime pour de bon (pas de corbeille) un fichier ou un dossier ; renvoie `entry_deleted`, puis pousse `dir` du dossier parent |
+| `move_entry` | `from`, `to_dir` (`""` : racine) | Déplace un fichier ou un dossier dans `to_dir` (sous-phase 8g) ; renvoie `entry_moved`, puis pousse `dir` de l'ancien et du nouveau dossier parent |
+| `list_dirs` | — | Tous les dossiers du projet, pour choisir une destination au clavier ; renvoie `dirs` |
 | `settings_get` | — | Renvoie `settings` (phase 8d) |
 | `settings_set` | `fast`, `strong`, `fast_effort`, `strong_effort` (`default`, `low`, `medium` ou `high`), `budget` (`monthly_cap_usd`, `warn_at`), `confirm_eval` (facultatif, `false`) | Écrit `config.toml` et applique les réglages ; renvoie `settings`. Si un niveau change de modèle ou d'effort vers un réglage non retenu, renvoie d'abord `eval_required` sans rien écrire ; la même demande avec `confirm_eval: true` écrit, puis lance l'évaluation (voir plus bas) |
 | `model_check` | `id` | Renvoie `model_info`, d'après le catalogue public d'OpenRouter |
@@ -66,7 +68,7 @@ connexion reste ouverte.
 | Type | Charge utile | Quand |
 | --- | --- | --- |
 | `pong` | — | réponse à `ping` |
-| `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` ; poussé aussi quand les entrées d'un dossier déjà listé changent sur le disque (fichier créé, supprimé ou renommé, hors fichiers ignorés), et après `create_entry` et `delete_entry` |
+| `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` ; poussé aussi quand les entrées d'un dossier déjà listé changent sur le disque (fichier créé, supprimé ou renommé, hors fichiers ignorés), et après `create_entry`, `delete_entry` et `move_entry` |
 | `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` (ouvertes, répondues ou détachées) | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
@@ -79,6 +81,8 @@ connexion reste ouverte.
 | `entry_created` | `path`, `kind` | réponse à `create_entry` |
 | `delete_preview` | `path`, `kind`, `files`, `untracked`, `modified`, `ignored`, `restorable` | réponse à `delete_preview` |
 | `entry_deleted` | `path`, `kind` | réponse à `delete_entry` |
+| `entry_moved` | `from`, `to` (nouveau chemin complet), `kind` | réponse à `move_entry` |
+| `dirs` | `paths`, `truncated` | réponse à `list_dirs` : dossiers non exclus, racine non comprise, dans l'ordre de l'arbre ; `truncated` vaut `true` au-delà de 5 000 |
 | `git_status` | `branch`, `detached`, `entries` (`path`, `status`), `changes`, `conflicts` ; `null` sans dépôt ou sans git | à la connexion, juste après le premier `status`, puis à chaque changement du statut |
 | `settings` | `fast`, `strong`, `fast_effort`, `strong_effort`, `budget` (`monthly_cap_usd`, `warn_at`, `used_usd`), `key_source` (`env`, `file` ou `none`), `key_hint`, `editable`, `config_dir`, `last_eval` (`fast`, `strong`), `eval_running` (`fast`, `strong` ou `null`) | réponse à `settings_get`, `settings_set` et `api_key_set` ; poussé à toutes les fenêtres après un changement et à la fin d'une évaluation |
 | `eval_required` | `level`, `cases`, `estimated_cost`, `estimated_duration_ms`, `max_cost`, `basis` (`same`, `tokens` ou `prompts`) | réponse à `settings_set` non confirmé quand un niveau doit être réévalué |
@@ -216,6 +220,22 @@ Détails de l'arbre (phase 8a) :
   (`docs/adr/0006-suppression-des-remarques.md`) ; une passe en cours sur ce fichier
   devient caduque, et la fenêtre ne reçoit pas de `file_changed` pour lui. Une
   suppression faite hors de Hodegos garde tout.
+- `move_entry` (sous-phase 8g) : simple renommage sur le disque, sans `git mv` ;
+  jamais d'écrasement. Refus : `from` racine, sous `.git`, exclu par `.gitignore` ou
+  hors de la racine, `to_dir` hors de la racine, sous `.git`, exclu, atteint par un lien
+  symbolique, ou nouveau chemin exclu (`path_forbidden`) ; `from` absent, `to_dir`
+  absent ou qui n'est pas un dossier (`not_found`) ; dossier déplacé dans lui-même ou
+  un descendant, `to_dir` déjà dossier parent de `from` (`invalid_move`) ; nom déjà pris
+  dans `to_dir`, lien symbolique compris (`already_exists`). Un lien symbolique est
+  déplacé lui-même (`kind: "file"`, même vers un dossier).
+- Un déplacement fait par `move_entry` fait suivre, pour chaque fichier déplacé
+  présent sur le disque, ses remarques, ses choix forcés et sa passe d'ouverture
+  (`docs/adr/0008-remarques-suivent-un-deplacement.md`). Si ces données ne peuvent
+  pas être écrites, le renommage est annulé (`internal`). Les fichiers ouverts par la
+  fenêtre et son curseur suivent le nouveau chemin (un `casting` suit s'il a changé) ;
+  une passe en cours sur l'ancien chemin devient caduque ; la fenêtre ne reçoit pas de
+  `file_changed` pour l'ancien chemin. Une autre fenêtre le voit comme une suppression
+  externe.
 - `git_status` : calculé par `git status --porcelain=v2 -z --branch
   --untracked-files=all -- .` lancé à la racine du projet, avec `GIT_OPTIONAL_LOCKS=0`
   et la configuration git de l'utilisateur. `status` vaut `M` (modifié dans l'index ou
@@ -225,7 +245,7 @@ Détails de l'arbre (phase 8a) :
   dans un sous-dossier d'un dépôt, ou dans un worktree, reçoit des chemins relatifs à
   sa racine ; ce qui est hors du projet n'apparaît pas.
 - Recalcul, après 300 ms de regroupement : après `save`, `create_entry`,
-  `delete_entry`, toute modification observée dans les dossiers suivis, et quand
+  `delete_entry`, `move_entry`, toute modification observée dans les dossiers suivis, et quand
   `HEAD`, `index`, `packed-refs` ou `refs/` changent dans le dossier git (commit,
   checkout faits ailleurs). `git_status` n'est poussé que si le statut a changé ; à
   chaque `git_status`, le front recharge (`list_dir`) les dossiers dépliés.
@@ -317,7 +337,8 @@ Détails du terminal (phase 8f, ADR 0005) :
 | `bad_message` | JSON invalide, type inconnu ou charge utile incorrecte ; nom invalide pour `create_entry` |
 | `path_forbidden` | chemin absolu, avec `..`, hors de la racine (lien symbolique compris), sous `.git` ou exclu par `.gitignore` |
 | `not_found` | fichier ou remarque introuvable |
-| `already_exists` | `create_entry` : le nom est déjà pris (phase 8a) |
+| `already_exists` | `create_entry`, `move_entry` : le nom est déjà pris (phases 8a, 8g) |
+| `invalid_move` | `move_entry` : dossier déplacé dans lui-même ou un descendant, ou entrée déjà dans ce dossier (sous-phase 8g) |
 | `version_conflict` | `base_version` ne correspond plus à la version sur disque |
 | `not_text` | fichier qui n'est pas un texte UTF-8 de 2 Mo au plus |
 | `budget_exceeded` | budget mensuel atteint : demande explicite non confirmée |

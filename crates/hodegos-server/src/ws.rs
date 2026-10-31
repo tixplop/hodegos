@@ -10,8 +10,8 @@ use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use base64::Engine as _;
 use hodegos_core::{
-    DeletePlan, EntryKind, FileError, GitFileStatus, Language, RelPath, Section, Session, UserId,
-    Version, section_at, sections,
+    DeletePlan, EntryKind, FileError, GitFileStatus, Language, MovePlan, RelPath, Section, Session,
+    UserId, Version, section_at, sections,
 };
 use hodegos_mentors::{CastRequest, FollowUpKind, Registry, cast};
 use jiff::Timestamp;
@@ -33,6 +33,8 @@ use crate::terminal;
 
 /// Longueur maximale d'une réponse de l'utilisateur.
 const MAX_REPLY_CHARS: usize = 2000;
+/// Dossiers renvoyés par `list_dirs` au plus.
+const MAX_LISTED_DIRS: usize = 5000;
 
 /// Reprise terminée, avec l'`id` de la demande à laquelle elle répond (`hint_next`),
 /// ou `None` pour la relance qui suit une réponse.
@@ -625,6 +627,34 @@ impl Connection {
                     Outgoing::push(self.parent_listing(&rel)?),
                 ])
             }
+            ClientMessage::MoveEntry { from, to_dir } => {
+                let from = RelPath::parse(&from)?;
+                let to_dir = RelPath::parse(&to_dir)?;
+                let state = &self.state;
+                let plan = project
+                    .move_entry(&self.session, &from, &to_dir, |plan| move_data(state, plan))?;
+                self.state.git.refresh();
+                let mut replies = vec![Outgoing::reply(
+                    re,
+                    ServerMessage::EntryMoved {
+                        from: plan.from.to_string(),
+                        to: plan.to.to_string(),
+                        kind: protocol_kind(plan.kind),
+                    },
+                )];
+                replies.extend(self.follow(&plan));
+                Ok(replies)
+            }
+            ClientMessage::ListDirs => {
+                let (dirs, truncated) = project.list_all_dirs(&self.session, MAX_LISTED_DIRS)?;
+                Ok(vec![Outgoing::reply(
+                    re,
+                    ServerMessage::Dirs {
+                        paths: dirs.iter().map(ToString::to_string).collect(),
+                        truncated,
+                    },
+                )])
+            }
         }
     }
 
@@ -711,6 +741,38 @@ impl Connection {
             self.cursor = None;
             self.last_casting = None;
         }
+    }
+
+    /// Fichiers déplacés depuis Hodegos : fichiers ouverts et curseur suivent le nouveau
+    /// chemin, passes en cours caduques, dossiers affichés à jour ; `dir` des deux
+    /// parents, puis le casting s'il a changé. L'observateur, qui verra l'ancien chemin
+    /// disparaître, ne trouve plus de fichier ouvert à cet endroit : pas de `file_changed`.
+    fn follow(&mut self, plan: &MovePlan) -> Vec<Outgoing> {
+        for file in &plan.files {
+            if let Some(open) = self.open.remove(&file.from) {
+                *self.generations.entry(file.from.clone()).or_insert(0) += 1;
+                self.open.insert(file.to.clone(), open);
+                self.watch(&file.to);
+            }
+            self.opening.remove(&file.from);
+            if let Some((path, line)) = &self.cursor {
+                if *path == file.from {
+                    self.cursor = Some((file.to.clone(), *line));
+                }
+            }
+        }
+        let inside = format!("{}/", plan.from);
+        self.listed
+            .retain(|dir, _| *dir != plan.from && !dir.as_str().starts_with(&inside));
+        let mut replies = Vec::new();
+        for rel in [&plan.from, &plan.to] {
+            match self.parent_listing(rel) {
+                Ok(listing) => replies.push(Outgoing::push(listing)),
+                Err(err) => tracing::warn!(path = %rel, error = %err, "dossier non relu"),
+            }
+        }
+        replies.extend(self.casting_if_changed());
+        replies
     }
 
     /// Palier suivant : la réponse (`remark_update` ou `error`) part quand le mentor
@@ -1268,6 +1330,29 @@ fn settings_reply(
     }
 }
 
+/// Remarques, passes d'ouverture et choix forcés suivent un déplacement (ADR 0008) ;
+/// si un fichier de données ne peut pas être écrit, tout revient à l'état d'avant.
+fn move_data(state: &AppState, plan: &MovePlan) -> Result<(), FileError> {
+    let moves: HashMap<String, String> = plan
+        .files
+        .iter()
+        .map(|f| (f.from.to_string(), f.to.to_string()))
+        .collect();
+    let data_error = |source| FileError::Io {
+        path: "données du projet".to_owned(),
+        source,
+    };
+    let before = state.store.snapshot();
+    state.store.move_paths(&moves).map_err(data_error)?;
+    if let Err(err) = state.mentors.move_paths(&moves) {
+        if let Some(before) = before {
+            state.store.restore(before);
+        }
+        return Err(data_error(err));
+    }
+    Ok(())
+}
+
 fn error_reply(re: Option<String>, err: FileError) -> Outgoing {
     let message = err.to_string();
     let code = match err {
@@ -1275,6 +1360,7 @@ fn error_reply(re: Option<String>, err: FileError) -> Outgoing {
         FileError::NotFound(_) => ErrorCode::NotFound,
         FileError::AlreadyExists(_) => ErrorCode::AlreadyExists,
         FileError::InvalidName(_) => ErrorCode::BadMessage,
+        FileError::InvalidMove(_) => ErrorCode::InvalidMove,
         FileError::NotText(_) => ErrorCode::NotText,
         FileError::Conflict { current, .. } => {
             return Outgoing::reply(

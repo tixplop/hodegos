@@ -485,8 +485,7 @@ Ajoutée le 31 octobre 2026, après 8f.
 ### Serveur
 
 - `move_entry { from, to_dir }` → `entry_moved { from, to, kind }`, puis `dir`
-  de l'ancien et du nouveau dossier parent (un seul si l'un contient l'autre) ;
-  `git_status` rafraîchi.
+  de l'ancien et du nouveau dossier parent ; `git_status` rafraîchi.
 - `list_dirs` → `dirs { paths, truncated }` : tous les dossiers non exclus du
   projet, sans suivre les liens, 5 000 au plus (`truncated` au-delà). Sert au
   dialogue « Déplacer vers… ».

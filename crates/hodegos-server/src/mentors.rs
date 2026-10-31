@@ -126,9 +126,37 @@ impl Mentors {
         }
     }
 
+    /// Fait suivre leurs choix forcés à des fichiers déplacés depuis Hodegos (ADR 0008).
+    /// Rien ne change si `overrides.json` ne peut pas être écrit.
+    pub(crate) fn move_paths(&self, moves: &HashMap<String, String>) -> std::io::Result<()> {
+        let mut overrides = self
+            .overrides
+            .lock()
+            .map_err(|_| std::io::Error::other("verrou empoisonné"))?;
+        if !overrides.keys().any(|(path, _)| moves.contains_key(path)) {
+            return Ok(());
+        }
+        let moved: HashMap<(String, String), String> = overrides
+            .iter()
+            .map(|((path, section), mentor)| {
+                let path = moves.get(path).unwrap_or(path).clone();
+                ((path, section.clone()), mentor.clone())
+            })
+            .collect();
+        self.write(&moved)?;
+        *overrides = moved;
+        Ok(())
+    }
+
     fn persist(&self, overrides: &HashMap<(String, String), String>) {
+        if let Err(err) = self.write(overrides) {
+            tracing::error!(error = %err, "choix forcés non écrits");
+        }
+    }
+
+    fn write(&self, overrides: &HashMap<(String, String), String>) -> std::io::Result<()> {
         let Some(file) = &self.overrides_path else {
-            return;
+            return Ok(());
         };
         let mut list: Vec<Override> = overrides
             .iter()
@@ -139,8 +167,6 @@ impl Mentors {
             })
             .collect();
         list.sort_by(|a, b| (&a.path, &a.section).cmp(&(&b.path, &b.section)));
-        if let Err(err) = crate::store::write_json(file, &list) {
-            tracing::error!(error = %err, "choix forcés non écrits");
-        }
+        crate::store::write_json(file, &list)
     }
 }
