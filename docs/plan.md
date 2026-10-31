@@ -267,4 +267,5 @@ Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans 
 interdite sans surbrillance, Échap qui annule, dossier replié ouvert après 600 ms, refus « nom déjà
 pris » sous l'arbre, dépôt à la racine, « Déplacer vers… » au clavier (filtre, flèches, Entrée),
 onglet modifié qui suit puis s'enregistre au nouveau chemin, fil d'Ariane, remarque ancrée à sa
-place, casting au nouveau chemin (choix forcé gardé), aucune erreur dans la console.
+place, casting au nouveau chemin (choix forcé gardé), aucune erreur dans la console. Confirmé à la
+main dans le navigateur Windows le 31 octobre 2026.
