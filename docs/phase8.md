@@ -1,6 +1,6 @@
 # Phase 8 — Confort de l'IDE
 
-31 octobre 2026 · spécification unique, livrée en six sous-phases (8a à 8f)
+31 octobre 2026 · spécification unique, livrée en sept sous-phases (8a à 8g)
 
 ## Objectif
 
@@ -12,7 +12,8 @@ au projet.
 
 Maquettes et cas d'usage : `docs/maquettes/phase8/` (UC-8.1 à UC-8.24 dans
 `README.md`). Décisions : ADR 0005 (terminal intégré confiné), ADR 0006
-(remarques supprimées avec le fichier), ADR 0007 (évaluation depuis l'IDE).
+(remarques supprimées avec le fichier), ADR 0007 (évaluation depuis l'IDE),
+ADR 0008 (remarques qui suivent un déplacement).
 
 ## Découpage et ordre
 
@@ -24,6 +25,7 @@ Maquettes et cas d'usage : `docs/maquettes/phase8/` (UC-8.1 à UC-8.24 dans
 | 8d | Réglages : modèles, effort, clé d'API, budget ; réévaluation | — |
 | 8e | Réglages : édition des mentors | 8d (écran Réglages) |
 | 8f | Terminal intégré et confiné | prototype en tête de sous-phase |
+| 8g | Fichiers : déplacer par glisser-déposer | 8a |
 
 Une sous-phase à la fois, avec ses critères de fin (`docs/plan.md`). La
 sous-phase 8f commence par un prototype jetable qui lève ses deux risques
@@ -120,8 +122,8 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
   applique. Un fichier exclu seulement par elles reste dans l'arbre, sans lettre.
 - Message serveur `git_status { branch, detached, entries: [{ path, status }],
   changes, conflicts }`, poussé à chaque changement ; `null` sans dépôt.
-- Hors phase : renommer et déplacer (les remarques sont rattachées au chemin),
-  afficher les fichiers ignorés, diff dans la gouttière.
+- Hors phase : renommer (les remarques sont rattachées au chemin ; déplacer
+  vient en 8g), afficher les fichiers ignorés, diff dans la gouttière.
 
 ## 8b — Sélection et activation d'un mentor
 
@@ -456,12 +458,81 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   contenu ne repousse rien. Lève la limite héritée de 8a (seuls les dossiers des
   fichiers ouverts et `.git` étaient suivis), rendue visible par le terminal.
 
+## 8g — Déplacer un fichier ou un dossier (ADR 0008)
+
+Ajoutée le 31 octobre 2026, après 8f.
+
+### Gestes
+
+- Glisser-déposer dans l'arbre : tout fichier ou dossier se glisse ; un dossier
+  survolé qui accepte le dépôt prend la surbrillance `accent-soft` et le contour
+  `accent`. Dépôt à la racine sur l'en-tête « Fichiers » ou sur la zone vide de
+  l'arbre. Un dossier replié survolé 600 ms s'ouvre. Échap annule.
+- Cible interdite (l'entrée elle-même, un de ses descendants, son dossier
+  actuel) : curseur « interdit », aucune surbrillance.
+- Pas de confirmation : un déplacement se défait en glissant en sens inverse.
+- Alternative au clavier (WCAG 2.5.7) : « Déplacer vers… » dans le menu
+  contextuel ouvre un dialogue avec un champ de filtre et la liste des dossiers
+  du projet (« Racine du projet » en tête ; l'entrée, ses descendants et son
+  dossier actuel exclus). Flèches pour choisir, Entrée valide, Échap ferme.
+- Le dépôt de fichiers venant de l'extérieur du navigateur (Windows) est
+  ignoré : seul le type interne de l'arbre est accepté. Pas d'import.
+- Erreur du serveur affichée près de l'arbre, comme les refus de création.
+- Onglets ouverts des fichiers déplacés : ils suivent le nouveau chemin, sans
+  perdre de modification non enregistrée ; le fil d'Ariane suit.
+- Aucun attribut `style` dans le HTML (CSP).
+
+### Serveur
+
+- `move_entry { from, to_dir }` → `entry_moved { from, to, kind }`, puis `dir`
+  de l'ancien et du nouveau dossier parent (un seul si l'un contient l'autre) ;
+  `git_status` rafraîchi.
+- `list_dirs` → `dirs { paths, truncated }` : tous les dossiers non exclus du
+  projet, sans suivre les liens, 5 000 au plus (`truncated` au-delà). Sert au
+  dialogue « Déplacer vers… ».
+- Simple renommage sur le disque (`fs::rename`), sans `git mv` : rien n'est
+  indexé ; git montre l'ancien chemin supprimé et le nouveau non suivi jusqu'au
+  prochain `git add`.
+- Refus (`error`, message lisible) : source ou destination hors de la racine,
+  racine elle-même, sous `.git`, exclue par `.gitignore` (`path_forbidden`) ;
+  destination absente ou qui n'est pas un dossier (`not_found`) ; destination
+  atteinte par un lien symbolique (`path_forbidden`) ; dossier déplacé dans
+  lui-même ou un descendant, entrée déjà dans ce dossier (`invalid_move`) ; nom
+  déjà pris dans la destination (`already_exists`, jamais d'écrasement).
+- Un lien symbolique est déplacé lui-même, jamais sa cible.
+- **Remarques** (ADR 0008) : pour chaque fichier déplacé présent sur le disque
+  (descendants d'un dossier compris), remarques (`remarks.json`), choix forcés
+  (`overrides.json`) et passe d'ouverture (`opened.json`) passent au nouveau
+  chemin. Si cette mise à jour échoue, le renommage est annulé et les données
+  reviennent à leur état d'avant. Les remarques d'un fichier absent restent sous
+  l'ancien chemin. Un déplacement fait hors de Hodegos reste une suppression
+  suivie d'une création (ADR 0006).
+- Les fichiers ouverts, les passes en cours et le curseur suivent le nouveau
+  chemin ; le casting est recalculé. L'observateur de fichiers ne voit pas ce
+  renommage comme une suppression externe : aucun `file_changed` à
+  `version: null` pour l'ancien chemin. Limite acceptée : une autre fenêtre
+  ouverte sur le même projet le voit, elle, comme une suppression externe.
+
+### Tests
+
+- Cœur : déplacement d'un fichier, d'un dossier avec descendants, d'un lien
+  (cible intacte) ; chacun des refus, sans rien toucher ; mise à jour des
+  données qui échoue et annule le renommage.
+- Serveur (`tests/entries.rs`) : remarques, choix forcés et passes d'ouverture
+  qui suivent ; dossier de données en lecture seule : erreur, fichier revenu à
+  sa place, données inchangées ; aucun `file_changed` « supprimé » pour un
+  fichier ouvert déplacé ; `list_dirs`.
+- Protocole sérialisé (`move_entry`, `entry_moved`, `list_dirs`, `dirs`).
+- Navigateur, deux thèmes : glisser à la souris, au clavier, fichier ouvert et
+  modifié, remarque ancrée qui reste à sa place, casting recalculé au nouveau
+  chemin.
+
 ## Protocole : récapitulatif des ajouts
 
 | Sens | Messages |
 | --- | --- |
-| Front → backend | `create_entry`, `delete_preview`, `delete_entry`, `settings_get`, `settings_set`, `model_check`, `api_key_set`, `provider_test`, `mentors_list`, `mentor_get`, `mentor_save`, `mentor_eject`, `mentor_delete`, `mentor_prompt`, `term_open`, `term_input`, `term_resize`, `term_close` |
-| Backend → front | `entry_created`, `delete_preview`, `entry_deleted`, `git_status`, `settings`, `eval_required`, `model_info`, `provider_test_result`, `eval_progress`, `eval_done`, `mentors`, `mentor_file`, `mentor_prompt`, `term_opened`, `term_output`, `term_exited` |
+| Front → backend | `create_entry`, `delete_preview`, `delete_entry`, `settings_get`, `settings_set`, `model_check`, `api_key_set`, `provider_test`, `mentors_list`, `mentor_get`, `mentor_save`, `mentor_eject`, `mentor_delete`, `mentor_prompt`, `term_open`, `term_input`, `term_resize`, `term_close`, `move_entry`, `list_dirs` |
+| Backend → front | `entry_created`, `delete_preview`, `entry_deleted`, `git_status`, `settings`, `eval_required`, `model_info`, `provider_test_result`, `eval_progress`, `eval_done`, `mentors`, `mentor_file`, `mentor_prompt`, `term_opened`, `term_output`, `term_exited`, `entry_moved`, `dirs` |
 | Modifiés | `save` (+ `skip_pass`), `cast_override` (+ `activate`, `confirm_over_budget`) |
 
 ## Tests
@@ -556,8 +627,17 @@ Pour chaque sous-phase : `cargo test --workspace`, clippy et fmt propres,
 - [ ] Fermer l'onglet, la fenêtre ou Hodegos tue le shell et ses descendants ;
   un commit fait dans le terminal met l'arbre à jour.
 
+**8g**
+- [ ] Déplacer un fichier et un dossier par glisser-déposer, et au clavier par
+  « Déplacer vers… » ; cibles interdites signalées ; refus du serveur affichés
+  près de l'arbre.
+- [ ] Remarques, choix forcés et passes d'ouverture suivent le déplacement ;
+  échec de leur mise à jour : renommage annulé.
+- [ ] Onglets ouverts, même modifiés, et fil d'Ariane suivent le nouveau
+  chemin ; aucun bandeau « fichier supprimé ».
+
 ## Hors phase 8
 
-Renommer et déplacer ; afficher les fichiers ignorés ; diff git dans la
+Renommer ; afficher les fichiers ignorés ; diff git dans la
 gouttière ; effort par mentor ; images dans la lecture Markdown ; terminal non
 confiné ; réglages par projet (les réglages restent personnels).

@@ -1,6 +1,6 @@
 # Plan par phases
 
-Huit phases, chacune livrable et vérifiable seule (la phase 8 en six sous-phases). On en traite une à la fois ; la
+Huit phases, chacune livrable et vérifiable seule (la phase 8 en sept sous-phases). On en traite une à la fois ; la
 suivante ne commence qu'une fois les critères de fin de la précédente cochés.
 
 ## Phase 1 — Squelette
@@ -138,10 +138,11 @@ décision : `docs/adr/0004-kickoff-par-document.md`.
 Fichiers et statut git, sélection et activation d'un mentor, Markdown en aperçu et
 en lecture, réglages (modèles, effort, clé, budget, mentors), terminal intégré et
 confiné. Spécification : `docs/phase8.md` ; décisions : `docs/adr/0005-terminal-integre-confine.md`,
-`docs/adr/0006-suppression-des-remarques.md`, `docs/adr/0007-evaluation-depuis-l-ide.md` ;
+`docs/adr/0006-suppression-des-remarques.md`, `docs/adr/0007-evaluation-depuis-l-ide.md`,
+`docs/adr/0008-remarques-suivent-un-deplacement.md` ;
 maquettes et cas d'usage : `docs/maquettes/phase8/`.
 
-Une sous-phase à la fois, dans l'ordre 8a → 8f. Pour chacune : `cargo test --workspace`,
+Une sous-phase à la fois, dans l'ordre 8a → 8g. Pour chacune : `cargo test --workspace`,
 clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans les deux thèmes.
 
 ### 8a — Fichiers et statut git
@@ -250,3 +251,12 @@ projet, `OPENROUTER_API_KEY` absente, couleurs, redimensionnement par la poigné
 replie sans tuer, deux onglets, fermeture qui tue les descendants, arbre mis à jour après un
 commit, aucune erreur dans la console. Confirmé à la main dans le navigateur Windows le 31 octobre
 2026, ainsi que l'arbre qui suit les fichiers créés dans le terminal sans commit (`tests/tree.rs`).
+
+### 8g — Déplacer un fichier ou un dossier
+
+- [ ] Déplacer un fichier et un dossier par glisser-déposer, et au clavier par « Déplacer vers… » ;
+  cibles interdites signalées ; refus du serveur affichés près de l'arbre
+- [ ] Remarques, choix forcés et passes d'ouverture suivent le déplacement (ADR 0008) ; échec de leur
+  mise à jour : renommage annulé
+- [ ] Onglets ouverts, même modifiés, et fil d'Ariane suivent le nouveau chemin ; aucun bandeau
+  « fichier supprimé »

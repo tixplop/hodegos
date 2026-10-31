@@ -233,7 +233,7 @@ Ce que le serveur ajoute avant de pousser la remarque au front :
 Cycle de vie (décidé en phase 5) :
 
 - `open` à la création ; `answered` dès que vous répondez ; `resolved` ou `ignored` quand vous la fermez (la carte disparaît : pas d'onglet Historique en MVP).
-- Les ancres sont vérifiées à l'ouverture, à l'enregistrement et après une modification externe, sur la version enregistrée. Section ou citation disparue : `detached`, **définitivement**, même si la citation revient ensuite. Un fichier supprimé **hors de Hodegos** ne détache pas ses remarques (une suppression suivie d'une recréation, comme un changement de branche, les perdrait sinon). Un fichier supprimé **depuis Hodegos** (`delete_entry`, phase 8a) perd ses remarques, ses choix forcés et sa passe d'ouverture ; s'il revient ensuite, il repart sans remarque (`docs/adr/0006-suppression-des-remarques.md`).
+- Les ancres sont vérifiées à l'ouverture, à l'enregistrement et après une modification externe, sur la version enregistrée. Section ou citation disparue : `detached`, **définitivement**, même si la citation revient ensuite. Un fichier supprimé **hors de Hodegos** ne détache pas ses remarques (une suppression suivie d'une recréation, comme un changement de branche, les perdrait sinon). Un fichier supprimé **depuis Hodegos** (`delete_entry`, phase 8a) perd ses remarques, ses choix forcés et sa passe d'ouverture ; s'il revient ensuite, il repart sans remarque (`docs/adr/0006-suppression-des-remarques.md`). Un fichier déplacé **depuis Hodegos** (`move_entry`, sous-phase 8g) garde ses remarques, ses choix forcés et sa passe d'ouverture, qui passent au nouveau chemin ; un déplacement fait hors de Hodegos reste une suppression suivie d'une création (`docs/adr/0008-remarques-suivent-un-deplacement.md`).
 - Une remarque détachée se lit encore et se ferme ; elle n'accepte ni palier suivant ni réponse.
 
 Règles de validation, dans l'ordre :
@@ -466,7 +466,7 @@ Un projet démarre comme un document (décision : `docs/adr/0004-kickoff-par-doc
 
 ## Confort de l'IDE (phase 8)
 
-La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son principe ; spécification unique : `docs/phase8.md`, en six sous-phases.
+La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son principe ; spécification unique : `docs/phase8.md`, en sept sous-phases.
 
 - **8a** : créer et supprimer fichiers et dossiers depuis l'arbre ; statut git par fichier et dans la barre d'état. Une suppression faite depuis Hodegos retire les remarques du fichier (ADR 0006).
 - **8b** : sélection lisible sur la ligne active ; « Activer X » force le mentor et lance une passe demandée sur la section du curseur.
@@ -474,6 +474,7 @@ La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son prin
 - **8d** : écran Réglages (modèles, effort de raisonnement, clé d'API, budget) ; tout changement de modèle ou d'effort d'un niveau lance, après annonce du coût, une évaluation sur les cas intégrés au binaire (ADR 0007).
 - **8e** : édition des mentors depuis les réglages, validée comme au chargement ; un mentor livré n'est jamais écrit.
 - **8f** : terminal intégré, confiné au projet par bubblewrap, sur la même WebSocket (ADR 0005) ; rien de ce qui y passe n'est envoyé aux mentors. Panneau sous l'éditeur (Ctrl+`), onglets, xterm.js en rendu canvas chargé à la première ouverture ; montages de `$HOME` réglables par `[terminal] binds`.
+- **8g** : déplacer un fichier ou un dossier par glisser-déposer dans l'arbre (ou « Déplacer vers… » au clavier) ; remarques, choix forcés et passes d'ouverture suivent (ADR 0008).
 
 Inchangés : la garde « pas de solution », le cadre commun des prompts, ce qui part vers le modèle, l'écoute sur `127.0.0.1` avec le jeton (aucun port ni service en plus), les réglages et données personnels hors du dépôt. Plusieurs éléments « hors MVP » du tableau du périmètre y entrent : terminal intégré, git dans l'interface, réglages graphiques, éditeur graphique de mentors.
 
