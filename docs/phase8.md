@@ -62,7 +62,7 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
 
 - Entrée : menu contextuel d'un fichier ou d'un dossier, « Supprimer… ».
 - Avant la confirmation, le front demande `delete_preview { path }` →
-  `delete_preview { path, kind, files, untracked, modified, restorable }` :
+  `delete_preview { path, kind, files, untracked, modified, ignored, restorable }` :
   nombre de fichiers concernés, dont non suivis et modifiés ; `restorable` vaut
   `true` si git peut tout restaurer (fichiers suivis, sans modification).
 - Confirmation (maquette `08-1b-suppression.html`) :
@@ -81,6 +81,10 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
   Une suppression faite **hors de Hodegos** garde la règle actuelle (remarques
   conservées), pour survivre aux changements de branche.
 - Refus : racine du projet, `.git`, chemin exclu, sortie de la racine.
+- Dossier qui contient des fichiers ignorés par git (`target/`, `node_modules/`),
+  invisibles dans l'arbre : tout est supprimé ; `delete_preview` les compte à part
+  (`ignored`) et la confirmation le dit (« dont N ignorés par git »). Un lien
+  symbolique est supprimé lui-même, jamais suivi (décidé le 31 octobre 2026).
 
 ### Statut git (UC-8.4)
 
@@ -102,6 +106,18 @@ sous-phase 8f commence par un prototype jetable qui lève ses deux risques
   `.git/index`, `.git/HEAD` ou `.git/refs/` changent (commit, checkout fait
   dans le terminal ou ailleurs). Le dossier `.git` est observé sans récursion
   dans les objets.
+- Arbre (décidé le 31 octobre 2026) : à chaque `git_status` reçu, le front
+  redemande `list_dir` pour les dossiers dépliés, ce qui fait apparaître ou
+  disparaître les fichiers créés ou supprimés par un checkout ou une commande.
+  Toujours aucune observation récursive du projet.
+- Projet dans un sous-dossier d'un dépôt, ou worktree (`.git` est un fichier) :
+  pris en charge (décidé le 31 octobre 2026). `git rev-parse --git-dir
+  --show-prefix` donne le dossier git à observer et le préfixe du projet ; les
+  chemins de `git status` sont ramenés à la racine du projet, ceux qui en sortent
+  sont ignorés.
+- Règles globales d'exclusion de git (`core.excludesFile`) : Hodegos ne les lit
+  pas pour l'arbre (`docs/cadrage.md`, sécurité), alors que `git status` les
+  applique. Un fichier exclu seulement par elles reste dans l'arbre, sans lettre.
 - Message serveur `git_status { branch, detached, entries: [{ path, status }],
   changes, conflicts }`, poussé à chaque changement ; `null` sans dépôt.
 - Hors phase : renommer et déplacer (les remarques sont rattachées au chemin),
@@ -226,6 +242,11 @@ Front uniquement, sans nouvelle bibliothèque : l'arbre syntaxique de
   reste appliqué mais l'écran et la barre d'état l'indiquent en `warning`, avec
   « Revenir à l'ancien réglage ». Pendant l'évaluation, les passes continuent
   avec le nouveau réglage.
+- Résultats connus (décidé le 31 octobre 2026) : ceux des évaluations faites
+  depuis l'IDE (`~/.local/share/hodegos/evals/`), plus un court résumé des choix
+  livrés intégré au binaire (ADR 0003 : niveau, modèle, effort, notion, coût,
+  durée, jetons). Il sert au rappel du dernier résultat (UC-8.12) et à
+  l'estimation ; un réglage absent des deux est « jamais évalué ».
 - Une évaluation à la fois ; elle s'arrête avec Hodegos (rapport partiel marqué
   comme tel).
 
@@ -296,6 +317,17 @@ niveau change, puis `settings_set { …, confirm_eval: true }`) ; `model_check`,
    WebSocket des autres messages.
 
 Résultat consigné dans l'ADR 0005 avant l'intégration.
+
+Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
+
+- Fichiers de démarrage du shell (`~/.bashrc`, `~/.zshrc`, `~/.oh-my-zsh`…) :
+  absents par défaut, le shell démarre sans sa configuration ; les ajouter aux
+  montages `ro` par défaut ?
+- `OPENROUTER_API_KEY` : variable « propre à Hodegos », donc retirée de
+  l'environnement du terminal ?
+- Montages `rw` (`~/.cargo`, `~/.npm`) : une commande confinée peut y déposer un
+  exécutable lancé ensuite hors du confinement (`~/.cargo/bin`). À dire dans
+  l'ADR 0005 comme limite connue, ou à monter en `ro` sauf le cache ?
 
 ### Processus
 

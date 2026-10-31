@@ -82,6 +82,11 @@ Parmi les candidats retenus, le meilleur taux de notion émergée, puis le coût
   (docs/plan.md, phase 6).
 - Tout changement de modèle ou de prompt relance `hodegos eval` et met cet ADR à
   jour (ou le remplace par un nouvel ADR).
+  Depuis la phase 8 (`docs/adr/0007-evaluation-depuis-l-ide.md`), un changement
+  de modèle **ou d'effort** fait depuis les réglages de l'IDE lance lui-même
+  l'évaluation du niveau, après annonce du coût ; ses rapports sont personnels
+  (`~/.local/share/hodegos/evals/`), ceux de `evals/reports/` restent ceux des
+  choix livrés.
 - Les identifiants OpenRouter datés peuvent disparaître : un modèle retiré par le
   fournisseur impose une nouvelle évaluation.
 

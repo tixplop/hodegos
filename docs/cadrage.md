@@ -4,7 +4,7 @@
 
 ## Vision et principes
 
-Hodegos est un IDE personnel où des mentors IA vous font progresser sans écrire à votre place. Ce dossier décrit Hodegos tel que livré en v0.1.0 (MVP et phase 7) : périmètre, architecture, contrats, prompts et plan.
+Hodegos est un IDE personnel où des mentors IA vous font progresser sans écrire à votre place. Ce dossier décrit Hodegos tel que livré en v0.1.0 (MVP et phase 7) : périmètre, architecture, contrats, prompts et plan. La phase 8 (confort de l'IDE) est résumée dans « Confort de l'IDE (phase 8) » et spécifiée dans `docs/phase8.md`.
 
 Principes non négociables :
 
@@ -59,7 +59,7 @@ Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, a
 - **Polices** : Inter et JetBrains Mono servies par le binaire (woff2 du sous-ensemble latin dans `ui/fonts/`, copiés depuis les paquets npm `@fontsource` par le même script, licence OFL), jamais chargées depuis Google Fonts. Ligatures désactivées dans l'éditeur : `===` et `=>` se lisent tels qu'ils sont écrits.
 - **Éditeur** (décisions du 29 octobre 2026) :
   - CodeMirror est monté dans un shadow root : il y pose ses styles par `adoptedStyleSheets`, que la CSP stricte autorise, alors qu'elle bloque les balises `<style>` qu'il insère dans un document.
-  - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP).
+  - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP ; aperçu en direct et lecture en phase 8c).
   - Frappe par-dessus une sélection de plusieurs lignes : l'éditeur remplace lui-même la sélection (`beforeinput`). Laissé au navigateur, Chrome fusionne les lignes en posant des attributs `style`, que la CSP bloque (corrigé après la phase 5).
   - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2.
   - Version d'un fichier : empreinte SHA-256 du contenu (16 caractères hexadécimaux).
@@ -179,7 +179,7 @@ Gestion :
 - **Désactiver** un mentor : une surcharge au niveau supérieur avec le même `id` et `enabled: false` (les autres champs sont alors facultatifs).
 - **Personnaliser** un mentor livré : `hodegos mentors eject <id>` copie son fichier dans `~/.config/hodegos/mentors/` (ou `--project` pour `.hodegos/mentors/`), prêt à être modifié ; refus si le fichier existe déjà.
 - **Lister** : `hodegos mentors list` affiche chaque mentor actif, son niveau d'origine, son mode, et les fichiers en erreur avec la raison.
-- **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est jamais créé dans le projet par Hodegos, qui en observe les parents pour le voir apparaître.
+- **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est créé dans le projet qu'à votre demande, par `mentors eject --project` ou, à partir de la phase 8e, en enregistrant un mentor de projet depuis les réglages ; jusque-là, Hodegos en observe les parents pour le voir apparaître.
 - **`on_open`** (phase 7, `false` par défaut) : un fichier dont le titulaire d'au moins une section a `on_open: true` reçoit une passe d'ouverture (voir « Déroulé d'une passe »). Le Mentor produit l'utilise sur `docs/vision.md`.
 - **Validation** : `id` en `[a-z0-9-]`, `initials` de deux caractères, `priority` de 0 à 100, `max_remarks` de 1 à 2, `mode`, `model` et `entry_level` parmi les valeurs connues ; deux fichiers de même `id` au même niveau : le second est signalé. Les frontmatters sont lus avec `serde-saphyr` (`serde_yaml` n'est plus maintenu).
 - Un fichier invalide est ignoré, avec un avertissement dans la barre d'état et le journal ; il ne bloque jamais le démarrage. Un champ inconnu est ignoré, pour permettre d'ajouter des champs plus tard.
@@ -233,7 +233,7 @@ Ce que le serveur ajoute avant de pousser la remarque au front :
 Cycle de vie (décidé en phase 5) :
 
 - `open` à la création ; `answered` dès que vous répondez ; `resolved` ou `ignored` quand vous la fermez (la carte disparaît : pas d'onglet Historique en MVP).
-- Les ancres sont vérifiées à l'ouverture, à l'enregistrement et après une modification externe, sur la version enregistrée. Section ou citation disparue : `detached`, **définitivement**, même si la citation revient ensuite. Un fichier supprimé ne détache pas ses remarques (une suppression suivie d'une recréation, comme un changement de branche, les perdrait sinon).
+- Les ancres sont vérifiées à l'ouverture, à l'enregistrement et après une modification externe, sur la version enregistrée. Section ou citation disparue : `detached`, **définitivement**, même si la citation revient ensuite. Un fichier supprimé **hors de Hodegos** ne détache pas ses remarques (une suppression suivie d'une recréation, comme un changement de branche, les perdrait sinon). Un fichier supprimé **depuis Hodegos** (`delete_entry`, phase 8a) perd ses remarques, ses choix forcés et sa passe d'ouverture ; s'il revient ensuite, il repart sans remarque (`docs/adr/0006-suppression-des-remarques.md`).
 - Une remarque détachée se lit encore et se ferme ; elle n'accepte ni palier suivant ni réponse.
 
 Règles de validation, dans l'ordre :
@@ -460,6 +460,19 @@ Un projet démarre comme un document (décision : `docs/adr/0004-kickoff-par-doc
 - Le Mentor produit (`mentors/mentor-produit.md`, `model: strong`, `entry_level: question`, `on_open: true`) n'est déclenché que par le chemin `docs/vision.md` (50 points, sans langage ni titres) : titulaire de chaque section de la vision, absent de tout autre fichier Markdown (décidé en phase 7 : avec `languages: [markdown]`, il devenait titulaire de tout fichier Markdown grâce à sa priorité).
 - Le cadre commun ne change pas : il demande toujours une citation. La posture du Mentor produit lui fait citer le titre d'une section vide ; une citation vide reste acceptée pour un `next_step`.
 - Hors phase 7 : les trois points de départ de la maquette 01 (nouveau type de sortie, avec son propre contrat), tout écran dédié, toute génération de fichiers par un mentor.
+
+## Confort de l'IDE (phase 8)
+
+La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son principe ; spécification unique : `docs/phase8.md`, en six sous-phases.
+
+- **8a** : créer et supprimer fichiers et dossiers depuis l'arbre ; statut git par fichier et dans la barre d'état. Une suppression faite depuis Hodegos retire les remarques du fichier (ADR 0006).
+- **8b** : sélection lisible sur la ligne active ; « Activer X » force le mentor et lance une passe demandée sur la section du curseur.
+- **8c** : Markdown en trois modes (source, aperçu en direct, lecture), sans nouvelle bibliothèque.
+- **8d** : écran Réglages (modèles, effort de raisonnement, clé d'API, budget) ; tout changement de modèle ou d'effort d'un niveau lance, après annonce du coût, une évaluation sur les cas intégrés au binaire (ADR 0007).
+- **8e** : édition des mentors depuis les réglages, validée comme au chargement ; un mentor livré n'est jamais écrit.
+- **8f** : terminal intégré, confiné au projet par bubblewrap, sur la même WebSocket (ADR 0005) ; rien de ce qui y passe n'est envoyé aux mentors.
+
+Inchangés : la garde « pas de solution », le cadre commun des prompts, ce qui part vers le modèle, l'écoute sur `127.0.0.1` avec le jeton (aucun port ni service en plus), les réglages et données personnels hors du dépôt. Plusieurs éléments « hors MVP » du tableau du périmètre y entrent : terminal intégré, git dans l'interface, réglages graphiques, éditeur graphique de mentors.
 
 ## Plan par phases
 

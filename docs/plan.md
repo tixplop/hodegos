@@ -1,6 +1,6 @@
 # Plan par phases
 
-Sept phases, chacune livrable et vérifiable seule. On en traite une à la fois ; la
+Huit phases, chacune livrable et vérifiable seule (la phase 8 en six sous-phases). On en traite une à la fois ; la
 suivante ne commence qu'une fois les critères de fin de la précédente cochés.
 
 ## Phase 1 — Squelette
@@ -132,3 +132,62 @@ décision : `docs/adr/0004-kickoff-par-document.md`.
   (30 octobre 2026, gemini-4-argon : aucune solution, brouillons compris ; notion émergée
   dans le cas 21 seulement : evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon-2.md)
 - [x] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 7
+
+## Phase 8 — Confort de l'IDE
+
+Fichiers et statut git, sélection et activation d'un mentor, Markdown en aperçu et
+en lecture, réglages (modèles, effort, clé, budget, mentors), terminal intégré et
+confiné. Spécification : `docs/phase8.md` ; décisions : `docs/adr/0005-terminal-integre-confine.md`,
+`docs/adr/0006-suppression-des-remarques.md`, `docs/adr/0007-evaluation-depuis-l-ide.md` ;
+maquettes et cas d'usage : `docs/maquettes/phase8/`.
+
+Une sous-phase à la fois, dans l'ordre 8a → 8f. Pour chacune : `cargo test --workspace`,
+clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans les deux thèmes.
+
+### 8a — Fichiers et statut git
+
+- [ ] Créer un fichier et un dossier depuis l'arbre ; les refus s'affichent à côté du champ
+- [ ] Supprimer un fichier suivi, un fichier non suivi et un dossier : la confirmation dit ce qui est
+  récupérable ; remarques, choix forcés et passe d'ouverture des fichiers supprimés sont retirés
+- [ ] Lettres et couleurs git à jour après un enregistrement, un commit et un checkout faits hors de
+  Hodegos ; « Pas de dépôt git » sans dépôt
+
+### 8b — Sélection et activation d'un mentor
+
+- [ ] La sélection reste lisible sur la ligne active, contraste vérifié dans les deux thèmes
+- [ ] « Activer X » rend X titulaire et lance une passe sur la section du curseur ; fichier non
+  enregistré : une seule passe après « Enregistrer et demander » ; « Revenir au choix automatique »
+  ne lance rien
+
+### 8c — Markdown : source, aperçu en direct, lecture
+
+- [ ] Source, Aperçu, Lecture et Ctrl+E sur `docs/vision.md` et un ADR ; la ligne du curseur montre
+  sa syntaxe ; cocher une case modifie le texte
+- [ ] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien relatif ouvre un
+  onglet ; CSP inchangée, aucune erreur dans la console
+- [ ] Ancres des remarques visibles dans les trois modes
+
+### 8d — Réglages : modèles, effort, clé, budget
+
+- [ ] Modèle et effort modifiables ; un modèle sans sorties structurées est refusé ; `reasoning`
+  n'est envoyé qu'aux modèles qui l'acceptent
+- [ ] Tout changement de niveau annonce coût et durée estimés, puis lance l'évaluation sur les cas
+  intégrés ; rapport sous `~/.local/share/hodegos/evals/`
+- [ ] `config.toml` garde ses commentaires ; la clé n'est jamais renvoyée au front ni journalisée ;
+  la variable d'environnement prime et le dit
+
+### 8e — Réglages : mentors
+
+- [ ] Personnaliser, éditer, créer, dupliquer, désactiver, revenir au livré ; erreurs de validation
+  identiques au chargeur ; rechargement à chaud
+- [ ] Un mentor livré n'est jamais écrit ; `.hodegos/mentors/` n'est créé qu'à l'enregistrement
+  d'un mentor de projet
+
+### 8f — Terminal intégré et confiné
+
+- [ ] Prototype consigné dans l'ADR 0005 (confinement sous WSL2, xterm.js sous la CSP, débit)
+- [ ] Terminal dans la racine du projet, avec l'UID de l'utilisateur ; `cd /` puis `ls ~` ne montre
+  que les montages ; écrire hors du projet et des montages `rw` échoue
+- [ ] Sans `bwrap` utilisable : pas de terminal, message explicite
+- [ ] Fermer l'onglet, la fenêtre ou Hodegos tue le shell et ses descendants ; un commit fait dans
+  le terminal met l'arbre à jour

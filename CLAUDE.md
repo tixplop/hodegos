@@ -5,7 +5,8 @@ Backend Rust dans WSL2, interface web servie en local, modèles via OpenRouter.
 
 Lire avant toute tâche :
 - docs/cadrage.md   : vision, périmètre du MVP, architecture, contrats, prompts
-- docs/plan.md      : les sept phases, leurs critères de fin (à cocher)
+- docs/plan.md      : les huit phases, leurs critères de fin (à cocher)
+- docs/phase8.md    : spécification de la phase 8 (sous-phases 8a à 8f)
 - docs/protocole.md : messages WebSocket entre le front et le backend
 - docs/maquettes/   : maquettes HTML statiques des écrans (référence visuelle)
 - ui/styles/README.md : design system Hodegos (règles d'usage)
@@ -66,7 +67,8 @@ Seul server connaît HTTP et la WebSocket.
 
 ## Façon de travailler
 - Suivre docs/plan.md, une phase à la fois ; ne pas anticiper les phases suivantes
-  (phase 7 : kick-off par document ; les trois points de départ viendront après).
+  (phase 7 : kick-off par document ; les trois points de départ viendront après ;
+  phase 8 : une sous-phase à la fois, de 8a à 8f, selon docs/phase8.md).
 - Avant de coder une phase : proposer un plan court (fichiers, étapes, tests) et
   attendre validation.
 - Une phase est terminée quand ses critères de fin sont vérifiés : tests verts,
