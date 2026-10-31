@@ -56,6 +56,7 @@ Inter pour l'interface (famille `sans`), JetBrains Mono pour le code (famille `m
 - `text-small`, `text-caption`, `text-overline` : métadonnées, badges, intitulés de groupe.
 - `text-code` / `text-id` : code (interligne 24px dans l'éditeur), fichiers, lignes.
 - `text-wordmark` : le nom à côté du repère, et nulle part ailleurs.
+- Markdown en aperçu ou en lecture : prose en `sans` 15/24px sur 820px au plus, titres à 28px (h1) et 20px (h2), code en `mono` 13px sur `surface-100` (en ligne) ou `surface-50` (bloc). En aperçu, la syntaxe brute des lignes du curseur s'affiche en `ink-muted`, dans la même police que la prose, et la ligne active porte le liseré `accent` de 3px.
 
 ## Espacement, rayons, ombres
 
@@ -81,6 +82,7 @@ Les colonnes passent les unes sous les autres sur écran étroit.
 - Survol : `surface-100` sous les éléments neutres, `accent-hover` sous le bouton principal.
 - Désactivé : opacité 0.5 et `aria-disabled`.
 - Vrais éléments natifs : `<button>`, `<a href>`, `<input>` avec `<label>`. Onglets en `role="tab"` (`Hodegos.initTabs`), choix exclusifs en `aria-pressed` (`Hodegos.initChoices`).
+- Mode d'affichage d'un document (Source · Aperçu · Lecture) : groupe `role="group"` de `hd-btn--choice hd-btn--sm` en `aria-pressed`, à droite de la barre d'onglets, suivi de son raccourci en `text-caption` (« Ctrl+E : édition ⇄ lecture »). Il n'apparaît que pour un fichier Markdown.
 - Les paliers d'aide sont une liste ordonnée avec `aria-current="step"` sur le palier courant.
 - Cible tactile de 32px minimum (`hd-btn--sm`), 36–40px par défaut.
 

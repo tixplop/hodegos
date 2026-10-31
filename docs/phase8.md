@@ -189,6 +189,27 @@ Front uniquement, sans nouvelle bibliothèque : l'arbre syntaxique de
 - CSP : aucune règle assouplie ; styles par classes ou CSSOM, jamais d'attribut
   `style` posé en HTML.
 
+Précisions retenues à l'implémentation (31 octobre 2026) :
+
+- Mode par défaut : Aperçu (celui de la maquette 08-3). Le double-clic en
+  lecture revient toujours en aperçu ; Ctrl+E revient au dernier mode d'édition.
+- La ligne du curseur garde la police sans empattement : la syntaxe brute s'y
+  affiche en gris, le texte ne change pas de largeur d'une ligne à l'autre.
+- Base GFM (`markdownLanguage`) : cases, tableaux et texte barré. Le paquet
+  CodeMirror exporte en plus `syntaxTree`, `ensureSyntaxTree`, `ViewPlugin`,
+  `Prec` et `markdownLanguage`, aux mêmes versions.
+- Un commentaire sur ses propres lignes est masqué avec elles ; les flèches haut
+  et bas s'y arrêtent, il réapparaît sous le curseur.
+- Ancres : la position du passage cité dans la source (`locate`) est reportée
+  sur les nœuds texte rendus, copiés tels quels de la source ; une citation qui
+  chevauche du gras est surlignée par morceaux. En aperçu, une marque masquée
+  est coupée au marqueur qui tomberait dedans ; un passage entièrement caché
+  (dans un commentaire) fait réapparaître sa syntaxe.
+- Liens en lecture : `http`, `https` et `mailto` dans un nouvel onglet
+  (`noopener noreferrer`) ; un chemin relatif, résolu depuis le dossier du
+  document sans `#…`, ouvre un onglet de l'IDE ; `#ancre` mène au titre ; tout
+  autre schéma (`javascript:` compris) reste du texte.
+
 ## 8d — Réglages : modèles, effort, clé, budget (UC-8.12 à UC-8.15)
 
 ### Écran
@@ -400,6 +421,9 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   conflits, noms avec espaces) ; dépôt absent.
 - 8b : `activate` lance une passe sur la section du curseur, sans `no_change` ;
   `skip_pass` ; budget dépassé sans confirmation.
+- 8c : aucun message nouveau ; le test `ui.rs` refuse `innerHTML` et les
+  fonctions qui produisent du HTML à partir de texte dans `ui/js/`, et tout
+  attribut `style` dans les pages ; le reste se vérifie dans le navigateur.
 - 8d : écriture de `config.toml` qui conserve les commentaires ; clé jamais
   renvoyée ni journalisée ; refus de `api_key_set` avec la variable définie ;
   `eval_required` à chaque changement de niveau ; `reasoning` absent pour

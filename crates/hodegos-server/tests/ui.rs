@@ -1,7 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 //! Le front ne charge aucune ressource externe : aucune URL `http(s)://` dans ui/,
-//! hors du code empaqueté (ui/vendor/) et des espaces de noms XML.
+//! hors du code empaqueté (ui/vendor/) et des espaces de noms XML. Il ne produit pas
+//! de HTML à partir de texte, et ses pages n'ont pas d'attribut `style` (CSP stricte).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -47,4 +48,39 @@ fn aucune_url_externe_dans_le_front() {
         }
     }
     assert!(offending.is_empty(), "URL externes : {offending:?}");
+}
+
+#[test]
+fn le_front_ne_produit_pas_de_html_a_partir_de_texte() {
+    let ui = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../ui");
+    let mut found = Vec::new();
+    files(&ui, &mut found);
+
+    let mut offending = Vec::new();
+    for path in found {
+        let text = fs::read_to_string(&path).unwrap();
+        let ext = path.extension().and_then(|e| e.to_str());
+        let forbidden: &[&str] = match ext {
+            Some("js") => &[
+                ".innerHTML",
+                ".outerHTML",
+                "insertAdjacentHTML",
+                "document.write",
+                "createContextualFragment",
+                "DOMParser",
+            ],
+            Some("html") => &[" style=\""],
+            _ => &[],
+        };
+        for pattern in forbidden {
+            for (index, _) in text.match_indices(pattern) {
+                let line = text[..index].lines().count();
+                offending.push(format!("{}:{line} {pattern}", path.display()));
+            }
+        }
+    }
+    assert!(
+        offending.is_empty(),
+        "HTML produit ou style en ligne : {offending:?}"
+    );
 }

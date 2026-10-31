@@ -1,6 +1,8 @@
-/* Éditeur CodeMirror 6 : langages du MVP, thème branché sur les tokens du design system. */
+/* Éditeur CodeMirror 6 : langages du MVP, thème branché sur les tokens du design system,
+   aperçu en direct du Markdown (md-live.js). */
 import {
   EditorState,
+  Compartment,
   EditorView,
   Decoration,
   WidgetType,
@@ -30,7 +32,9 @@ import {
   javascript,
   python,
   markdown,
+  markdownLanguage,
 } from '/vendor/codemirror.js';
+import { livePreview } from './md-live.js';
 
 export const LANGUAGE_NAMES = {
   rust: 'Rust',
@@ -48,7 +52,8 @@ function languageSupport(language, path) {
     case 'typescript': return javascript({ typescript: true, jsx });
     case 'javascript': return javascript({ jsx });
     case 'python': return python();
-    case 'markdown': return markdown();
+    // Base GFM : cases à cocher, tableaux, texte barré.
+    case 'markdown': return markdown({ base: markdownLanguage });
     default: return [];
   }
 }
@@ -63,6 +68,7 @@ const highlight = HighlightStyle.define([
   { tag: t.heading, fontWeight: '700' },
   { tag: t.strong, fontWeight: '700' },
   { tag: t.emphasis, fontStyle: 'italic' },
+  { tag: t.strikethrough, textDecoration: 'line-through' },
   { tag: [t.link, t.url], textDecoration: 'underline' },
   { tag: t.invalid, color: 'var(--danger)' },
 ]);
@@ -150,6 +156,19 @@ const anchorsField = StateField.define({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+/** Passages cités affichés, dont les marqueurs (`from === to`). */
+function anchorRanges(state) {
+  const ranges = [];
+  state.field(anchorsField, false)?.between(0, state.doc.length, (from, to) => {
+    ranges.push({ from, to });
+  });
+  return ranges;
+}
+
+/** Aperçu en direct du Markdown : présent ou non dans l'état, sans toucher à l'historique. */
+const previewSlot = new Compartment();
+const preview = livePreview(anchorRanges);
+
 /**
  * Position d'une citation dans le document : l'occurrence la plus proche de `lineHint`.
  * Sans citation (étape suivante), toute la ligne de `lineHint`, c'est-à-dire le titre
@@ -233,6 +252,7 @@ export function createEditor(parent, { onChange, onCursor, onAnchor }) {
         ]),
         theme,
         anchorsField,
+        previewSlot.of([]),
         EditorView.domEventHandlers({
           click(event) {
             const anchor = event.target.closest?.('[data-remark]');
@@ -259,6 +279,11 @@ export function createEditor(parent, { onChange, onCursor, onAnchor }) {
     },
     get state() {
       return view.state;
+    },
+    /** Aperçu en direct (Markdown) ou source, pour l'état affiché. */
+    setPreview(on) {
+      if ((previewSlot.get(view.state) === preview) === on) return;
+      view.dispatch({ effects: previewSlot.reconfigure(on ? preview : []) });
     },
     focus: () => view.focus(),
     /** Affiche les ancres de l'onglet courant. */

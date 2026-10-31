@@ -1,5 +1,5 @@
 // Point d'entrée du paquet ui/vendor/codemirror.js : seulement ce dont l'éditeur se sert.
-export { EditorState, Compartment, StateField, StateEffect } from '@codemirror/state';
+export { EditorState, Compartment, Prec, StateField, StateEffect } from '@codemirror/state';
 export {
   EditorView,
   Decoration,
@@ -13,6 +13,7 @@ export {
   dropCursor,
   rectangularSelection,
   crosshairCursor,
+  ViewPlugin,
 } from '@codemirror/view';
 export {
   HighlightStyle,
@@ -20,6 +21,8 @@ export {
   indentOnInput,
   bracketMatching,
   indentUnit,
+  syntaxTree,
+  ensureSyntaxTree,
 } from '@codemirror/language';
 export { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 export { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
@@ -27,4 +30,4 @@ export { tags } from '@lezer/highlight';
 export { rust } from '@codemirror/lang-rust';
 export { javascript } from '@codemirror/lang-javascript';
 export { python } from '@codemirror/lang-python';
-export { markdown } from '@codemirror/lang-markdown';
+export { markdown, markdownLanguage } from '@codemirror/lang-markdown';

@@ -1,12 +1,13 @@
 /* Hodegos — application : arborescence (création, suppression, statut git), onglets, éditeur,
-   enregistrement, modifications externes, interlocuteurs de la section courante, remarques et
-   état des passes. */
+   Markdown en source, aperçu ou lecture, enregistrement, modifications externes, interlocuteurs
+   de la section courante, remarques et état des passes. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
 import { confirmDeletion } from './deletion.js';
 import { chooseDialog } from './dialog.js';
 import { createEditor, LANGUAGE_NAMES, locate } from './editor.js';
 import { icon } from './icons.js';
+import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
 
@@ -15,7 +16,10 @@ const ui = {
   path: $('chemin'),
   theme: $('theme'),
   tree: $('arborescence'),
+  tabBar: $('barre-onglets'),
   tabs: $('onglets'),
+  modes: $('modes'),
+  reading: $('lecture'),
   banner: $('bandeau'),
   empty: $('vide'),
   editor: $('editeur'),
@@ -36,6 +40,11 @@ const ui = {
   budget: $('budget'),
   provider: $('fournisseur'),
 };
+
+/** Modes d'affichage du Markdown ; Ctrl+E bascule entre le dernier mode d'édition et la lecture. */
+const MODES = ['source', 'preview', 'reading'];
+const EDIT_MODES = ['source', 'preview'];
+const MODE_LABELS = { source: 'source', preview: 'aperçu en direct', reading: 'lecture' };
 
 /** Délai de regroupement des déplacements du curseur avant envoi au serveur. */
 const CURSOR_DELAY_MS = 150;
@@ -77,6 +86,9 @@ let gitStatus;
 /** Dernier curseur envoyé : `{ path, line }`. */
 let sentCursor = null;
 let cursorTimer = null;
+/** Mode d'affichage du Markdown, global et mémorisé comme le thème. */
+let markdownMode = stored('hodegos.markdown.mode', MODES, 'preview');
+let editMode = stored('hodegos.markdown.edit', EDIT_MODES, 'preview');
 
 const server = connect({ onPush, onState });
 const editor = createEditor(ui.editor, {
@@ -87,6 +99,18 @@ const editor = createEditor(ui.editor, {
   },
   onAnchor: (id) => selectRemark(id, false),
 });
+const reader = createReader(ui.reading, {
+  onLink: openFile,
+  // Double-clic : retour en aperçu sur ce bloc.
+  onBlock: (pos) => {
+    setMarkdownMode('preview');
+    editor.reveal(pos);
+  },
+  onAnchor: (id) => selectRemark(id, false),
+});
+for (const choice of ui.modes.querySelectorAll('[data-value]')) {
+  choice.addEventListener('click', () => setMarkdownMode(choice.dataset.value));
+}
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => {
@@ -501,7 +525,7 @@ function renderRemarksPanel() {
     onDismiss: (remark, reason) => dismissRemark(remark, reason),
   });
   if (!currentPath) return;
-  editor.showAnchors(items
+  const anchors = items
     .filter((item) => item.position)
     .map(({ remark, number, position }) => ({
       id: remark.id,
@@ -509,7 +533,9 @@ function renderRemarksPanel() {
       from: position.from,
       to: position.to,
       active: remark.id === activeRemark,
-    })));
+    }));
+  editor.showAnchors(anchors);
+  if (isReading()) reader.render(editor.state, currentPath, anchors);
 }
 
 /** Met en avant une remarque ; `reveal` amène aussi son passage à l'écran. */
@@ -518,7 +544,9 @@ function selectRemark(id, reveal) {
   renderRemarksPanel();
   if (!reveal) return;
   const item = remarkItems(currentPath).find((i) => i.remark.id === id);
-  if (item?.position) editor.reveal(item.position.from);
+  if (!item?.position) return;
+  if (isReading()) reader.reveal(id);
+  else editor.reveal(item.position.from);
 }
 
 /* ---------- État du fournisseur, du budget et des passes ---------- */
@@ -691,6 +719,66 @@ function isDirty(tab) {
   return !state.doc.eq(tab.savedDoc);
 }
 
+/* ---------- Markdown : source, aperçu, lecture ---------- */
+
+function isMarkdown() {
+  return tabs.get(currentPath)?.language === 'markdown';
+}
+
+function isReading() {
+  return isMarkdown() && markdownMode === 'reading';
+}
+
+function languageLabel(tab) {
+  const name = LANGUAGE_NAMES[tab.language] ?? tab.language;
+  return tab.language === 'markdown' && markdownMode !== 'source' ? `${name} · ${MODE_LABELS[markdownMode]}` : name;
+}
+
+/** Aperçu de l'éditeur et sélecteur de mode, selon l'onglet courant. */
+function syncMode() {
+  const markdown = isMarkdown();
+  editor.setPreview(markdown && markdownMode === 'preview');
+  ui.modes.hidden = !markdown;
+  for (const choice of ui.modes.querySelectorAll('[data-value]')) {
+    choice.setAttribute('aria-pressed', String(choice.dataset.value === markdownMode));
+  }
+}
+
+function setMarkdownMode(mode) {
+  if (!MODES.includes(mode) || mode === markdownMode) return;
+  const wasReading = isReading();
+  markdownMode = mode;
+  store('hodegos.markdown.mode', mode);
+  if (EDIT_MODES.includes(mode)) {
+    editMode = mode;
+    store('hodegos.markdown.edit', mode);
+  }
+  render();
+  if (isReading()) {
+    reader.scrollTo(editor.state.selection.main.head);
+    ui.reading.focus();
+  } else if (wasReading) {
+    editor.focus();
+  }
+}
+
+function stored(key, allowed, fallback) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return allowed.includes(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function store(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* Choix non mémorisé : il reste valable pour cette page. */
+  }
+}
+
 /* ---------- Onglets ---------- */
 
 function activate(path) {
@@ -700,7 +788,9 @@ function activate(path) {
   const tab = tabs.get(path);
   if (tab) {
     editor.show(tab.state);
-    editor.focus();
+    syncMode();
+    if (isReading()) ui.reading.focus();
+    else editor.focus();
     clearTimeout(cursorTimer);
     const head = tab.state.selection.main.head;
     sendCursor(tab.state.doc.lineAt(head).number);
@@ -740,11 +830,13 @@ function render() {
   renderTabs();
   renderBanner();
   const tab = tabs.get(currentPath);
-  ui.tabs.hidden = tabs.size === 0;
-  ui.editor.hidden = !tab;
+  syncMode();
+  ui.tabBar.hidden = tabs.size === 0;
+  ui.editor.hidden = !tab || isReading();
+  ui.reading.hidden = !tab || !isReading();
   ui.empty.hidden = Boolean(tab);
   ui.path.textContent = tab ? tab.path : '';
-  ui.language.textContent = tab ? LANGUAGE_NAMES[tab.language] ?? tab.language : '';
+  ui.language.textContent = tab ? languageLabel(tab) : '';
   if (!tab) ui.position.textContent = '';
   document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
   tree.setCurrent(currentPath);
@@ -762,7 +854,7 @@ function renderTabs() {
     button.type = 'button';
     button.className = 'hd-tab';
     button.setAttribute('role', 'tab');
-    button.setAttribute('aria-controls', 'editeur');
+    button.setAttribute('aria-controls', isReading() ? 'lecture' : 'editeur');
     button.setAttribute('aria-selected', String(tab.path === currentPath));
     button.tabIndex = tab.path === currentPath ? 0 : -1;
     button.title = tab.path;
@@ -877,11 +969,7 @@ function renderThemeButton() {
 ui.theme.addEventListener('click', () => {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
   window.Hodegos.setTheme(next);
-  try {
-    window.localStorage.setItem('hodegos.theme', next);
-  } catch {
-    /* Choix non mémorisé : il reste valable pour cette page. */
-  }
+  store('hodegos.theme', next);
   renderThemeButton();
 });
 
@@ -889,6 +977,11 @@ document.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
     event.preventDefault();
     save();
+  }
+  // Ctrl+E : dernier mode d'édition ⇄ lecture, pour un onglet Markdown.
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e' && isMarkdown()) {
+    event.preventDefault();
+    setMarkdownMode(markdownMode === 'reading' ? editMode : 'reading');
   }
 });
 

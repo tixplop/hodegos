@@ -59,7 +59,7 @@ Le navigateur ne parle qu'au serveur ; seul le crate `llm` sort de la machine, a
 - **Polices** : Inter et JetBrains Mono servies par le binaire (woff2 du sous-ensemble latin dans `ui/fonts/`, copiés depuis les paquets npm `@fontsource` par le même script, licence OFL), jamais chargées depuis Google Fonts. Ligatures désactivées dans l'éditeur : `===` et `=>` se lisent tels qu'ils sont écrits.
 - **Éditeur** (décisions du 29 octobre 2026) :
   - CodeMirror est monté dans un shadow root : il y pose ses styles par `adoptedStyleSheets`, que la CSP stricte autorise, alors qu'elle bloque les balises `<style>` qu'il insère dans un document.
-  - Coloration par les tokens `syntax-*` du design system ; Markdown édité en source (pas de vue rendue en MVP ; aperçu en direct et lecture en phase 8c).
+  - Coloration par les tokens `syntax-*` du design system ; Markdown en trois modes depuis la phase 8c : source, aperçu en direct (marques masquées, syntaxe brute sur les lignes du curseur), lecture non éditable construite en éléments DOM (jamais `innerHTML`, HTML du document affiché comme du texte, images non chargées) ; Ctrl+E bascule entre le dernier mode d'édition et la lecture.
   - Frappe par-dessus une sélection de plusieurs lignes : l'éditeur remplace lui-même la sélection (`beforeinput`). Laissé au navigateur, Chrome fusionne les lignes en posant des attributs `style`, que la CSP bloque (corrigé après la phase 5).
   - Fichiers ouverts : texte UTF-8 de 2 Mo au plus (sinon `not_text`) ; les autres langages en texte brut. Pas de création de fichier en phase 2 (création et suppression depuis l'arbre en phase 8a).
   - Version d'un fichier : empreinte SHA-256 du contenu (16 caractères hexadécimaux).

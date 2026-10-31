@@ -38,10 +38,19 @@
 <p id="legende-git" class="app-tree__legend" hidden><span><strong class="app-tree__git--warning">M</strong> modifié · <strong class="app-tree__git--warning">R</strong> renommé · <strong class="app-tree__git--success">A</strong> ajouté · <strong class="app-tree__git--success">U</strong> non suivi · <strong class="app-tree__git--danger">C</strong> conflit</span><span>Point orange : le dossier contient un changement. Fichiers ignorés par git masqués.</span></p>
 </nav>
 <main class="hd-main app-main">
-<div id="onglets" class="hd-tabs app-tabs" role="tablist" aria-label="Fichiers ouverts" hidden></div>
+<div id="barre-onglets" class="app-tabbar" hidden>
+<div id="onglets" class="hd-tabs app-tabs" role="tablist" aria-label="Fichiers ouverts"></div>
+<div id="modes" class="hd-row app-modes" role="group" aria-label="Mode d'affichage du Markdown" hidden>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" data-value="source" aria-pressed="false">Source</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" data-value="preview" aria-pressed="false">Aperçu</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" data-value="reading" aria-pressed="false">Lecture</button>
+<span class="app-modes__hint">Ctrl+E : édition ⇄ lecture</span>
+</div>
+</div>
 <div id="bandeau" class="app-banner" hidden></div>
 <p id="vide" class="hd-muted app-empty">Choisissez un fichier dans l'arborescence.</p>
 <div id="editeur" class="app-editor" role="tabpanel" hidden></div>
+<div id="lecture" class="app-read" role="tabpanel" tabindex="0" hidden></div>
 </main>
 <aside class="hd-panel app-panel" aria-label="Mentors">
 <div class="app-panel__head">

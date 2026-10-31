@@ -181,11 +181,21 @@ navigateur Windows.
 
 ### 8c — Markdown : source, aperçu en direct, lecture
 
-- [ ] Source, Aperçu, Lecture et Ctrl+E sur `docs/vision.md` et un ADR ; la ligne du curseur montre
+- [x] Source, Aperçu, Lecture et Ctrl+E sur `docs/vision.md` et un ADR ; la ligne du curseur montre
   sa syntaxe ; cocher une case modifie le texte
-- [ ] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien relatif ouvre un
+- [x] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien relatif ouvre un
   onglet ; CSP inchangée, aucune erreur dans la console
-- [ ] Ancres des remarques visibles dans les trois modes
+- [x] Ancres des remarques visibles dans les trois modes
+
+Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, faux fournisseur local) dans les deux thèmes, sur la vision d'un projet créé par
+`hodegos new`, un ADR et un document piège (balises `<script>`, `<img onerror>`, bloc HTML, lien
+`javascript:`, image distante) : trois modes et Ctrl+E, mode retrouvé après rechargement, syntaxe
+brute sur la ligne du curseur, commentaires masqués et atteints aux flèches, case cochée puis
+annulée par Ctrl+Z, ancres et marqueurs dans les trois modes, aucun élément `script`, `img` ni
+attribut `style` ou `onclick` en lecture, lien relatif ouvert dans un onglet, double-clic vers
+l'aperçu, aucune erreur dans la console. `tests/ui.rs` refuse `innerHTML` dans le front. Reste à
+confirmer à la main dans le navigateur Windows.
 
 ### 8d — Réglages : modèles, effort, clé, budget
 
