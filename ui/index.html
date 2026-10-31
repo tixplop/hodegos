@@ -26,7 +26,7 @@
 </span>
 </header>
 <div id="ide" class="hd-columns app-columns">
-<nav class="hd-sidebar app-sidebar" aria-label="Fichiers du projet">
+<nav id="fichiers" class="hd-sidebar app-sidebar app-files" aria-label="Fichiers du projet">
 <div class="hd-nav">
 <div class="hd-nav__group">
 <div class="app-tree__head">
@@ -41,6 +41,7 @@
 </div>
 <p id="legende-git" class="app-tree__legend" hidden><span><strong class="app-tree__git--warning">M</strong> modifié · <strong class="app-tree__git--warning">R</strong> renommé · <strong class="app-tree__git--success">A</strong> ajouté · <strong class="app-tree__git--success">U</strong> non suivi · <strong class="app-tree__git--danger">C</strong> conflit</span><span>Point orange : le dossier contient un changement. Fichiers ignorés par git masqués.</span></p>
 </nav>
+<div id="arbre-poignee" class="app-files__handle" role="separator" aria-orientation="vertical" aria-label="Largeur de l'arbre" aria-controls="fichiers" tabindex="0"></div>
 <main class="hd-main app-main">
 <div id="barre-onglets" class="app-tabbar" hidden>
 <div id="onglets" class="hd-tabs app-tabs" role="tablist" aria-label="Fichiers ouverts"></div>

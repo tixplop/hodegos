@@ -12,6 +12,7 @@ import { createPanel } from './panel.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
 import { createSettings } from './settings.js';
+import { createSidebarResizer } from './sidebar.js';
 import { createTerminalPanel } from './terminal.js';
 
 const $ = (id) => document.getElementById(id);
@@ -149,6 +150,11 @@ ui.openTerminal.addEventListener('click', () => {
   terminalPanel.toggle();
 });
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
+createSidebarResizer({
+  sidebar: $('fichiers'),
+  handle: $('arbre-poignee'),
+  panel: ui.ide.querySelector('.app-panel'),
+});
 const tree = createTree(ui.tree, {
   list: (path) => server.request('list_dir', { path }).then((reply) => {
     for (const entry of reply.payload.entries) rememberMentors(entry.mentors);
