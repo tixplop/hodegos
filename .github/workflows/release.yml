@@ -62,7 +62,7 @@ jobs:
           cp "target/$TARGET/release/hodegos" "dist/$name/"
           strip "dist/$name/hodegos"
           cp README.md LICENSE-MIT LICENSE-APACHE "dist/$name/"
-          cp ui/vendor/LICENSES.md "dist/$name/licences-tierces/codemirror.md"
+          cp ui/vendor/LICENSES.md "dist/$name/licences-tierces/front.md"
           cp ui/fonts/LICENSE-*.txt "dist/$name/licences-tierces/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
