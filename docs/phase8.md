@@ -443,9 +443,11 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   terminal ; rendu canvas et cale des `<style>` vers `adoptedStyleSheets`.
 - Tuer `bwrap` suffit à tuer tout ce que le terminal a lancé (`--unshare-pid`) ;
   `--die-with-parent` couvre un arrêt brutal de Hodegos.
-- Limite héritée de 8a : l'observateur ne suit que les dossiers des fichiers
-  ouverts et `.git` ; un fichier créé dans le terminal, non commité, dans un autre
-  dossier, n'apparaît dans l'arbre qu'au rafraîchissement suivant du statut git.
+- L'arbre suit le disque : chaque dossier listé par `list_dir` (racine, dossiers
+  dépliés) est observé sans récursion ; si ses entrées changent (hors fichiers
+  ignorés), le serveur repousse `dir` et l'arbre se recharge. Une modification de
+  contenu ne repousse rien. Lève la limite héritée de 8a (seuls les dossiers des
+  fichiers ouverts et `.git` étaient suivis), rendue visible par le terminal.
 
 ## Protocole : récapitulatif des ajouts
 
@@ -465,7 +467,9 @@ Points relevés à l'intégration de la phase 8, à trancher avec le prototype :
   conflits, noms avec espaces) ; dépôt absent.
 - 8b : `activate` lance une passe sur la section du curseur, sans `no_change` ;
   `skip_pass` ; budget dépassé sans confirmation.
-- 8f : `tests/terminal.rs` : protocole et limites avec un faux `bwrap` (toujours) ;
+- 8f : `tests/tree.rs` (dossier affiché repoussé après une création ou une
+  suppression externe, rien pour une modification de contenu, un fichier ignoré ou
+  un dossier replié) ; `tests/terminal.rs` : protocole et limites avec un faux `bwrap` (toujours) ;
   confinement, arrêt et commit avec le vrai (ignorés s'il est indisponible) ; tests
   de `terminal::sandbox` et `terminal::session` sans `bwrap`.
 - 8e : `tests/mentor_settings.rs` et les tests de `hodegos-mentors` (validation

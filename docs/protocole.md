@@ -66,7 +66,7 @@ connexion reste ouverte.
 | Type | Charge utile | Quand |
 | --- | --- | --- |
 | `pong` | — | réponse à `ping` |
-| `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` |
+| `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` ; poussé aussi quand les entrées d'un dossier déjà listé changent sur le disque (fichier créé, supprimé ou renommé, hors fichiers ignorés), et après `create_entry` et `delete_entry` |
 | `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` (ouvertes, répondues ou détachées) | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |

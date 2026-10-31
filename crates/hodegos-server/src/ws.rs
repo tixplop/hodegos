@@ -100,6 +100,9 @@ struct Connection {
     opening: HashSet<RelPath>,
     /// Réponses des demandes traitées en tâche de fond (réglages).
     background: mpsc::UnboundedSender<Vec<Outgoing>>,
+    /// Dossiers affichés dans l'arbre (listés par `list_dir`) et leurs entrées : un
+    /// changement d'entrées, venu du terminal ou d'ailleurs, repousse `dir`.
+    listed: HashMap<RelPath, Vec<(String, protocol::EntryKind)>>,
     /// Terminaux de cette fenêtre : ils meurent avec elle.
     terminals: HashMap<u32, terminal::Session>,
     next_terminal: u32,
@@ -129,6 +132,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
         busy: HashSet::new(),
         opening: HashSet::new(),
         background,
+        listed: HashMap::new(),
         terminals: HashMap::new(),
         next_terminal: 0,
         terminal_events,
@@ -413,7 +417,9 @@ impl Connection {
             }
             ClientMessage::ListDir { path } => {
                 let rel = RelPath::parse(&path)?;
-                Ok(vec![Outgoing::reply(re, self.dir(&rel)?)])
+                let listing = self.dir(&rel)?;
+                self.remember_listing(&rel, &listing);
+                Ok(vec![Outgoing::reply(re, listing)])
             }
             ClientMessage::OpenFile { path } => {
                 let rel = RelPath::parse(&path)?;
@@ -595,7 +601,7 @@ impl Connection {
                             kind,
                         },
                     ),
-                    Outgoing::push(self.dir(&rel.parent())?),
+                    Outgoing::push(self.parent_listing(&rel)?),
                 ])
             }
             ClientMessage::DeletePreview { path } => {
@@ -616,7 +622,7 @@ impl Connection {
                             kind: protocol_kind(plan.kind),
                         },
                     ),
-                    Outgoing::push(self.dir(&rel.parent())?),
+                    Outgoing::push(self.parent_listing(&rel)?),
                 ])
             }
         }
@@ -861,6 +867,58 @@ impl Connection {
             .collect()
     }
 
+    /// Contenu du dossier parent après une création ou une suppression, retenu pour
+    /// que l'observateur ne le repousse pas.
+    fn parent_listing(&mut self, rel: &RelPath) -> Result<ServerMessage, FileError> {
+        let parent = rel.parent();
+        let listing = self.dir(&parent)?;
+        self.remember_listing(&parent, &listing);
+        Ok(listing)
+    }
+
+    /// Retient les entrées d'un dossier affiché et le fait observer.
+    fn remember_listing(&mut self, rel: &RelPath, listing: &ServerMessage) {
+        let ServerMessage::Dir { entries, .. } = listing else {
+            return;
+        };
+        let names = entries.iter().map(|e| (e.name.clone(), e.kind)).collect();
+        if self.listed.insert(rel.clone(), names).is_none() {
+            if let Err(err) = self.state.watcher.track_dir(&self.session, rel) {
+                tracing::warn!(path = %rel, error = %err, "dossier non observé");
+            }
+        }
+    }
+
+    /// Dossiers affichés dont les entrées ont changé (ajout, suppression, renommage ;
+    /// fichiers ignorés exclus) : leur nouveau contenu, poussé en `dir`.
+    fn listings_changed(&mut self, paths: &[RelPath]) -> Vec<Outgoing> {
+        let mut dirs: Vec<RelPath> = paths
+            .iter()
+            .flat_map(|path| [path.parent(), path.clone()])
+            .filter(|dir| self.listed.contains_key(dir))
+            .collect();
+        dirs.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        dirs.dedup();
+        let mut replies = Vec::new();
+        for dir in dirs {
+            let Ok(listing) = self.dir(&dir) else {
+                // Dossier disparu : son parent, s'il est affiché, le dira.
+                self.listed.remove(&dir);
+                continue;
+            };
+            let ServerMessage::Dir { entries, .. } = &listing else {
+                continue;
+            };
+            let names: Vec<(String, protocol::EntryKind)> =
+                entries.iter().map(|e| (e.name.clone(), e.kind)).collect();
+            if self.listed.get(&dir) != Some(&names) {
+                self.listed.insert(dir, names);
+                replies.push(Outgoing::push(listing));
+            }
+        }
+        replies
+    }
+
     /// Fait observer le dossier du fichier.
     fn watch(&self, rel: &RelPath) {
         if let Err(err) = self.state.watcher.track(&self.session, rel) {
@@ -1096,7 +1154,7 @@ impl Connection {
 
     /// Relit les fichiers ouverts touchés ; `file_changed` si leur version a changé.
     fn changed(&mut self, paths: &[RelPath]) -> Vec<Outgoing> {
-        let mut replies = Vec::new();
+        let mut replies = self.listings_changed(paths);
         for path in paths {
             let Some(known) = self.open.get(path).map(|f| f.version.clone()) else {
                 continue;

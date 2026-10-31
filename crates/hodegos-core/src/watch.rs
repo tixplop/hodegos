@@ -63,8 +63,14 @@ impl Project {
 impl FileWatcher {
     /// Suit `rel` : son dossier est observé jusqu'à l'arrêt de Hodegos.
     pub fn track(&self, session: &Session, rel: &RelPath) -> Result<(), FileError> {
+        self.track_dir(session, &rel.parent())
+    }
+
+    /// Observe le dossier `dir` (racine comprise), sans ses sous-dossiers : ses entrées
+    /// ajoutées, supprimées ou renommées sont signalées (phase 8f, arbre à jour).
+    pub fn track_dir(&self, session: &Session, dir: &RelPath) -> Result<(), FileError> {
         self.project.check(session)?;
-        let dir = self.project.lexical(&rel.parent());
+        let dir = self.project.lexical(dir);
         let poisoned = || FileError::Watch("verrou empoisonné".to_owned());
         let mut watched = self.watched.lock().map_err(|_| poisoned())?;
         if watched.contains(&dir) {
@@ -127,5 +133,23 @@ mod tests {
         wait_for(&rx, "src/lib.rs");
         fs::remove_file(dir.path().join("src/lib.rs")).unwrap();
         wait_for(&rx, "src/lib.rs");
+    }
+
+    #[test]
+    fn un_dossier_suivi_signale_ses_nouvelles_entrees() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = Project::open(dir.path()).unwrap();
+        let session = project.session(UserId::local());
+        let (tx, rx) = mpsc::channel();
+        let watcher = project
+            .watch(move |paths| {
+                let _ = tx.send(paths);
+            })
+            .unwrap();
+        watcher.track_dir(&session, &RelPath::root()).unwrap();
+        fs::write(dir.path().join("nouveau.txt"), "x").unwrap();
+        wait_for(&rx, "nouveau.txt");
+        fs::create_dir(dir.path().join("dossier")).unwrap();
+        wait_for(&rx, "dossier");
     }
 }

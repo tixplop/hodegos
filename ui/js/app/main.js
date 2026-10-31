@@ -245,6 +245,11 @@ function onPush(message) {
     showMessage(`Évaluation du ${LEVEL_NAMES[level]} terminée : ${passed ? 'retenu' : 'sous le seuil'}.`);
     return;
   }
+  if (message.type === 'dir') {
+    // Entrées d'un dossier affiché changées sur le disque (terminal, autre outil).
+    tree.refresh();
+    return;
+  }
   if (message.type === 'git_status') {
     gitStatus = message.payload;
     tree.setGit(gitStatus);
