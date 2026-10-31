@@ -274,8 +274,10 @@ export function createTree(root, { list, create, onOpen, onCreated, onDelete, on
 
   function endEdit() {
     if (!editing) return;
-    editing.li?.remove();
+    // Retirer la ligne fait perdre le focus au champ : son blur rappelle endEdit.
+    const { li } = editing;
     editing = null;
+    li?.remove();
     if (refreshPending) refresh();
   }
 
