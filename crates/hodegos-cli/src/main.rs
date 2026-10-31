@@ -1,7 +1,7 @@
 //! Binaire `hodegos` : lance l'IDE sur un projet et affiche l'URL d'accès ;
 //! crée un projet (`hodegos new <chemin>`), gère les mentors (`hodegos mentors
 //! list`, `hodegos mentors eject <id>`) et évalue les mentors avec les vrais modèles
-//! (`hodegos eval evals/`).
+//! (`hodegos eval`, sur les cas intégrés ou ceux d'un dossier).
 
 mod eval;
 mod new;
@@ -63,9 +63,8 @@ enum Command {
     },
     /// Rejoue les cas d'évaluation avec les vrais modèles (consomme du budget).
     Eval {
-        /// Dossier des cas : evals/ du dépôt Hodegos.
-        #[arg(default_value = "evals")]
-        dir: PathBuf,
+        /// Dossier des cas (evals/ du dépôt Hodegos) ; par défaut, les cas intégrés.
+        dir: Option<PathBuf>,
         /// Seulement les cas dont le nom contient ce texte.
         #[arg(long = "case")]
         only: Option<String>,
@@ -81,7 +80,8 @@ enum Command {
         /// Dépense maximale de l'évaluation, en dollars.
         #[arg(long, default_value_t = 3.0)]
         max_cost: f64,
-        /// Dossier des rapports (par défaut <dir>/reports).
+        /// Dossier des rapports (par défaut <dir>/reports, ou ~/.local/share/hodegos/evals
+        /// pour les cas intégrés).
         #[arg(long)]
         out: Option<PathBuf>,
     },

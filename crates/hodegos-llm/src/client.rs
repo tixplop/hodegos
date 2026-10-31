@@ -38,12 +38,28 @@ pub struct LlmRequest {
     pub schema: serde_json::Value,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/// Jetons d'un ou plusieurs appels : base des estimations de coût.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Tokens {
+    pub prompt: u64,
+    pub completion: u64,
+}
+
+impl Tokens {
+    pub fn add(&mut self, other: Tokens) {
+        self.prompt += other.prompt;
+        self.completion += other.completion;
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct LlmResponse {
     /// Contenu brut renvoyé par le modèle, censé être le JSON demandé.
     pub content: String,
     /// Coût de l'appel en dollars (crédits OpenRouter).
     pub cost_usd: f64,
+    /// Jetons facturés, s'ils sont annoncés (0 sinon).
+    pub tokens: Tokens,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]

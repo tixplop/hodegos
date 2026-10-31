@@ -47,6 +47,7 @@ fn answer(quote: &str, message: &str) -> Result<LlmResponse, LlmError> {
             "message": message, "confidence": 0.9 }] })
         .to_string(),
         cost_usd: 0.002,
+        ..Default::default()
     })
 }
 

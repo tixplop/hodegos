@@ -37,6 +37,7 @@ fn ok(content: Value, cost: f64) -> Result<LlmResponse, LlmError> {
     Ok(LlmResponse {
         content: content.to_string(),
         cost_usd: cost,
+        ..Default::default()
     })
 }
 

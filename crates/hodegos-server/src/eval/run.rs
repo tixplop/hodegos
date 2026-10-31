@@ -7,7 +7,7 @@ use std::time::Instant;
 use hodegos_core::secrets::exclusion;
 use hodegos_core::{changed_sections, sections};
 use hodegos_llm::{
-    AskError, ChatMessage, LlmClient, LlmRequest, RemarkKind, RemarkLevel, Role, Rules,
+    AskError, ChatMessage, LlmClient, LlmRequest, RemarkKind, RemarkLevel, Role, Rules, Tokens,
     ask_for_remarks, ask_for_reply, remarks_schema, reply_schema, validate, validate_replies,
 };
 use hodegos_mentors::{
@@ -120,6 +120,8 @@ pub struct CaseResult {
     /// Le cas n'a pas pu être joué (section introuvable, aucun mentor…).
     pub error: Option<String>,
     pub levels: Vec<LevelResult>,
+    /// Jetons de tous les appels du cas.
+    pub tokens: Tokens,
 }
 
 impl CaseResult {
@@ -194,6 +196,7 @@ pub async fn run_case(
         model: None,
         error: None,
         levels: Vec::new(),
+        tokens: Tokens::default(),
     };
     let fail = |mut result: CaseResult, message: String| {
         result.error = Some(message);

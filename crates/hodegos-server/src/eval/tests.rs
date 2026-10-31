@@ -2,13 +2,13 @@
 
 use std::path::Path;
 
-use hodegos_llm::{FakeLlmClient, LlmError, LlmResponse};
+use hodegos_llm::{FakeLlmClient, LlmError, LlmResponse, Tokens};
 use hodegos_mentors::{Level, MentorSources, Registry};
 use serde_json::{Value, json};
 
-use super::case::{Case, load_case, load_cases};
+use super::case::{Case, builtin_cases, load_case, load_cases};
 use super::run::{Models, Outcome, Spend, run_case};
-use super::write_report;
+use super::{Step, evaluate, models_report_path};
 
 const RESERVER: &str = "\
 import { Emprunt } from \"../modele\";
@@ -60,6 +60,10 @@ fn ok(content: Value) -> Result<LlmResponse, LlmError> {
     Ok(LlmResponse {
         content: content.to_string(),
         cost_usd: 0.01,
+        tokens: Tokens {
+            prompt: 1000,
+            completion: 100,
+        },
     })
 }
 
@@ -223,6 +227,39 @@ async fn une_panne_arrete_le_cas_sans_nouvelle_tentative() {
 }
 
 #[tokio::test]
+async fn l_evaluation_annonce_chaque_cas_et_compte_les_jetons() {
+    let fake = FakeLlmClient::new([remark("Regardez."), ok(json!({ "remarks": [] }))]);
+    let cases = [case(vec![Level::Indice]), case(vec![Level::Indice])];
+    let mut steps = Vec::new();
+    let results = evaluate(
+        &fake,
+        &registry(),
+        &models(),
+        &cases,
+        &mut spend(1.0),
+        |step| {
+            steps.push(match step {
+                Step::Start { index, .. } => format!("début {index}"),
+                Step::Done { results } => format!("fin {}", results.len()),
+            });
+        },
+    )
+    .await;
+    assert_eq!(steps, ["début 1", "fin 1", "début 2", "fin 2"]);
+    assert_eq!(
+        results[0].tokens,
+        Tokens {
+            prompt: 1000,
+            completion: 100
+        }
+    );
+    assert_eq!(
+        results[1].tokens.prompt, 1000,
+        "jetons par cas, pas cumulés"
+    );
+}
+
+#[tokio::test]
 async fn max_cost_arrete_l_evaluation() {
     let fake = FakeLlmClient::new([
         remark("Regardez."),
@@ -302,8 +339,9 @@ fn rapport_ecrit_sans_ecraser_celui_du_jour() {
         fast: Some("vendeur/Modèle-1".to_owned()),
         strong: Some("vendeur/Modèle-1".to_owned()),
     };
-    let first = write_report(dir.path(), &models, "a").unwrap();
-    let second = write_report(dir.path(), &models, "b").unwrap();
+    let first = models_report_path(dir.path(), &models).unwrap();
+    std::fs::write(&first, "a").unwrap();
+    let second = models_report_path(dir.path(), &models).unwrap();
     let name = first.file_name().unwrap().to_string_lossy().into_owned();
     assert!(name.ends_with("-vendeur-mod-le-1.md"), "{name}");
     assert_ne!(first, second);
@@ -317,6 +355,18 @@ fn les_cas_livres_sont_coherents() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals");
     let cases = load_cases(&root, None).unwrap();
     assert!(cases.len() >= 20, "{} cas seulement", cases.len());
+    // Les cas intégrés au binaire sont ceux du dépôt.
+    let builtin = builtin_cases(None).unwrap();
+    assert_eq!(
+        builtin
+            .iter()
+            .map(|c| (&c.name, &c.content))
+            .collect::<Vec<_>>(),
+        cases
+            .iter()
+            .map(|c| (&c.name, &c.content))
+            .collect::<Vec<_>>()
+    );
     let registry = registry();
     let mut languages = std::collections::BTreeSet::new();
     let mut mentors = std::collections::BTreeSet::new();

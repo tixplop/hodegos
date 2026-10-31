@@ -32,6 +32,7 @@ async fn reponses_enregistrees_au_palier_exemple() {
         let fake = FakeLlmClient::new([Ok(LlmResponse {
             content: fixture.response,
             cost_usd: 0.001,
+            ..Default::default()
         })]);
         let request = LlmRequest {
             model: "test/fort".to_owned(),

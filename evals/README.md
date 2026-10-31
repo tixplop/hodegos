@@ -4,6 +4,11 @@
 produit un rapport. Ce n'est pas un test automatique : il consomme du budget et
 se lance à la main (phase 6, puis à chaque changement de prompt ou de modèle).
 
+Les cas de `evals/cases/` sont intégrés au binaire (phase 8d, ADR 0007) :
+`hodegos eval` sans dossier les joue, et l'IDE aussi quand un modèle ou un effort
+change dans les réglages. `cargo test` vérifie qu'ils sont identiques à ceux du
+dépôt.
+
 ## Format d'un cas
 
 Un dossier par cas dans `evals/cases/`, contenant :
@@ -35,6 +40,7 @@ la section et le casting de chaque cas).
 
 ```sh
 cargo run --release -p hodegos-cli -- eval evals/
+cargo run --release -p hodegos-cli -- eval            # cas intégrés, rapport personnel
 cargo run --release -p hodegos-cli -- eval evals/ --fast fournisseur/modele-a --strong fournisseur/modele-b
 cargo run --release -p hodegos-cli -- eval evals/ --model fournisseur/modele-c --case adr --max-cost 1
 ```
@@ -69,14 +75,18 @@ Prompts, masquage des secrets, exclusions et validation sont ceux de l'IDE.
 
 ## Rapport
 
-Écrit dans `evals/reports/AAAA-MM-JJ-<modèles>.md` (ou `--out`), sans écraser un
-rapport du même jour, et résumé dans le terminal. Les rapports sont commités :
-le choix des modèles (ADR) s'appuie sur eux.
+Écrit dans `<dossier>/reports/AAAA-MM-JJ-<modèles>.md` (ou `--out`), sans écraser
+un rapport du même jour, et résumé dans le terminal. Les rapports de `evals/reports/`
+sont commités : le choix des modèles (ADR) s'appuie sur eux. Sans dossier, le
+rapport va dans `~/.local/share/hodegos/evals/`, jamais dans un projet.
+
+Le rapport est réécrit après chaque cas et marqué « Rapport partiel » jusqu'à la
+fin : une évaluation interrompue laisse ce qu'elle a joué.
 
 - Par modèle et par niveau : cas, notion émergée (un cas compte si un palier au
   moins la fait émerger), solution proposée (brouillons) et affichée, JSON
-  invalides, pannes, castings différents, coût, durées médiane et au 90ᵉ centile,
-  verdict.
+  invalides, pannes, castings différents, coût, jetons (entrée et sortie), durées
+  médiane et au 90ᵉ centile, verdict.
 - Par cas et par palier : issue, citations valides, palier respecté, notion,
   motifs `must_not` trouvés, coût, durée, puis chaque message proposé par le
   modèle, affiché ou écarté (avec le motif).

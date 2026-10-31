@@ -3,6 +3,7 @@
 
 use std::fmt::Write as _;
 
+use hodegos_llm::Tokens;
 use hodegos_mentors::{Level, ModelTier};
 
 use super::run::{CaseResult, Outcome, tier_name};
@@ -42,6 +43,7 @@ pub struct Summary {
     pub casting_mismatches: usize,
     pub incomplete: usize,
     pub cost_usd: f64,
+    pub tokens: Tokens,
     pub median_ms: u64,
     pub p90_ms: u64,
 }
@@ -105,6 +107,10 @@ pub fn summarize(results: &[CaseResult]) -> Vec<Summary> {
                 casting_mismatches: group.iter().filter(|r| !r.casting_ok()).count(),
                 incomplete: group.iter().filter(|r| !r.complete()).count(),
                 cost_usd: group.iter().map(|r| r.cost_usd()).sum(),
+                tokens: group.iter().fold(Tokens::default(), |mut sum, r| {
+                    sum.add(r.tokens);
+                    sum
+                }),
                 median_ms: percentile(&durations, 50),
                 p90_ms: percentile(&durations, 90),
             }
@@ -184,11 +190,22 @@ fn model_label(summary: &Summary) -> String {
     )
 }
 
-/// Rapport complet, en Markdown.
-pub fn markdown(when: &str, results: &[CaseResult], summaries: &[Summary]) -> String {
+/// Rapport complet, en Markdown ; `partial` : évaluation en cours ou interrompue.
+pub fn markdown(
+    when: &str,
+    results: &[CaseResult],
+    summaries: &[Summary],
+    partial: bool,
+) -> String {
     let mut out = String::new();
     let total: f64 = results.iter().map(CaseResult::cost_usd).sum();
     let _ = writeln!(out, "# Évaluation des mentors — {when}\n");
+    if partial {
+        let _ = writeln!(
+            out,
+            "**Rapport partiel** : l'évaluation est en cours ou a été interrompue.\n"
+        );
+    }
     let _ = writeln!(
         out,
         "{} cas, coût total {}. Un modèle est retenu s'il ne propose aucune solution \
@@ -202,16 +219,16 @@ pub fn markdown(when: &str, results: &[CaseResult], summaries: &[Summary]) -> St
     let _ = writeln!(out, "## Verdict par modèle\n");
     let _ = writeln!(
         out,
-        "| Niveau · modèle | Cas | Notion émergée | Solution (brouillons) | Solution (affichée) | JSON invalides | Pannes | Casting différent | Coût | Durée médiane | Durée p90 | Verdict |"
+        "| Niveau · modèle | Cas | Notion émergée | Solution (brouillons) | Solution (affichée) | JSON invalides | Pannes | Casting différent | Coût | Jetons (entrée / sortie) | Durée médiane | Durée p90 | Verdict |"
     );
     let _ = writeln!(
         out,
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     );
     for s in summaries {
         let _ = writeln!(
             out,
-            "| {} | {} | {}/{} ({}) | {} | {} | {} | {} | {} | {} | {} | {} | **{}** |",
+            "| {} | {} | {}/{} ({}) | {} | {} | {} | {} | {} | {} | {} / {} | {} | {} | **{}** |",
             model_label(s),
             s.cases,
             s.mentions,
@@ -223,6 +240,8 @@ pub fn markdown(when: &str, results: &[CaseResult], summaries: &[Summary]) -> St
             s.provider_errors,
             s.casting_mismatches,
             money(s.cost_usd),
+            s.tokens.prompt,
+            s.tokens.completion,
             seconds(s.median_ms),
             seconds(s.p90_ms),
             s.verdict().label()
@@ -373,6 +392,7 @@ mod tests {
             tier: Some(ModelTier::Fast),
             model: Some("test/rapide".to_owned()),
             error: None,
+            tokens: Tokens::default(),
             levels: vec![
                 level(Level::Indice, false, &[], 800),
                 level(Level::Question, mentions, leaks, 1200),
@@ -434,7 +454,7 @@ mod tests {
     fn rapport_markdown() {
         let mut results = vec![case("01-a", true, &[]), case("02-b", false, &["solution"])];
         results[1].mentor = Some("architecte".to_owned());
-        let text = markdown("2026-10-29 12:00", &results, &summarize(&results));
+        let text = markdown("2026-10-29 12:00", &results, &summarize(&results), false);
         assert!(text.starts_with("# Évaluation des mentors — 2026-10-29 12:00"));
         assert!(
             text.contains("| fast · test/rapide | 2 | 1/2 (50 %) | 1 | 0 |"),

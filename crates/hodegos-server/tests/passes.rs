@@ -50,6 +50,7 @@ fn answer(remarks: Vec<Value>, cost: f64) -> Result<LlmResponse, LlmError> {
     Ok(LlmResponse {
         content: json!({ "remarks": remarks }).to_string(),
         cost_usd: cost,
+        ..Default::default()
     })
 }
 
@@ -457,6 +458,7 @@ async fn deux_reponses_invalides_donnent_invalid_response() {
         Ok(LlmResponse {
             content: "pas du json".to_owned(),
             cost_usd: 0.001,
+            ..Default::default()
         })
     };
     let fake = Arc::new(FakeLlmClient::new([bad(), bad()]));

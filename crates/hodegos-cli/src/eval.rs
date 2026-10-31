@@ -1,27 +1,25 @@
-//! `hodegos eval evals/` : rejoue les cas avec les vrais modèles et écrit le rapport
+//! `hodegos eval [dossier]` : rejoue les cas avec les vrais modèles et écrit le rapport
 //! (format des cas et seuils dans `evals/README.md`). Manuel : consomme du budget.
-
-pub mod case;
-pub mod report;
-pub mod run;
+//! Sans dossier, les cas intégrés au binaire.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use hodegos_llm::{Budget, LlmClient, LlmConfig, OpenRouterClient, load_api_key};
+use hodegos_llm::{Budget, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry};
+use hodegos_server::eval::case::{builtin_cases, load_cases};
+use hodegos_server::eval::report::{self, Verdict, markdown, summarize, terminal};
+use hodegos_server::eval::run::{Models, Spend};
+use hodegos_server::eval::{Step, evaluate, models_report_path};
 use jiff::Timestamp;
-
-use self::case::{Case, load_cases};
-use self::report::{Verdict, markdown, summarize, terminal};
-use self::run::{CaseResult, Models, Spend, run_case};
 
 /// Options de `hodegos eval`.
 #[derive(Debug, Clone)]
 pub struct EvalArgs {
-    pub dir: PathBuf,
+    /// Dossier des cas ; `None` : cas intégrés.
+    pub dir: Option<PathBuf>,
     /// Garde les cas dont le nom contient ce texte.
     pub only: Option<String>,
     pub fast: Option<String>,
@@ -35,7 +33,10 @@ pub struct EvalArgs {
 
 /// Joue l'évaluation ; `Ok(true)` si chaque modèle évalué est retenu.
 pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyhow::Result<bool> {
-    let cases = load_cases(&args.dir, args.only.as_deref())?;
+    let cases = match &args.dir {
+        Some(dir) => load_cases(dir, args.only.as_deref())?,
+        None => builtin_cases(args.only.as_deref())?,
+    };
     let config = LlmConfig::load(config_dir).context("configuration invalide")?;
     let models = Models {
         fast: args
@@ -90,75 +91,43 @@ pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyh
         models.strong.as_deref().unwrap_or("—"),
         report::money(args.max_cost)
     );
+    let out_dir = match (&args.out, &args.dir) {
+        (Some(out), _) => out.clone(),
+        (None, Some(dir)) => dir.join("reports"),
+        (None, None) => data_dir.join("evals"),
+    };
+    let path = models_report_path(&out_dir, &models)
+        .with_context(|| format!("{} : dossier non créé", out_dir.display()))?;
+    let when = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M").to_string();
+    // Réécrit après chaque cas : un arrêt en cours laisse un rapport partiel.
+    let write = |results: &[_], partial: bool| {
+        let text = markdown(&when, results, &summarize(results), partial);
+        fs::write(&path, text).with_context(|| format!("{} : rapport non écrit", path.display()))
+    };
+    let mut written = Ok(());
     let results = evaluate(
         &client,
         &registry,
         &models,
         &cases,
         &mut spend,
-        |done, case| {
-            println!("  [{done}/{}] {}", cases.len(), case.name);
+        |step| match step {
+            Step::Start { index, case } => println!("  [{index}/{}] {}", cases.len(), case.name),
+            Step::Done { results } => {
+                if written.is_ok() {
+                    written = write(results, true);
+                }
+            }
         },
     )
     .await;
+    written?;
+    write(&results, false)?;
 
     let summaries = summarize(&results);
-    let when = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M").to_string();
-    let out_dir = args.out.clone().unwrap_or_else(|| args.dir.join("reports"));
-    let path = write_report(&out_dir, &models, &markdown(&when, &results, &summaries))?;
     println!();
     print!("{}", terminal(&results, &summaries));
     println!();
     println!("Rapport : {}", path.display());
     Ok(summaries.iter().all(|s| s.verdict() == Verdict::Retained))
 }
-
-/// Joue les cas un par un ; `progress` est appelé avant chaque cas.
-pub async fn evaluate(
-    client: &dyn LlmClient,
-    registry: &Registry,
-    models: &Models,
-    cases: &[Case],
-    spend: &mut Spend,
-    mut progress: impl FnMut(usize, &Case),
-) -> Vec<CaseResult> {
-    let mut results = Vec::new();
-    for (index, case) in cases.iter().enumerate() {
-        progress(index + 1, case);
-        results.push(run_case(client, registry, models, case, spend).await);
-    }
-    results
-}
-
-/// `<dossier>/AAAA-MM-JJ-<modèles>.md`, sans écraser un rapport du même jour.
-fn write_report(dir: &Path, models: &Models, text: &str) -> anyhow::Result<PathBuf> {
-    fs::create_dir_all(dir).with_context(|| format!("{} : dossier non créé", dir.display()))?;
-    let mut names: Vec<&str> = [models.fast.as_deref(), models.strong.as_deref()]
-        .into_iter()
-        .flatten()
-        .collect();
-    names.dedup();
-    let slug: String = names
-        .join("_")
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '.' {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let date = jiff::Zoned::now().strftime("%Y-%m-%d").to_string();
-    let mut path = dir.join(format!("{date}-{slug}.md"));
-    let mut n = 2;
-    while path.exists() {
-        path = dir.join(format!("{date}-{slug}-{n}.md"));
-        n += 1;
-    }
-    fs::write(&path, text).with_context(|| format!("{} : rapport non écrit", path.display()))?;
-    Ok(path)
-}
-
-#[cfg(test)]
-mod tests;

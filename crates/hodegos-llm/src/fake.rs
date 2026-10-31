@@ -27,6 +27,7 @@ impl FakeLlmClient {
             Ok(LlmResponse {
                 content: json.to_string(),
                 cost_usd,
+                ..Default::default()
             })
         }))
     }

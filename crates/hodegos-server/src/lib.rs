@@ -5,6 +5,7 @@
 
 mod assets;
 mod auth;
+pub mod eval;
 mod followup;
 mod git;
 mod guard;

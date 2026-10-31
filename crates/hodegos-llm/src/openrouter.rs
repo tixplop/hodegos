@@ -3,7 +3,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{ApiKey, BoxFuture, LlmClient, LlmError, LlmRequest, LlmResponse};
+use crate::{ApiKey, BoxFuture, LlmClient, LlmError, LlmRequest, LlmResponse, Tokens};
 
 /// Adresse de l'API OpenRouter.
 pub const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1";
@@ -34,6 +34,10 @@ struct Message {
 #[derive(Deserialize)]
 struct Usage {
     cost: Option<f64>,
+    #[serde(default)]
+    prompt_tokens: u64,
+    #[serde(default)]
+    completion_tokens: u64,
 }
 
 #[derive(Deserialize)]
@@ -106,11 +110,20 @@ impl OpenRouterClient {
             .next()
             .and_then(|c| c.message.content)
             .ok_or_else(|| LlmError::InvalidResponse("aucun contenu".to_owned()))?;
-        let cost_usd = completion
+        let usage = completion
             .usage
-            .and_then(|u| u.cost)
             .ok_or_else(|| LlmError::InvalidResponse("coût de l'appel absent".to_owned()))?;
-        Ok(LlmResponse { content, cost_usd })
+        let cost_usd = usage
+            .cost
+            .ok_or_else(|| LlmError::InvalidResponse("coût de l'appel absent".to_owned()))?;
+        Ok(LlmResponse {
+            content,
+            cost_usd,
+            tokens: Tokens {
+                prompt: usage.prompt_tokens,
+                completion: usage.completion_tokens,
+            },
+        })
     }
 }
 
@@ -205,7 +218,7 @@ mod tests {
     async fn envoie_le_schema_strict_et_lit_le_cout() {
         let body = json!({
             "choices": [{ "message": { "content": "{\"remarks\":[]}" } }],
-            "usage": { "cost": 0.0012, "prompt_tokens": 10 }
+            "usage": { "cost": 0.0012, "prompt_tokens": 10, "completion_tokens": 4 }
         });
         let (url, seen) = serve(StatusCode::OK, body, Duration::ZERO).await;
         let response = client(&url, Duration::from_secs(5))
@@ -214,6 +227,13 @@ mod tests {
             .unwrap();
         assert_eq!(response.content, "{\"remarks\":[]}");
         assert!((response.cost_usd - 0.0012).abs() < 1e-9);
+        assert_eq!(
+            response.tokens,
+            Tokens {
+                prompt: 10,
+                completion: 4
+            }
+        );
 
         let (headers, sent) = seen.lock().unwrap()[0].clone();
         assert_eq!(headers["authorization"], "Bearer sk-or-test");

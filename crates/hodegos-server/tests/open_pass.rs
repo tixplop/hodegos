@@ -52,6 +52,7 @@ fn answer(remarks: Vec<Value>) -> Result<LlmResponse, LlmError> {
     Ok(LlmResponse {
         content: json!({ "remarks": remarks }).to_string(),
         cost_usd: 0.001,
+        ..Default::default()
     })
 }
 

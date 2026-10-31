@@ -13,7 +13,9 @@ mod validate;
 
 pub use ask::{AskError, Asked, Replied, ask_for_remarks, ask_for_reply};
 pub use budget::{Budget, BudgetLevel, BudgetState, month_of};
-pub use client::{BoxFuture, ChatMessage, LlmClient, LlmError, LlmRequest, LlmResponse, Role};
+pub use client::{
+    BoxFuture, ChatMessage, LlmClient, LlmError, LlmRequest, LlmResponse, Role, Tokens,
+};
 pub use config::{ApiKey, BudgetConfig, ConfigError, LlmConfig, load_api_key};
 pub use fake::FakeLlmClient;
 pub use openrouter::OpenRouterClient;

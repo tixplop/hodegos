@@ -1,12 +1,20 @@
 //! Cas d'évaluation : un dossier par cas sous `evals/cases/`, avec le fichier source
-//! à son chemin réel et `case.toml` (format dans `evals/README.md`).
+//! à son chemin réel et `case.toml` (format dans `evals/README.md`). Les cas du dépôt
+//! sont intégrés au binaire : l'IDE et `hodegos eval` sans argument les jouent.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use hodegos_core::{Language, RelPath};
 use hodegos_mentors::Level;
+use rust_embed::Embed;
 use serde::Deserialize;
+
+/// Cas livrés, intégrés au binaire.
+#[derive(Embed)]
+#[folder = "../../evals/cases"]
+struct Builtin;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CaseError {
@@ -82,16 +90,49 @@ pub fn load_cases(root: &Path, only: Option<&str>) -> Result<Vec<Case>, CaseErro
     Ok(cases)
 }
 
+/// Cas intégrés au binaire, par ordre de nom ; `only` comme pour [`load_cases`].
+pub fn builtin_cases(only: Option<&str>) -> Result<Vec<Case>, CaseError> {
+    let names: BTreeSet<String> = Builtin::iter()
+        .filter_map(|path| path.strip_suffix("/case.toml").map(str::to_owned))
+        .filter(|name| only.is_none_or(|only| name.contains(only)))
+        .collect();
+    let cases = names
+        .iter()
+        .map(|name| {
+            parse_case(name, &Path::new("cas intégrés").join(name), |rel| {
+                let file =
+                    Builtin::get(&format!("{name}/{rel}")).ok_or_else(|| "absent".to_owned())?;
+                String::from_utf8(file.data.into_owned()).map_err(|e| e.to_string())
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if cases.is_empty() {
+        return Err(CaseError::Empty(PathBuf::from("cas intégrés")));
+    }
+    Ok(cases)
+}
+
 pub fn load_case(dir: &Path) -> Result<Case, CaseError> {
-    let invalid = |message: String| CaseError::Invalid(dir.to_path_buf(), message);
-    let text = fs::read_to_string(dir.join("case.toml"))
-        .map_err(|e| CaseError::Read(dir.to_path_buf(), e.to_string()))?;
+    parse_case(&dir_name(dir), dir, |rel| {
+        fs::read_to_string(dir.join(rel)).map_err(|e| e.to_string())
+    })
+}
+
+/// Lit le cas `name` ; `read` donne un fichier du cas par son chemin relatif, `origin`
+/// le désigne dans les erreurs.
+fn parse_case(
+    name: &str,
+    origin: &Path,
+    read: impl Fn(&str) -> Result<String, String>,
+) -> Result<Case, CaseError> {
+    let invalid = |message: String| CaseError::Invalid(origin.to_path_buf(), message);
+    let text = read("case.toml").map_err(|e| CaseError::Read(origin.to_path_buf(), e))?;
     let file: CaseFile =
-        toml::from_str(&text).map_err(|e| CaseError::Read(dir.to_path_buf(), e.to_string()))?;
+        toml::from_str(&text).map_err(|e| CaseError::Read(origin.to_path_buf(), e.to_string()))?;
 
     let rel = RelPath::parse(&file.file).map_err(|e| invalid(format!("file : {e}")))?;
-    let content = fs::read_to_string(dir.join(rel.as_str()))
-        .map_err(|e| invalid(format!("fichier {} illisible : {e}", rel)))?;
+    let content =
+        read(rel.as_str()).map_err(|e| invalid(format!("fichier {} illisible : {e}", rel)))?;
     let levels = file
         .levels
         .iter()
@@ -120,7 +161,7 @@ pub fn load_case(dir: &Path) -> Result<Case, CaseError> {
         return Err(invalid("expect.must_not est vide".to_owned()));
     }
     Ok(Case {
-        name: dir_name(dir),
+        name: name.to_owned(),
         title: file.title,
         language: Language::of(rel.as_str()),
         file: rel.to_string(),

@@ -154,6 +154,7 @@ mod tests {
         Ok(LlmResponse {
             content: content.to_owned(),
             cost_usd: cost,
+            ..Default::default()
         })
     }
 
