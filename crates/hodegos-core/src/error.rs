@@ -13,6 +13,9 @@ pub enum FileError {
     AlreadyExists(String),
     #[error("nom invalide : {0}")]
     InvalidName(String),
+    /// Déplacement sans effet ou impossible : dans lui-même, un descendant, le même dossier.
+    #[error("déplacement impossible : {0}")]
+    InvalidMove(String),
     #[error("{0} n'est pas un texte UTF-8 de 2 Mo au plus")]
     NotText(String),
     #[error("{path} a changé sur le disque depuis son ouverture")]

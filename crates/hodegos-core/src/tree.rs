@@ -55,6 +55,53 @@ impl Project {
         });
         Ok(entries)
     }
+
+    /// Dossiers du projet, racine non comprise, au plus `limit` : sans `.git`, sans ce
+    /// que `.gitignore` exclut, sans suivre ni lister les liens symboliques. Parcours en
+    /// profondeur, dans l'ordre de l'arbre. Le booléen dit si la liste a été coupée.
+    pub fn list_all_dirs(
+        &self,
+        session: &Session,
+        limit: usize,
+    ) -> Result<(Vec<RelPath>, bool), FileError> {
+        self.check(session)?;
+        let mut dirs = Vec::new();
+        let truncated = self.walk_dirs(&RelPath::root(), limit, &mut dirs)?;
+        Ok((dirs, truncated))
+    }
+
+    fn walk_dirs(
+        &self,
+        rel: &RelPath,
+        limit: usize,
+        dirs: &mut Vec<RelPath>,
+    ) -> Result<bool, FileError> {
+        let rules = IgnoreRules::for_dir(self.root(), rel);
+        let read = fs::read_dir(self.lexical(rel)).map_err(|e| FileError::io(rel.as_str(), e))?;
+        let mut names: Vec<String> = read
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_ok_and(|t| t.is_dir()))
+            .filter(|entry| !rules.is_ignored(&entry.path(), true))
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| name != ".git")
+            .collect();
+        names.sort_by(|a, b| {
+            a.to_lowercase()
+                .cmp(&b.to_lowercase())
+                .then_with(|| a.cmp(b))
+        });
+        for name in names {
+            if dirs.len() == limit {
+                return Ok(true);
+            }
+            let child = rel.join(&name);
+            dirs.push(child.clone());
+            if self.walk_dirs(&child, limit, dirs)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 #[cfg(test)]
@@ -103,6 +150,33 @@ mod tests {
         write(root, "alpha.txt", "x");
         let project = Project::open(root).unwrap();
         (dir, project)
+    }
+
+    #[test]
+    fn liste_tous_les_dossiers_sans_les_ignores_ni_les_liens() {
+        let (dir, project) = sample();
+        std::os::unix::fs::symlink(dir.path().join("docs"), dir.path().join("lien")).unwrap();
+        fs::create_dir(dir.path().join("Beta")).unwrap();
+        let session = project.session(UserId::local());
+        let list = |limit| {
+            let (dirs, truncated) = project.list_all_dirs(&session, limit).unwrap();
+            let dirs: Vec<String> = dirs.iter().map(ToString::to_string).collect();
+            (dirs, truncated)
+        };
+        assert_eq!(
+            list(100),
+            (
+                vec![
+                    "Beta".into(),
+                    "docs".into(),
+                    "docs/adr".into(),
+                    "src".into()
+                ],
+                false
+            )
+        );
+        assert_eq!(list(2), (vec!["Beta".into(), "docs".into()], true));
+        assert!(!list(4).1);
     }
 
     #[test]

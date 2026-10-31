@@ -20,7 +20,7 @@ mod watch;
 
 pub use comments::{strip_html_comments, strip_html_comments_in_diff};
 pub use diff::{SectionChange, changed_sections};
-pub use entries::{DeletePlan, DeletedFile};
+pub use entries::{DeletePlan, DeletedFile, MovePlan, MovedFile};
 pub use error::FileError;
 pub use files::{MAX_TEXT_BYTES, TextFile, Version};
 pub use git::{GitEntry, GitFileStatus, GitRepo, GitStatus, GitWatcher, parse_porcelain_v2};
