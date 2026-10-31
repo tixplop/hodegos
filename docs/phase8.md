@@ -177,6 +177,13 @@ Front uniquement, sans nouvelle bibliothèque : l'arbre syntaxique de
   - cases `- [ ]` / `- [x]` en cases à cocher ; cocher modifie le texte
     (`[x]`), comme une frappe ;
   - commentaires HTML masqués ;
+  - tableaux GFM rendus comme en lecture (en-tête, bordures, alignement lu dans
+    la ligne de délimitation `:--`, `:-:`, `--:`, défilement horizontal d'un
+    tableau large) tant que la sélection ne touche aucune de leurs lignes ; dès
+    que le curseur y entre, tout le tableau montre sa source. Un clic place le
+    curseur dans la cellule visée, les flèches haut et bas entrent dans le
+    tableau au lieu de le sauter ; un passage cité par une remarque dans le
+    tableau garde la source et son surlignage ;
   - toute ligne qui touche la sélection ou le curseur montre sa syntaxe brute.
 - **Lecture** : document non éditable, construit en éléments DOM à partir de
   l'arbre (jamais `innerHTML`). Le HTML brut du document s'affiche comme du
@@ -521,6 +528,9 @@ Pour chaque sous-phase : `cargo test --workspace`, clippy et fmt propres,
 - [ ] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien
   relatif ouvre un onglet ; CSP inchangée, aucune erreur dans la console.
 - [ ] Ancres des remarques visibles dans les trois modes.
+- [ ] Tableaux rendus en aperçu (alignement, tableau large) ; source dès que la
+  sélection y entre, au clavier comme à la souris ; une remarque ancrée dans
+  une cellule garde la source.
 
 **8d**
 - [ ] Modèle et effort modifiables ; un modèle sans sorties structurées est

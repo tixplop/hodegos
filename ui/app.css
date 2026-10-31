@@ -101,8 +101,13 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-read__html { color: var(--ink-muted); }
 .app-read__image { font-style: italic; color: var(--ink-muted); }
 .app-read__internal { cursor: pointer; }
-.app-read__table { border-collapse: collapse; }
-.app-read__table th, .app-read__table td { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); text-align: left; }
+/* Mêmes règles dans le thème de l'aperçu en direct (md-live.js), qui vit dans l'ombre de l'éditeur. */
+.app-read__table-wrap { max-width: 100%; overflow-x: auto; }
+.app-read__table { border-collapse: collapse; overflow-wrap: normal; }
+.app-read__table th, .app-read__table td { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); text-align: left; vertical-align: top; }
+.app-read__table th { font-weight: 600; background: var(--surface-50); }
+.app-read__table .app-read__cell--center { text-align: center; }
+.app-read__table .app-read__cell--right { text-align: right; }
 
 /* Réglages (phase 8d) : l'écran remplace l'IDE, maquette 08-4. */
 .app-columns[hidden] { display: none; }

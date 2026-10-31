@@ -63,12 +63,10 @@ function slug(text) {
 }
 
 /**
- * Construit la lecture d'un document. `segments` reçoit chaque nœud texte copié tel quel
- * de la source, avec sa position, pour y poser les ancres des remarques.
+ * Rendu du contenu en ligne d'un document. `segments` reçoit chaque nœud texte copié tel
+ * quel de la source, avec sa position, pour y poser les ancres des remarques.
  */
-function build(state, docPath, segments, onLink) {
-  const { doc } = state;
-  const tree = ensureSyntaxTree(state, doc.length, PARSE_BUDGET_MS) ?? syntaxTree(state);
+function inlineRenderer(doc, docPath, segments, onLink) {
   const slice = (from, to) => doc.sliceString(from, to);
 
   const text = (parent, from, to) => {
@@ -186,6 +184,79 @@ function build(state, docPath, segments, onLink) {
     }
   };
 
+  return { text, inline };
+}
+
+/** Alignement de chaque colonne, lu dans la ligne de délimitation (`:--`, `:-:`, `--:`). */
+function alignments(delimiter) {
+  return delimiter.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((spec) => {
+    const cell = spec.trim();
+    if (cell.startsWith(':') && cell.endsWith(':') && cell.length > 1) return 'center';
+    if (cell.endsWith(':')) return 'right';
+    if (cell.startsWith(':')) return 'left';
+    return null;
+  });
+}
+
+/**
+ * Tableau GFM : cellules rangées par colonne d'après les `|` (une cellule vide n'a pas de
+ * nœud), comblées ou tronquées au nombre de colonnes de la ligne de délimitation.
+ */
+function table(node, doc, inline) {
+  const delimiter = node.getChildren('TableDelimiter')[0];
+  const aligns = delimiter ? alignments(doc.sliceString(delimiter.from, delimiter.to)) : [];
+  const wrap = element('div', 'app-read__table-wrap');
+  const out = element('table', 'app-read__table');
+  const body = element('tbody');
+  for (let row = node.firstChild; row; row = row.nextSibling) {
+    if (row.name !== 'TableHeader' && row.name !== 'TableRow') continue;
+    const header = row.name === 'TableHeader';
+    const cells = [];
+    let column = row.firstChild?.name === 'TableDelimiter' ? -1 : 0;
+    for (let child = row.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'TableDelimiter') column += 1;
+      else if (child.name === 'TableCell') cells[column] = child;
+    }
+    const count = aligns.length || cells.length;
+    const tr = element('tr');
+    for (let index = 0; index < count; index += 1) {
+      const td = element(header ? 'th' : 'td', aligns[index] ? `app-read__cell--${aligns[index]}` : '');
+      const cell = cells[index];
+      if (cell) {
+        td.dataset.from = String(cell.from);
+        inline(td, cell);
+      }
+      tr.append(td);
+    }
+    if (header) {
+      const head = element('thead');
+      head.append(tr);
+      out.append(head);
+    } else {
+      body.append(tr);
+    }
+  }
+  out.append(body);
+  wrap.append(out);
+  return wrap;
+}
+
+/**
+ * Tableau GFM `node` de `state` rendu comme en lecture, pour l'aperçu en direct. Chaque
+ * cellule porte sa position source dans `data-from`.
+ */
+export function renderTable(state, node, docPath, onLink) {
+  const { inline } = inlineRenderer(state.doc, docPath, [], onLink);
+  return table(node, state.doc, inline);
+}
+
+/** Construit la lecture d'un document ; `segments` comme pour `inlineRenderer`. */
+function build(state, docPath, segments, onLink) {
+  const { doc } = state;
+  const tree = ensureSyntaxTree(state, doc.length, PARSE_BUDGET_MS) ?? syntaxTree(state);
+  const slice = (from, to) => doc.sliceString(from, to);
+  const { text, inline } = inlineRenderer(doc, docPath, segments, onLink);
+
   const blocks = (parent, node) => {
     for (let child = node.firstChild; child; child = child.nextSibling) {
       const rendered = block(child);
@@ -272,28 +343,8 @@ function build(state, docPath, segments, onLink) {
         out.append(content);
         return located(out, node);
       }
-      case 'Table': {
-        const table = element('table', 'app-read__table');
-        const body = element('tbody');
-        for (let row = node.firstChild; row; row = row.nextSibling) {
-          if (row.name !== 'TableHeader' && row.name !== 'TableRow') continue;
-          const tr = element('tr');
-          for (const cell of row.getChildren('TableCell')) {
-            const td = element(row.name === 'TableHeader' ? 'th' : 'td');
-            inline(td, cell);
-            tr.append(td);
-          }
-          if (row.name === 'TableHeader') {
-            const head = element('thead');
-            head.append(tr);
-            table.append(head);
-          } else {
-            body.append(tr);
-          }
-        }
-        table.append(body);
-        return located(table, node);
-      }
+      case 'Table':
+        return located(table(node, doc, inline), node);
       case 'CommentBlock':
       case 'LinkReference':
         return null;

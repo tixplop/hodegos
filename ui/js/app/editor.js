@@ -165,9 +165,11 @@ function anchorRanges(state) {
   return ranges;
 }
 
+/** Chemin du document dans le projet, posé à la création de l'état d'un onglet. */
+const pathField = StateField.define({ create: () => '', update: (path) => path });
+
 /** Aperçu en direct du Markdown : présent ou non dans l'état, sans toucher à l'historique. */
 const previewSlot = new Compartment();
-const preview = livePreview(anchorRanges);
 
 /**
  * Position d'une citation dans le document : l'occurrence la plus proche de `lineHint`.
@@ -258,12 +260,14 @@ export function createTextEditor(parent, { onChange, label }) {
  *
  * Chaque onglet garde son propre état (document, historique, sélection).
  * `onChange()` à chaque modification, `onCursor({ line, col })` à chaque déplacement,
- * `onAnchor(remarkId)` au clic sur un passage cité.
+ * `onAnchor(remarkId)` au clic sur un passage cité, `onLink(path)` au clic sur un lien
+ * relatif d'un tableau en aperçu.
  * Ctrl+S est géré par la page, pour fonctionner aussi hors de l'éditeur.
  */
-export function createEditor(parent, { onChange, onCursor, onAnchor }) {
+export function createEditor(parent, { onChange, onCursor, onAnchor, onLink }) {
   const root = parent.attachShadow({ mode: 'open' });
   const view = new EditorView({ parent: root, root });
+  const preview = livePreview({ anchorRanges, docPath: (state) => state.field(pathField, false) ?? '', onLink });
 
   function createState(doc, language, path) {
     return EditorState.create({
@@ -291,6 +295,7 @@ export function createEditor(parent, { onChange, onCursor, onAnchor }) {
         ]),
         theme,
         anchorsField,
+        pathField.init(() => path),
         previewSlot.of([]),
         EditorView.domEventHandlers({
           click(event) {

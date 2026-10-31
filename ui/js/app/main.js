@@ -109,6 +109,7 @@ const editor = createEditor(ui.editor, {
     scheduleCursor(line, col);
   },
   onAnchor: (id) => selectRemark(id, false),
+  onLink: openFile,
 });
 const reader = createReader(ui.reading, {
   onLink: openFile,

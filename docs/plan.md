@@ -186,6 +186,8 @@ navigateur Windows le 31 octobre 2026.
 - [x] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien relatif ouvre un
   onglet ; CSP inchangée, aucune erreur dans la console
 - [x] Ancres des remarques visibles dans les trois modes
+- [ ] Tableaux rendus en aperçu (alignement, tableau large) ; source dès que la sélection y entre,
+  au clavier comme à la souris ; une remarque ancrée dans une cellule garde la source
 
 Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
 (Playwright, faux fournisseur local) dans les deux thèmes, sur la vision d'un projet créé par
