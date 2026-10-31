@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Empaquette CodeMirror 6 dans ui/vendor/codemirror.js et copie les polices dans ui/fonts/.
+# Empaquette CodeMirror 6 dans ui/vendor/codemirror.js, xterm.js dans ui/vendor/xterm.js
+# (terminal, phase 8f) et copie les polices dans ui/fonts/.
 # C'est la seule étape npm du projet. Les fichiers produits sont commités :
 # cargo build n'a jamais besoin de npm. Versions figées dans scripts/vendor/package-lock.json.
 set -euo pipefail
@@ -14,12 +15,17 @@ npm ci --ignore-scripts --no-audit --no-fund
 
 mkdir -p "$vendor" "$fonts"
 meta="$(mktemp)"
-trap 'rm -f "$meta"' EXIT
+meta_xterm="$(mktemp)"
+trap 'rm -f "$meta" "$meta_xterm"' EXIT
 ./node_modules/.bin/esbuild entry.js \
   --bundle --format=esm --minify --target=es2020 \
   --legal-comments=none --metafile="$meta" \
   --outfile="$vendor/codemirror.js"
-node licenses.mjs "$meta" "$vendor/LICENSES.md"
+./node_modules/.bin/esbuild xterm-entry.js \
+  --bundle --format=esm --minify --target=es2020 --loader:.css=text \
+  --legal-comments=none --metafile="$meta_xterm" \
+  --outfile="$vendor/xterm.js"
+node licenses.mjs "$vendor/LICENSES.md" "$meta" "$meta_xterm"
 
 for weight in 400 500 600 700; do
   cp "node_modules/@fontsource/inter/files/inter-latin-$weight-normal.woff2" "$fonts/"
@@ -30,4 +36,4 @@ done
 cp node_modules/@fontsource/inter/LICENSE "$fonts/LICENSE-inter.txt"
 cp node_modules/@fontsource/jetbrains-mono/LICENSE "$fonts/LICENSE-jetbrains-mono.txt"
 
-echo "Écrit : ui/vendor/codemirror.js, ui/vendor/LICENSES.md, ui/fonts/"
+echo "Écrit : ui/vendor/codemirror.js, ui/vendor/xterm.js, ui/vendor/LICENSES.md, ui/fonts/"

@@ -31,7 +31,7 @@ Lire avant toute tâche :
 - tokio, axum, notify, similar, tree-sitter, reqwest, serde, tracing, rust-embed.
 - Gabarit de vision : templates/vision.md, intégré au binaire par include_str!.
 - Front : ui/ en HTML, CSS, JS sans framework ni étape de build ;
-  CodeMirror 6 pré-empaqueté dans ui/vendor/ par scripts/vendor-codemirror.sh,
+  CodeMirror 6 et xterm.js pré-empaquetés dans ui/vendor/ par scripts/vendor-codemirror.sh,
   qui copie aussi les polices dans ui/fonts/ (c'est la seule étape npm du projet).
 - Design system Hodegos : ui/styles/tokens.css, ui/styles/components.css (classes hd-*),
   ui/js/hodegos.js (utilitaires). Ne pas réinventer de composants qui existent.

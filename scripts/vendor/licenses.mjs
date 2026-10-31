@@ -1,15 +1,17 @@
-// Écrit ui/vendor/LICENSES.md : la licence de chaque paquet inclus dans le paquet esbuild.
-// Usage : node licenses.mjs <metafile.json> <sortie.md>
+// Écrit ui/vendor/LICENSES.md : la licence de chaque paquet inclus dans les paquets esbuild.
+// Usage : node licenses.mjs <sortie.md> <metafile.json>…
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const [metafile, output] = process.argv.slice(2);
-const meta = JSON.parse(readFileSync(metafile, 'utf8'));
+const [output, ...metafiles] = process.argv.slice(2);
 
 const packages = new Set();
-for (const input of Object.keys(meta.inputs)) {
-  const match = input.match(/node_modules\/((?:@[^/]+\/)?[^/]+)\//);
-  if (match) packages.add(match[1]);
+for (const metafile of metafiles) {
+  const meta = JSON.parse(readFileSync(metafile, 'utf8'));
+  for (const input of Object.keys(meta.inputs)) {
+    const match = input.match(/node_modules\/((?:@[^/]+\/)?[^/]+)\//);
+    if (match) packages.add(match[1]);
+  }
 }
 
 const sections = [...packages].sort().map((name) => {
@@ -22,5 +24,5 @@ const sections = [...packages].sort().map((name) => {
 
 writeFileSync(
   output,
-  `# Licences de ui/vendor/codemirror.js\n\nFichier généré par scripts/vendor-codemirror.sh, ne pas modifier.\n\n${sections.join('\n\n')}\n`,
+  `# Licences de ui/vendor/codemirror.js et ui/vendor/xterm.js\n\nFichier généré par scripts/vendor-codemirror.sh, ne pas modifier.\n\n${sections.join('\n\n')}\n`,
 );
