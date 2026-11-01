@@ -216,73 +216,18 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-project__preview-head { justify-content: space-between; }
 .app-project__preview-head h2 { margin: 0; }
 .app-project__text-preview { margin: 0; padding: 14px 16px; max-height: 70vh; overflow: auto; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-lg); font-family: var(--font-mono); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-ligatures: none; }
-.app-mentors__list-head { justify-content: space-between; }
-.app-mentors__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.app-mentors__item { width: 100%; padding: 10px 12px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.app-mentors__item:hover { background: var(--surface-50); }
-.app-mentors__item--error { border-color: var(--danger); }
-.app-mentors__item-head { gap: var(--space-2); flex-wrap: nowrap; }
-.app-mentors__badge { margin-left: auto; }
-.app-mentors__meta, .app-mentors__legend, .app-mentors__hint, .app-mentors__note { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
-.app-mentors__legend { margin: 8px 0 0; }
-.app-mentors__error, .app-mentors__field-error { font-size: 12px; line-height: 16px; color: var(--danger); }
-.app-mentors { padding: 20px 28px; gap: 16px; overflow: auto; min-width: 0; }
-.app-mentors__head { align-items: flex-start; flex-wrap: wrap; }
-.app-mentors__titles { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.app-mentors__where { font-size: 13px; color: var(--ink-muted); overflow-wrap: anywhere; }
-.app-mentors__actions { margin-left: auto; }
-.app-mentors__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
-.app-mentors__grid .app-settings__field--wide { grid-column: span 2; }
-.app-mentors__field .hd-input { flex: none; }
-.app-mentors__hint { margin: 0; align-self: end; }
-.app-mentors__triggers { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px; }
-.app-mentors__triggers legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
-.app-mentors__tags { gap: 6px; }
-.app-mentors__tags-label { width: 90px; flex: none; }
-.app-mentors__tag { display: inline-flex; align-items: center; gap: 2px; }
-.app-mentors__tag--error { outline: 1px solid var(--danger); }
-.app-mentors__remove { border: 0; padding: 0 2px; background: none; color: inherit; font: inherit; cursor: pointer; }
-.app-mentors__add { flex: 0 1 200px; height: 32px; font-size: 13px; }
-.app-mentors__none { font-size: 13px; }
-.app-mentors__check { gap: 8px; font-size: 13px; }
-.app-mentors__posture { display: flex; flex-direction: column; gap: 6px; }
-.app-mentors__editor { height: 260px; display: flex; flex-direction: column; border: 1px solid var(--border-control); border-radius: var(--radius-md); overflow: hidden; }
-.app-mentors__errors { margin: 0; padding-left: 18px; }
-.app-mentors__prompt { margin: 0; max-height: 320px; overflow: auto; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-0); border: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; line-height: 18px; white-space: pre-wrap; }
-.app-mentors__footer { justify-content: flex-end; }
-.app-mentors__footer .app-mentors__note { margin-right: auto; }
-
-/* Terminal (phase 8f), maquette 08-6 : panneau sous l'éditeur. */
-.app-term__handle { flex: none; height: 6px; cursor: row-resize; background: var(--surface-50); border-top: 1px solid var(--border-control); }
-.app-term__handle:hover, .app-term__handle:focus-visible { background: var(--accent-soft); outline: none; }
-.app-term__handle[hidden], .app-term[hidden] { display: none; }
-.app-term { flex: none; height: 40%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-0); }
-/* Même hauteur que la barre d'onglets des fichiers pour que les deux s'alignent. */
-.app-term__bar { flex: none; display: flex; align-items: center; gap: var(--space-1); height: 32px; padding: 0 8px; box-shadow: inset 0 -1px 0 var(--border); }
-.app-term__tabs { display: flex; align-self: stretch; gap: var(--space-1); min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-.app-term__tab { flex: none; font-family: var(--font-mono); font-size: 13px; }
-.app-term__bar .hd-btn { height: 24px; }
-.app-term__bar .app-icon-btn { width: 24px; }
-.app-term__note { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 12px; color: var(--ink-muted); }
-.app-term__message { flex: none; margin: var(--space-2) var(--space-3); color: var(--danger); font-size: 13px; }
-.app-term__message[hidden] { display: none; }
-.app-term__views { flex: 1 1 auto; min-height: 0; position: relative; }
-.app-term__view { position: absolute; inset: 0; }
-.app-term__view[hidden] { display: none; }
-
-/* Écran étroit : les colonnes passent les unes sous les autres. */
-@media (max-width: 720px) {
-  body.hd-app { height: auto; min-height: 100vh; overflow: visible; }
-  .app-columns { flex-wrap: wrap; }
-  .app-sidebar, .app-panel { max-width: none; }
-  .app-files { flex: 1 1 220px; }
-  .app-files__handle { display: none; }
-  .app-editor, .app-read { min-height: 60vh; }
-  .app-read__doc { padding: var(--space-4); }
-  .app-modes__hint { display: none; }
-  .app-settings__nav { max-width: none; flex: 1 1 100%; }
-  .app-settings, .app-mentors { padding: var(--space-4); }
-  .app-project__body { padding: var(--space-4); }
-  .app-mentors__list { flex: 1 1 100%; border-right: 0; }
-  .app-mentors__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.app-project__column { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--space-4); max-width: 900px; }
+.app-project__column[hidden], .app-project__body[hidden] { display: none; }
+.app-project__filters { gap: 0; }
+.app-project__filters[hidden] { display: none; }
+.app-project__list { display: flex; flex-direction: column; gap: var(--space-3); }
+.app-project__remark { gap: var(--space-2); }
+.app-project__quotes { font-size: 12px; line-height: 18px; }
+.app-project__aside { max-width: 340px; flex: 0 1 320px; }
+.app-project__aside-body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
+.app-project__aside-body h2 { margin: 0; }
+.app-project__mentors { display: flex; flex-direction: column; gap: var(--space-3); }
+.app-project__choice { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; border: 0; }
+.app-project__check { gap: var(--space-2); flex-wrap: nowrap; font-size: 14px; }
+.app-project__estimate { font-weight: 600; }
+.app-project__tabs .hd-count[hidden] { display: none; }

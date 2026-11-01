@@ -339,9 +339,25 @@ Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9c — Mentors de projet et vue Projet
 
-- [ ] Un mentor personnel `scopes: [section, project]` fonctionne dans les deux portées
-- [ ] « Demander une revue… » annonce coût et durée, puis produit des remarques qui citent plusieurs
+- [x] Un mentor personnel `scopes: [section, project]` fonctionne dans les deux portées
+  (mentors `mentor` et `casting` : portées, bloc `project`, `{scope}`, formulaire, casting sans
+  les mentors de projet seuls ; `crates/hodegos-server/tests/review.rs` : passe de section puis
+  revue du même mentor)
+- [x] « Demander une revue… » annonce coût et durée, puis produit des remarques qui citent plusieurs
   fichiers ; paliers, réponse et fermeture fonctionnent dans la vue Projet
+  (core `map::review` : fichiers clés, instantané, diff ; llm `project` : citations sur plusieurs
+  fichiers, garde sur chaque section citée ; `tests/review.rs` : estimation par le prix puis par
+  la revue précédente, carte, fichiers clés, diff à la deuxième revue, remarques ouvertes
+  rappelées, paliers, réponse, fermeture, budget, panne, revue caduque, redémarrage)
+
+Vérification de l'interface, le 1er novembre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, faux fournisseur et faux catalogue locaux) dans les deux thèmes, avec un mentor du
+dépôt `scopes: [section, project]` : onglets Remarques, Carte et Historique, panneau des mentors
+de projet, « Demander une revue… » avec mentor à cocher, contenu envoyé, jetons, coût et durée
+estimés et budget restant, revue lancée (fichiers clés envoyés en entier), deux remarques dont
+une étape suivante, citations qui ouvrent le fichier à la ligne, palier suivant, réponse puis
+relance du mentor, « Contexte de cette passe », « Résolu » qui retire la remarque, historique
+avec coût et durée, aucune erreur dans la console.
 
 ### 9d — Revues automatiques, ancres, réévaluation
 

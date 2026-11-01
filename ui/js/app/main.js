@@ -10,6 +10,7 @@ import { icon } from './icons.js';
 import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
 import { createProjectView } from './project.js';
+import { createProjectRemarks } from './project-remarks.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
 import { chooseDestination } from './move.js';
@@ -141,7 +142,20 @@ ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden)
 const projectView = createProjectView(ui.project, {
   request: (type, payload) => server.request(type, payload),
 });
+const projectRemarks = createProjectRemarks(ui.project, {
+  request: (type, payload) => server.request(type, payload),
+  onOpenAt: (path, line) => {
+    showProject(false);
+    openFile(path, line);
+  },
+  onShowMap: () => showProjectTab('carte'),
+  mentorName: (id) => mentorNames.get(id) ?? id,
+  onCount: () => {},
+});
 ui.openProject.addEventListener('click', () => showProject(ui.project.hidden));
+for (const tab of ui.project.querySelectorAll('[role="tab"]')) {
+  tab.addEventListener('click', () => showProjectTab(tab.dataset.tab));
+}
 const terminalPanel = createTerminalPanel({
   section: $('terminal'),
   handle: $('terminal-poignee'),
@@ -233,6 +247,11 @@ function onPush(message) {
     if (path === currentPath) renderRemarksPanel();
     return;
   }
+  // Remarque de projet (phase 9c) : la vue Projet la tient à jour.
+  if (message.type === 'remark_update' && message.payload.scope === 'project') {
+    projectRemarks.remarkUpdated(message.payload);
+    return;
+  }
   if (message.type === 'remark_update') {
     const remark = message.payload;
     if (awaitingRelaunch.delete(remark.id)) {
@@ -257,9 +276,22 @@ function onPush(message) {
     return;
   }
   if (message.type === 'map_updated') {
-    projectView.updated(!ui.project.hidden);
+    projectView.updated(!ui.project.hidden && projectTab === 'carte');
     return;
   }
+  if (message.type === 'review_started') {
+    projectRemarks.reviewStarted(message.payload);
+    return;
+  }
+  if (message.type === 'review_done') {
+    projectRemarks.reviewDone(message.payload);
+    return;
+  }
+  if (message.type === 'project_remarks') {
+    projectRemarks.remarksArrived(message.payload.items);
+    return;
+  }
+
   if (message.type === 'eval_progress') {
     settings.progress(message.payload);
     renderEvaluation(null, message.payload);
@@ -310,7 +342,21 @@ function backToIde() {
   if (!ui.project.hidden) showProject(false);
 }
 
-/** La vue Projet remplace l'IDE, comme les réglages (phase 9a : onglet Carte du projet). */
+/** Onglet de la vue Projet : `remarques`, `carte` ou `historique`. */
+let projectTab = 'remarques';
+
+function showProjectTab(name) {
+  projectTab = name;
+  for (const tab of ui.project.querySelectorAll('[role="tab"]')) {
+    const selected = tab.dataset.tab === name;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    $(tab.getAttribute('aria-controls')).hidden = !selected;
+  }
+  if (name === 'carte') projectView.load();
+}
+
+/** La vue Projet remplace l'IDE, comme les réglages : remarques, carte et historique. */
 function showProject(open) {
   if (open && !ui.settings.hidden) showSettings(false);
   ui.ide.hidden = open;
@@ -318,10 +364,11 @@ function showProject(open) {
   ui.openProject.setAttribute('aria-expanded', String(open));
   ui.openProject.textContent = open ? 'Revenir à l\'éditeur' : 'Projet';
   if (open) {
-    projectView.load();
+    projectRemarks.load();
+    showProjectTab(projectTab);
     ui.path.textContent = 'Projet';
     document.title = 'Projet — Hodegos';
-    $('projet-onglet-carte').focus();
+    ui.project.querySelector('[role="tab"][aria-selected="true"]')?.focus();
   } else {
     render();
     if (currentPath && !isReading()) editor.focus();
@@ -739,7 +786,10 @@ function renderRemarksPanel() {
     onReply: (remark, text) => sendReply(remark, text),
     onDismiss: (remark, reason) => dismissRemark(remark, reason),
     onOpenAt: (path, line) => openFile(path, line),
-    onShowMap: () => showProject(true),
+    onShowMap: () => {
+      showProject(true);
+      showProjectTab('carte');
+    },
   });
   if (!currentPath) return;
   const anchors = items

@@ -174,9 +174,30 @@
 <div id="projet" class="hd-columns app-columns" hidden>
 <main class="hd-main app-project">
 <div class="hd-tabs app-project__tabs" role="tablist" aria-label="Vue projet">
-<button id="projet-onglet-carte" class="hd-tab" type="button" role="tab" aria-selected="true" aria-controls="projet-carte">Carte du projet</button>
+<button id="projet-onglet-remarques" class="hd-tab" type="button" role="tab" aria-selected="true" aria-controls="projet-remarques" data-tab="remarques">Remarques <span id="projet-compte" class="hd-count" hidden></span></button>
+<button id="projet-onglet-carte" class="hd-tab" type="button" role="tab" aria-selected="false" aria-controls="projet-carte" data-tab="carte">Carte du projet</button>
+<button id="projet-onglet-historique" class="hd-tab" type="button" role="tab" aria-selected="false" aria-controls="projet-historique" data-tab="historique">Historique des revues</button>
 </div>
-<div id="projet-carte" class="app-project__body" role="tabpanel" aria-labelledby="projet-onglet-carte">
+<section id="projet-remarques" class="app-project__body app-project__column" role="tabpanel" aria-labelledby="projet-onglet-remarques">
+<div class="app-settings__intro">
+<h1 class="app-settings__h1">Remarques sur le projet</h1>
+<p class="hd-muted app-settings__lead">Ce que les mentors de projet voient en regardant l'ensemble : cohérence entre fichiers, décisions et vision. Mêmes paliers et même règle qu'ailleurs : ils posent des questions, ils n'écrivent pas à votre place.</p>
+</div>
+<div id="projet-filtres" class="hd-row app-project__filters" role="group" aria-label="Filtrer par mentor"></div>
+<div id="projet-liste" class="app-project__list" aria-live="polite"></div>
+</section>
+<section id="projet-historique" class="app-project__body app-project__column" role="tabpanel" aria-labelledby="projet-onglet-historique" hidden>
+<div class="app-settings__intro">
+<h1 class="app-settings__h1">Historique des revues</h1>
+<p class="hd-muted app-settings__lead">Chaque revue, ce qu'elle a coûté et ce qu'elle a produit.</p>
+</div>
+<table class="app-project__blocks">
+<thead><tr><th scope="col">Date</th><th scope="col">Déclencheur</th><th scope="col">Mentors</th><th scope="col" class="app-project__num">Coût</th><th scope="col" class="app-project__num">Durée</th></tr></thead>
+<tbody id="projet-revues"></tbody>
+</table>
+<p id="projet-revues-vide" class="hd-muted app-project__note" hidden>Aucune revue pour l'instant.</p>
+</section>
+<div id="projet-carte" class="app-project__body" role="tabpanel" aria-labelledby="projet-onglet-carte" hidden>
 <section class="app-project__main" aria-labelledby="carte-titre">
 <div class="app-settings__intro">
 <h1 id="carte-titre" class="app-settings__h1">Ce que savent les mentors</h1>
@@ -211,6 +232,14 @@
 </section>
 </div>
 </main>
+<aside class="hd-panel app-panel app-project__aside" aria-labelledby="projet-mentors-titre">
+<div class="app-project__aside-body">
+<h2 id="projet-mentors-titre" class="hd-nav__label">Mentors de projet</h2>
+<div id="projet-mentors" class="app-project__mentors"></div>
+<button id="projet-demander" class="hd-btn hd-btn--primary" type="button">Demander une revue…</button>
+<p class="app-project__note">Une revue demandée annonce son coût et sa durée estimés avant de partir ; elle compte dans le budget du mois.</p>
+</div>
+</aside>
 </div>
 <footer class="hd-statusbar">
 <span id="position" class="hd-mono"></span>

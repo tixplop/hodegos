@@ -406,6 +406,35 @@ outcomes, cost, duration_ms }` ; `project_remarks_get` → `project_remarks
 { items }` ; `reviews_get` → `reviews { items }` ; `remark_update` porte aussi
 les remarques de projet.
 
+### Précisions retenues à l'implémentation de 9c (1er novembre 2026)
+
+- Réponses aux points du plan : en 9c, les remarques de projet ne s'affichent que
+  dans la vue Projet (fichier, repère « P », compteur et vérification des ancres en
+  9d) ; un mentor `[project]` seul n'entre ni dans le casting ni dans
+  « Disponibles » ; l'estimation part de la dernière revue aboutie du mentor (coût
+  ramené aux jetons du prompt), sinon du prix du catalogue (800 jetons de réponse
+  supposés, 20 s), sinon « coût inconnu » ; l'instantané n'est noté qu'après une
+  revue aboutie.
+- `scopes` vaut `[section]` par défaut ; le bloc `project` vaut `max_remarks: 3`,
+  `triggers: [create, open, change]` et aucun fichier clé (la carte seule) par
+  défaut ; il n'est écrit par le formulaire qu'avec la portée `project`.
+- Prompt d'une revue : le cadre commun, sa règle de citation remplacée par celle
+  d'une revue (« champ quotes, pris dans les textes reçus »), puis un complément de
+  revue ; la suite d'une remarque de projet reçoit un complément propre et le cadre
+  « Suite d'une remarque ». Aucun n'est modifiable par un fichier de mentor ;
+  `{scope}` vaut `projet` dans la posture.
+- Une citation qui figure dans la carte (une décision d'ADR, par exemple) compte
+  comme envoyée ; une remarque `passage` doit proposer et garder exactement une
+  citation.
+- Les fichiers clés sont pris parmi ceux de la carte (mêmes exclusions) ; les plus
+  récemment modifiés restent entiers. L'instantané couvre tous les fichiers de la
+  carte, masqués ; s'il n'a rien changé depuis la revue précédente, le mentor le
+  lit (« aucun changement depuis votre dernière revue »).
+- `[context] key_files_cap` : de 2 000 à 32 000 jetons, 12 000 par défaut.
+- Protocole : `remark_update` porte l'une ou l'autre sorte de remarque ; la liste
+  des mentors de projet passe par `reviews` (et `mentors` porte `scopes`) plutôt
+  que par `MentorRef`.
+
 ## 9d — Revues automatiques, ancres, réévaluation (UC-9.5, UC-9.7, UC-9.12 à UC-9.14)
 
 ### Déclencheurs

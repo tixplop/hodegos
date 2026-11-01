@@ -114,7 +114,7 @@ const expanded = new Set();
 const number = new Intl.NumberFormat('fr-FR');
 
 /** « Contexte de cette passe » : ce qui est parti, bloc par bloc, sans les contenus. */
-function passContext(remark, { onShowMap }) {
+export function passContext(remark, { onShowMap }) {
   const details = document.createElement('details');
   details.className = 'app-remark__context';
   details.open = expanded.has(remark.id);
@@ -152,7 +152,7 @@ function passContext(remark, { onShowMap }) {
 }
 
 /** Paliers d'aide : ceux déjà donnés, le palier courant, ceux qui restent. */
-function stepper(remark) {
+export function stepper(remark) {
   const list = document.createElement('ol');
   list.className = 'hd-stepper';
   list.setAttribute('aria-label', "Paliers d'aide");
@@ -177,7 +177,7 @@ function stepper(remark) {
   return list;
 }
 
-function threadEntry(entry) {
+export function threadEntry(entry) {
   if (entry.author === 'user') {
     const message = document.createElement('p');
     message.className = 'hd-msg hd-msg--reply app-remark__text';
@@ -250,11 +250,13 @@ function where(remark, located, detached, { onSelect }) {
   return row;
 }
 
-function actions(remark, active, waiting, { onHint, onCompose, onDismiss, composing }) {
+export function actions(remark, active, waiting, { onHint, onCompose, onDismiss, composing }) {
   const row = document.createElement('div');
   row.className = 'hd-row app-remark__actions';
   if (active) {
-    const next = window.Hodegos.nextHint(remark.level);
+    // Une remarque de projet sans passage cité s'arrête à la piste (garde « pas de solution »).
+    const uncited = remark.scope === 'project' && !remark.anchors.length && remark.level === 'piste';
+    const next = uncited ? null : window.Hodegos.nextHint(remark.level);
     // Au dernier palier, le bouton disparaît.
     if (next) {
       const hint = smallButton('Palier suivant', 'secondary', () => onHint(remark));
@@ -276,7 +278,7 @@ function actions(remark, active, waiting, { onHint, onCompose, onDismiss, compos
   return row;
 }
 
-function composer(remark, waiting, { mentorName, drafts, onDraft, onReply }) {
+export function composer(remark, waiting, { mentorName, drafts, onDraft, onReply }) {
   const form = document.createElement('form');
   form.className = 'hd-composer';
   const id = `reponse-${remark.id}`;
