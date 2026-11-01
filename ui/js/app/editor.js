@@ -63,6 +63,8 @@ const highlight = HighlightStyle.define([
   { tag: [t.string, t.special(t.string), t.regexp, t.character, t.monospace], color: 'var(--syntax-string)' },
   { tag: [t.number, t.bool, t.null, t.atom, t.escape], color: 'var(--syntax-number)' },
   { tag: [t.comment, t.lineComment, t.blockComment, t.docComment, t.meta], color: 'var(--syntax-comment)', fontStyle: 'italic' },
+  // Marques du Markdown (`#`, `*`, `|` d'un tableau…) : droites, l'italique les rend illisibles.
+  { tag: t.processingInstruction, color: 'var(--syntax-comment)' },
   { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: 'var(--syntax-type)' },
   { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: 'var(--syntax-function)' },
   { tag: t.heading, fontWeight: '700' },
@@ -146,23 +148,23 @@ function anchorDecorations(anchors) {
 
 /** Les ancres suivent le texte pendant la frappe, jusqu'au prochain remplacement. */
 const anchorsField = StateField.define({
-  create: () => Decoration.none,
-  update(decorations, tr) {
+  create: () => [],
+  update(anchors, tr) {
     for (const effect of tr.effects) {
-      if (effect.is(setAnchors)) return anchorDecorations(effect.value);
+      if (effect.is(setAnchors)) return effect.value;
     }
-    return decorations.map(tr.changes);
+    if (!tr.docChanged) return anchors;
+    return anchors.map((anchor) => {
+      const from = tr.changes.mapPos(anchor.from, 1);
+      return { ...anchor, from, to: Math.max(from, tr.changes.mapPos(anchor.to, -1)) };
+    });
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: (field) => EditorView.decorations.from(field, anchorDecorations),
 });
 
-/** Passages cités affichés, dont les marqueurs (`from === to`). */
+/** Ancres affichées (`[{ id, number, from, to, active }]`) ; `from === to` : marqueur seul. */
 function anchorRanges(state) {
-  const ranges = [];
-  state.field(anchorsField, false)?.between(0, state.doc.length, (from, to) => {
-    ranges.push({ from, to });
-  });
-  return ranges;
+  return state.field(anchorsField, false) ?? [];
 }
 
 /** Nouveau chemin du document : son fichier a été déplacé depuis l'arbre. */
@@ -273,7 +275,7 @@ export function createTextEditor(parent, { onChange, label }) {
 export function createEditor(parent, { onChange, onCursor, onAnchor, onLink }) {
   const root = parent.attachShadow({ mode: 'open' });
   const view = new EditorView({ parent: root, root });
-  const preview = livePreview({ anchorRanges, docPath: (state) => state.field(pathField, false) ?? '', onLink });
+  const preview = livePreview({ anchorRanges, docPath: (state) => state.field(pathField, false) ?? '', onLink, onAnchor });
 
   function createState(doc, language, path) {
     return EditorState.create({

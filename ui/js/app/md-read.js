@@ -243,11 +243,29 @@ function table(node, doc, inline) {
 
 /**
  * Tableau GFM `node` de `state` rendu comme en lecture, pour l'aperçu en direct. Chaque
- * cellule porte sa position source dans `data-from`.
+ * cellule porte sa position source dans `data-from`. Les `anchors` (`[{ id, number, from,
+ * to, active }]`) sont surlignées cellule par cellule avec les classes de l'éditeur.
  */
-export function renderTable(state, node, docPath, onLink) {
-  const { inline } = inlineRenderer(state.doc, docPath, [], onLink);
-  return table(node, state.doc, inline);
+export function renderTable(state, node, docPath, onLink, anchors = []) {
+  const segments = [];
+  const { inline } = inlineRenderer(state.doc, docPath, segments, onLink);
+  const out = table(node, state.doc, inline);
+  for (const anchor of anchors) {
+    const last = wrapRange(segments, anchor.from, anchor.to, () => {
+      const mark = element('span', anchor.active ? 'app-anchor app-anchor--active' : 'app-anchor');
+      mark.dataset.remark = anchor.id;
+      return mark;
+    });
+    const badge = marker(anchor.number, anchor.active, 'app-marker');
+    if (last) {
+      last.after(badge);
+    } else {
+      // Passage caché (marques) : marqueur en fin de cellule.
+      const cells = [...out.querySelectorAll('[data-from]')].filter((c) => Number(c.dataset.from) <= anchor.from);
+      (cells.pop() ?? out).append(badge);
+    }
+  }
+  return out;
 }
 
 /** Construit la lecture d'un document ; `segments` comme pour `inlineRenderer`. */
@@ -399,8 +417,8 @@ function wrapRange(segments, from, to, wrap) {
   return last;
 }
 
-function marker(number, active) {
-  const span = element('span', active ? 'hd-marker hd-marker--active' : 'hd-marker');
+function marker(number, active, base = 'hd-marker') {
+  const span = element('span', active ? `${base} ${base}--active` : base);
   span.setAttribute('aria-hidden', 'true');
   span.textContent = String(number);
   return span;

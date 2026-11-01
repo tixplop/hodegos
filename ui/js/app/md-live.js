@@ -78,21 +78,27 @@ class TaskWidget extends WidgetType {
 }
 
 /**
- * Tableau GFM rendu comme en lecture. Un clic place le curseur au début de la cellule visée
- * (ou du tableau) et le tableau montre sa source ; un clic sur un lien l'ouvre.
+ * Tableau GFM rendu comme en lecture, avec les passages cités de ses cellules. Un clic place
+ * le curseur au début de la cellule visée (ou du tableau) et le tableau montre sa source ; un
+ * clic sur un lien l'ouvre, sur un passage cité met sa remarque en avant.
  */
 class TableWidget extends WidgetType {
-  /** `origin` : position source du début du tableau, à laquelle `render()` rapporte ses cellules. */
-  constructor(source, path, origin, render) {
+  /**
+   * `origin` : position source du début du tableau, à laquelle `render()` rapporte ses cellules ;
+   * `anchors` : clé des passages cités rendus, `onAnchor(remarkId)` au clic sur l'un d'eux.
+   */
+  constructor(source, path, origin, render, anchors, onAnchor) {
     super();
     this.source = source;
     this.path = path;
     this.origin = origin;
     this.render = render;
+    this.anchors = anchors;
+    this.onAnchor = onAnchor;
   }
 
   eq(other) {
-    return other.source === this.source && other.path === this.path;
+    return other.source === this.source && other.path === this.path && other.anchors === this.anchors;
   }
 
   toDOM(view) {
@@ -105,6 +111,11 @@ class TableWidget extends WidgetType {
       if (event.button !== 0 || (event.target === wrap && event.offsetY >= wrap.clientHeight)) return;
       event.preventDefault();
       if (event.target.closest?.('a')) return;
+      const remark = event.target.closest?.('[data-remark]');
+      if (remark) {
+        this.onAnchor(remark.dataset.remark);
+        return;
+      }
       const cell = event.target.closest?.('[data-from]');
       const start = view.posAtDOM(wrap);
       const pos = cell ? start + Number(cell.dataset.from) - origin : start;
@@ -134,12 +145,19 @@ function pinned(anchors, from, to) {
   return anchors.some((a) => a.to > a.from && a.from >= from && a.to <= to);
 }
 
-/** Lignes d'un tableau, rendu sauf si la sélection ou un passage cité (ou son marqueur) y touche. */
+/**
+ * Lignes d'un tableau et passages cités qu'il contient. Rendu sauf si la sélection y touche,
+ * ou un passage cité (ou son marqueur seul) qui n'a de texte dans aucune cellule.
+ */
 function tableLines(state, anchors, node) {
   const from = state.doc.lineAt(node.from).from;
   const to = state.doc.lineAt(node.to).to;
-  const shown = !touches(state, from, to) && !anchors.some((a) => a.from <= to && a.to >= from);
-  return { from, to, shown };
+  const cells = [];
+  for (let row = node.node.firstChild; row; row = row.nextSibling) cells.push(...row.getChildren('TableCell'));
+  const inside = anchors.filter((a) => a.from <= to && a.to >= from);
+  const fits = (a) => a.to > a.from && cells.some((cell) => a.from < cell.to && a.to > cell.from);
+  const shown = !touches(state, from, to) && inside.every(fits);
+  return { from, to, shown, anchors: inside };
 }
 
 function inlineDecorations(view, anchorRanges) {
@@ -270,7 +288,7 @@ function inlineDecorations(view, anchorRanges) {
  * du gabarit de vision), masqués, et tableaux, rendus. Un plugin ne peut pas remplacer un
  * saut de ligne, d'où un champ d'état.
  */
-function hiddenBlocks(state, { anchorRanges, docPath, onLink }) {
+function hiddenBlocks(state, { anchorRanges, docPath, onLink, onAnchor }) {
   const anchors = anchorRanges(state);
   const ranges = [];
   syntaxTree(state).iterate({
@@ -284,12 +302,14 @@ function hiddenBlocks(state, { anchorRanges, docPath, onLink }) {
         return false;
       }
       if (node.name === 'Table') {
-        const { from, to, shown } = tableLines(state, anchors, node);
+        const { from, to, shown, anchors: cited } = tableLines(state, anchors, node);
         if (shown) {
           const table = node.node;
           const path = docPath(state);
-          const render = () => renderTable(state, table, path, onLink);
-          const widget = new TableWidget(state.doc.sliceString(from, to), path, from, render);
+          const render = () => renderTable(state, table, path, onLink, cited);
+          // Positions relatives au tableau : la clé ne change pas quand on écrit au-dessus.
+          const key = JSON.stringify(cited.map((a) => [a.id, a.number, a.active, a.from - from, a.to - from]));
+          const widget = new TableWidget(state.doc.sliceString(from, to), path, from, render, key, onAnchor);
           ranges.push(Decoration.replace({ block: true, widget }).range(from, to));
         }
         return false;
@@ -329,7 +349,8 @@ const theme = EditorView.theme({
   '&.app-md-live': { fontSize: '15px' },
   '&.app-md-live .cm-scroller': { fontFamily: 'var(--font-sans)', fontVariantLigatures: 'normal', fontFeatureSettings: 'normal', lineHeight: '24px' },
   '&.app-md-live .cm-gutters': { display: 'none' },
-  '&.app-md-live .cm-content': { boxSizing: 'border-box', maxWidth: '820px', padding: '28px 56px 24px' },
+  // `minWidth` : un tableau large défile dans son cadre au lieu d'élargir le texte.
+  '&.app-md-live .cm-content': { boxSizing: 'border-box', minWidth: '0', maxWidth: '820px', padding: '28px 56px 24px' },
   // Ligne active : le liseré de la gouttière, masquée en aperçu, passe sur la ligne.
   '&.app-md-live .cm-activeLine': { boxShadow: 'inset 3px 0 0 var(--accent)' },
   '.app-md-h1': { fontSize: '28px', lineHeight: '34px', fontWeight: '700' },
@@ -345,7 +366,7 @@ const theme = EditorView.theme({
   '.app-md-task': { margin: '0 6px 0 0', verticalAlign: 'middle', accentColor: 'var(--accent)', cursor: 'pointer' },
   '.app-md-hr': { display: 'inline-block', width: '100%', verticalAlign: 'middle', borderTop: '1px solid var(--border-control)' },
   // Règles de `.app-read__table` (app.css), que l'ombre de l'éditeur ne reçoit pas.
-  '.app-md-table': { padding: '4px 0', whiteSpace: 'normal', cursor: 'text' },
+  '.app-md-table': { padding: '4px 0', whiteSpace: 'normal', wordBreak: 'normal', cursor: 'text' },
   '.app-read__table-wrap': { maxWidth: '100%', overflowX: 'auto' },
   '.app-read__table': { borderCollapse: 'collapse', overflowWrap: 'normal' },
   '.app-read__table th, .app-read__table td': { padding: 'var(--space-1) var(--space-3)', border: '1px solid var(--border)', textAlign: 'left', verticalAlign: 'top' },
@@ -360,11 +381,12 @@ const theme = EditorView.theme({
 
 /**
  * Extension de l'aperçu. `anchorRanges(state)` renvoie les passages cités affichés
- * (`[{ from, to }]`) : ils ne disparaissent pas dans une marque masquée. `docPath(state)`
+ * (`[{ id, number, from, to, active }]`) : ils ne disparaissent pas dans une marque masquée. `docPath(state)`
  * donne le chemin du document, pour les liens relatifs des tableaux ; `onLink(path)` ouvre
- * un fichier du projet, comme en lecture.
+ * un fichier du projet, comme en lecture ; `onAnchor(remarkId)` au clic sur un passage cité
+ * d'un tableau rendu.
  */
-export function livePreview({ anchorRanges, docPath, onLink }) {
+export function livePreview({ anchorRanges, docPath, onLink, onAnchor }) {
   const plugin = ViewPlugin.fromClass(class {
     constructor(view) {
       this.decorations = inlineDecorations(view, anchorRanges);
@@ -379,7 +401,7 @@ export function livePreview({ anchorRanges, docPath, onLink }) {
     }
   }, { decorations: (value) => value.decorations });
 
-  const options = { anchorRanges, docPath, onLink };
+  const options = { anchorRanges, docPath, onLink, onAnchor };
   const blocks = StateField.define({
     create: (state) => hiddenBlocks(state, options),
     update(value, tr) {
@@ -397,5 +419,6 @@ export function livePreview({ anchorRanges, docPath, onLink }) {
     { key: 'ArrowUp', run: stepIntoBlock(blocks, -1) },
   ]));
 
-  return [EditorView.editorAttributes.of({ class: 'app-md-live' }), theme, plugin, blocks, arrows];
+  // Lignes coupées à la largeur visible : sans cela, un tableau large élargit tout le texte.
+  return [EditorView.editorAttributes.of({ class: 'app-md-live' }), EditorView.lineWrapping, theme, plugin, blocks, arrows];
 }

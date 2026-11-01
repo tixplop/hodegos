@@ -185,7 +185,7 @@ Front uniquement, sans nouvelle bibliothèque : l'arbre syntaxique de
     que le curseur y entre, tout le tableau montre sa source. Un clic place le
     curseur dans la cellule visée, les flèches haut et bas entrent dans le
     tableau au lieu de le sauter ; un passage cité par une remarque dans le
-    tableau garde la source et son surlignage ;
+    tableau reste rendu, surligné dans sa cellule avec son marqueur ;
   - toute ligne qui touche la sélection ou le curseur montre sa syntaxe brute.
 - **Lecture** : document non éditable, construit en éléments DOM à partir de
   l'arbre (jamais `innerHTML`). Le HTML brut du document s'affiche comme du
@@ -214,6 +214,14 @@ Précisions retenues à l'implémentation (31 octobre 2026) :
   chevauche du gras est surlignée par morceaux. En aperçu, une marque masquée
   est coupée au marqueur qui tomberait dedans ; un passage entièrement caché
   (dans un commentaire) fait réapparaître sa syntaxe.
+- Tableaux en aperçu (vérification du 1er novembre 2026) : le texte de l'aperçu
+  revient à la ligne à la largeur visible, et un tableau large défile dans son
+  cadre au lieu d'élargir l'éditeur. Un passage cité dans un tableau est
+  surligné cellule par cellule, comme en lecture (une citation qui couvre une
+  ligne entière l'est dans chaque cellule) ; un clic dessus met sa remarque en
+  avant sans passer en source. Seul un passage sans texte dans aucune cellule
+  garde la source. Les marques du Markdown (`#`, `*`, `|`…) ne sont plus en
+  italique, en source comme en aperçu.
 - Liens en lecture : `http`, `https` et `mailto` dans un nouvel onglet
   (`noopener noreferrer`) ; un chemin relatif, résolu depuis le dossier du
   document sans `#…`, ouvre un onglet de l'IDE ; `#ancre` mène au titre ; tout
@@ -600,7 +608,7 @@ Pour chaque sous-phase : `cargo test --workspace`, clippy et fmt propres,
 - [ ] Ancres des remarques visibles dans les trois modes.
 - [ ] Tableaux rendus en aperçu (alignement, tableau large) ; source dès que la
   sélection y entre, au clavier comme à la souris ; une remarque ancrée dans
-  une cellule garde la source.
+  une cellule reste rendue, surlignée dans sa cellule.
 
 **8d**
 - [ ] Modèle et effort modifiables ; un modèle sans sorties structurées est

@@ -187,8 +187,9 @@ navigateur Windows le 31 octobre 2026.
 - [x] Lecture sans `innerHTML` : du HTML brut s'affiche comme du texte ; un lien relatif ouvre un
   onglet ; CSP inchangée, aucune erreur dans la console
 - [x] Ancres des remarques visibles dans les trois modes
-- [ ] Tableaux rendus en aperçu (alignement, tableau large) ; source dès que la sélection y entre,
-  au clavier comme à la souris ; une remarque ancrée dans une cellule garde la source
+- [x] Tableaux rendus en aperçu (alignement, tableau large) ; source dès que la sélection y entre,
+  au clavier comme à la souris ; une remarque ancrée dans une cellule reste rendue, surlignée
+  dans sa cellule
 
 Vérification de l'interface, le 31 octobre 2026, par un parcours scripté dans Chromium sans écran
 (Playwright, faux fournisseur local) dans les deux thèmes, sur la vision d'un projet créé par
@@ -199,6 +200,16 @@ annulée par Ctrl+Z, ancres et marqueurs dans les trois modes, aucun élément `
 attribut `style` ou `onclick` en lecture, lien relatif ouvert dans un onglet, double-clic vers
 l'aperçu, aucune erreur dans la console. `tests/ui.rs` refuse `innerHTML` dans le front. Confirmé
 à la main dans le navigateur Windows le 31 octobre 2026.
+
+Tableaux vérifiés le 1er novembre 2026 par un parcours scripté dans Chromium sans écran (Playwright,
+projet local, remarques posées dans une cellule et sur deux cellules) dans les deux thèmes :
+alignement gauche, centre et droite, cellule vide à sa place, tableau large qui défile dans son
+cadre sans élargir l'éditeur (le texte de l'aperçu revient désormais à la ligne), flèches haut et
+bas qui entrent dans le tableau et le montrent en source, clic qui place le curseur dans la
+cellule visée, passages cités surlignés dans leurs cellules avec leur marqueur, clic sur un
+passage qui met sa remarque en avant sans quitter le rendu, `|` droits en source, ancres
+inchangées en source, aucune erreur dans la console. Confirmé à la main dans le navigateur Windows
+le 1er novembre 2026.
 
 ### 8d — Réglages : modèles, effort, clé, budget
 
