@@ -5,7 +5,7 @@ use std::fmt;
 
 use hodegos_core::map::{BlockId, MapBlock};
 use hodegos_llm::Effort;
-use hodegos_mentors::{ContextScope, FieldError, MentorForm, Mode, ModelTier, Origin};
+use hodegos_mentors::{ContextScope, FieldError, MentorForm, Mode, ModelTier, Origin, Scope};
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -213,6 +213,18 @@ pub enum ClientMessage {
         disabled_blocks: Vec<BlockId>,
         exclude: Vec<String>,
     },
+    /// Coût et durée estimés d'une revue (phase 9c).
+    ReviewEstimate {
+        mentor_ids: Vec<String>,
+    },
+    /// Revue demandée par ces mentors de projet.
+    ReviewRequest {
+        mentor_ids: Vec<String>,
+        #[serde(default)]
+        confirm_over_budget: bool,
+    },
+    ProjectRemarksGet,
+    ReviewsGet,
 }
 
 /// Texte confidentiel (clé d'API) : masqué par `Debug`.
@@ -310,7 +322,8 @@ pub enum ServerMessage {
     },
     /// Remarque complète après un palier suivant, une réponse, une fermeture ou un
     /// détachement.
-    RemarkUpdate(Box<Remark>),
+    /// Remarque de section ou de projet, complète.
+    RemarkUpdate(Box<AnyRemark>),
     Status {
         provider_ok: bool,
         /// Texte affiché dans la barre d'état (« clé absente »…), si besoin.
@@ -429,6 +442,36 @@ pub enum ServerMessage {
         code: Option<i32>,
     },
     ProjectMap(Box<ProjectMapInfo>),
+    #[serde(rename = "review_estimate")]
+    ReviewEstimated {
+        mentors: Vec<MentorEstimate>,
+        /// `None` si le prix d'un modèle est inconnu.
+        total_cost: Option<f64>,
+        duration_ms: u64,
+        budget_left: f64,
+    },
+    ReviewStarted {
+        review_id: String,
+        trigger: String,
+        mentor_ids: Vec<String>,
+    },
+    ProjectRemarks {
+        /// Revue qui les a produites ; absent pour `project_remarks_get`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        review_id: Option<String>,
+        items: Vec<ProjectRemark>,
+    },
+    ReviewDone {
+        review_id: String,
+        /// Issue par mentor : `ok`, `provider_error`, `invalid_response`, `stale`.
+        outcomes: BTreeMap<String, String>,
+        cost: f64,
+        duration_ms: u64,
+    },
+    Reviews {
+        mentors: Vec<ProjectMentorInfo>,
+        items: Vec<ReviewInfo>,
+    },
     /// Carte recalculée (ouverture, enregistrement, changement sur le disque, réglages).
     MapUpdated {
         tokens: usize,
@@ -481,6 +524,9 @@ pub struct MentorItem {
     pub mode: Option<Mode>,
     pub model: Option<ModelTier>,
     pub on_open: bool,
+    /// Portées (phase 9c) ; vide pour un mentor désactivé.
+    #[serde(default)]
+    pub scopes: Vec<Scope>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -703,6 +749,106 @@ pub struct Remark {
     /// Ce qui est parti vers le modèle pour cette remarque, sans les contenus.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<ContextItem>,
+}
+
+/// Remarque de section ou de projet (`remark_update`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AnyRemark {
+    Project(ProjectRemark),
+    Section(Remark),
+}
+
+/// Remarque d'un mentor de projet (phase 9c, docs/phase9.md).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectRemark {
+    pub id: String,
+    /// Toujours `project`.
+    pub scope: String,
+    pub mentor_id: String,
+    /// `passage` ou `project`.
+    pub about: String,
+    pub anchors: Vec<ProjectAnchor>,
+    pub level: String,
+    pub kind: String,
+    pub levels_given: Vec<String>,
+    /// Ceux d'une remarque, plus `to_review` (9d).
+    pub status: String,
+    pub thread: Vec<ThreadEntry>,
+    pub context: Vec<ContextItem>,
+    pub review_id: String,
+    pub created_at: String,
+}
+
+impl ProjectRemark {
+    pub fn is_active(&self) -> bool {
+        matches!(self.status.as_str(), "open" | "answered")
+    }
+
+    /// Affichée dans la vue Projet.
+    pub fn is_visible(&self) -> bool {
+        matches!(self.status.as_str(), "open" | "answered" | "to_review")
+    }
+}
+
+/// Passage cité par une remarque de projet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectAnchor {
+    pub path: String,
+    pub section_id: String,
+    /// Nom de la section, pour le libellé du lien.
+    pub section_name: String,
+    pub quote: String,
+    pub line_hint: usize,
+    /// `ok`, ou `gone` si le passage a disparu (9d).
+    pub status: String,
+}
+
+/// Estimation d'une revue pour un mentor.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MentorEstimate {
+    pub id: String,
+    /// Jetons estimés du prompt (4 caractères par jeton).
+    pub tokens: usize,
+    pub cost: Option<f64>,
+    pub duration_ms: u64,
+    /// `last` (dernière revue de ce mentor), `price` (prix du modèle) ou `unknown`.
+    pub basis: String,
+    /// Ce qui partira : carte, fichiers clés, diff.
+    pub detail: String,
+}
+
+/// Mentor de projet, pour la vue Projet.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectMentorInfo {
+    pub id: String,
+    pub name: String,
+    pub initials: String,
+    pub model: ModelTier,
+    pub triggers: Vec<String>,
+    pub last_review_at: Option<String>,
+    /// Une revue de ce mentor est en cours.
+    pub reviewing: bool,
+}
+
+/// Revue passée, pour l'historique.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReviewInfo {
+    pub id: String,
+    pub at: String,
+    /// `request` (demandée) ; `create`, `open`, `change`, `commit` en 9d.
+    pub trigger: String,
+    pub mentors: Vec<ReviewMentorInfo>,
+    pub cost: f64,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReviewMentorInfo {
+    pub id: String,
+    pub outcome: String,
+    pub remarks: usize,
+    pub cost: f64,
 }
 
 /// Renvoi d'une remarque : fichier, citation éventuelle et où l'ouvrir.
@@ -1032,7 +1178,9 @@ mod tests {
         let bad = parse_value(json!({ "v": 1, "type": "remark_dismiss", "id": "c-9",
             "payload": { "remark_id": "rm_1", "reason": "detached" } }));
         assert_eq!(error_code(bad)["payload"]["code"], "bad_message");
-        let update = Outgoing::push(ServerMessage::RemarkUpdate(Box::new(sample_remark())));
+        let update = Outgoing::push(ServerMessage::RemarkUpdate(Box::new(AnyRemark::Section(
+            sample_remark(),
+        ))));
         let value = serde_json::to_value(&update).unwrap();
         assert_eq!(value["type"], "remark_update");
         assert_eq!(value["payload"]["id"], "rm_01");
@@ -1214,6 +1362,80 @@ mod tests {
     }
 
     #[test]
+    fn forme_des_messages_des_revues() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "review_request", "id": "c-1",
+                "payload": { "mentor_ids": ["archi"] } }))
+            .unwrap()
+            .1,
+            ClientMessage::ReviewRequest {
+                mentor_ids: vec!["archi".to_owned()],
+                confirm_over_budget: false,
+            }
+        );
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "review_estimate", "id": "c-2",
+                "payload": { "mentor_ids": ["archi"] } }))
+            .unwrap()
+            .1,
+            ClientMessage::ReviewEstimate {
+                mentor_ids: vec!["archi".to_owned()],
+            }
+        );
+        let estimate = Outgoing::reply(
+            Some("c-2".to_owned()),
+            ServerMessage::ReviewEstimated {
+                mentors: vec![MentorEstimate {
+                    id: "archi".to_owned(),
+                    tokens: 1000,
+                    cost: None,
+                    duration_ms: 20_000,
+                    basis: "unknown".to_owned(),
+                    detail: "carte".to_owned(),
+                }],
+                total_cost: None,
+                duration_ms: 20_000,
+                budget_left: 7.5,
+            },
+        );
+        let value = serde_json::to_value(&estimate).unwrap();
+        assert_eq!(value["type"], "review_estimate");
+        assert!(value["payload"]["total_cost"].is_null());
+
+        // `remark_update` porte une remarque de section ou de projet.
+        let project = ProjectRemark {
+            id: "rp_1".to_owned(),
+            scope: "project".to_owned(),
+            mentor_id: "archi".to_owned(),
+            about: "project".to_owned(),
+            anchors: vec![ProjectAnchor {
+                path: "a.ts".to_owned(),
+                section_id: "fn:a".to_owned(),
+                section_name: "a".to_owned(),
+                quote: "abc".to_owned(),
+                line_hint: 2,
+                status: "ok".to_owned(),
+            }],
+            level: "indice".to_owned(),
+            kind: "question".to_owned(),
+            levels_given: vec!["indice".to_owned()],
+            status: "open".to_owned(),
+            thread: vec![],
+            context: vec![],
+            review_id: "rv_1".to_owned(),
+            created_at: "2026-11-01T10:00:00Z".to_owned(),
+        };
+        for remark in [
+            AnyRemark::Project(project),
+            AnyRemark::Section(sample_remark()),
+        ] {
+            let update = Outgoing::push(ServerMessage::RemarkUpdate(Box::new(remark)));
+            let text = serde_json::to_string(&update).unwrap();
+            assert_eq!(serde_json::from_str::<Outgoing>(&text).unwrap(), update);
+        }
+    }
+
+    #[test]
     fn aller_retour_des_messages() {
         for message in [
             ClientMessage::Ping,
@@ -1311,7 +1533,7 @@ mod tests {
                 }],
                 remarks: vec![sample_remark()],
             },
-            ServerMessage::RemarkUpdate(Box::new(sample_remark())),
+            ServerMessage::RemarkUpdate(Box::new(AnyRemark::Section(sample_remark()))),
             ServerMessage::PassStarted {
                 path: "a.rs".to_owned(),
                 sections: vec!["fn:a".to_owned()],

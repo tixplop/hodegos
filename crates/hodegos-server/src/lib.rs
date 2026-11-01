@@ -14,9 +14,12 @@ mod mentor_settings;
 mod mentors;
 mod pass;
 mod project_map;
+mod project_store;
 pub mod protocol;
+mod review;
 mod secret;
 mod settings;
+mod snapshots;
 mod store;
 mod terminal;
 mod ws;
@@ -165,6 +168,10 @@ struct AppState {
     store: Store,
     /// Carte du projet (phase 9a).
     map: project_map::MapState,
+    /// Remarques de projet et revues (phase 9c).
+    project_store: project_store::ProjectStore,
+    snapshots: snapshots::Snapshots,
+    reviews: review::ReviewState,
     /// Fournisseur joignable, et sinon pourquoi.
     provider: Mutex<(bool, Option<String>)>,
     last_pass: Mutex<Option<LastPass>>,
@@ -310,6 +317,8 @@ impl Server {
         let (mentors, mut mentor_changes) =
             Mentors::start(sources, Some(project_dir.join("overrides.json")));
         let store = Store::open(Some(project_dir.clone()), project.root());
+        let project_store = project_store::ProjectStore::open(Some(project_dir.clone()));
+        let snapshots = snapshots::Snapshots::new(Some(&project_dir));
         let (map, map_touches) = project_map::MapState::open(Some(project_dir), context);
         let budget = Budget::open(data_dir.join("usage.json"), llm.config.budget.clone());
         let provider = match &llm.client {
@@ -340,6 +349,9 @@ impl Server {
             budget,
             store,
             map,
+            project_store,
+            snapshots,
+            reviews: review::ReviewState::default(),
             provider: Mutex::new(provider),
             last_pass: Mutex::new(None),
             initial_file,

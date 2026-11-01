@@ -63,6 +63,10 @@ connexion reste ouverte.
 | `term_close` | `term_id` | Tue le shell et tout ce qu'il a lancé ; `term_exited` suit |
 | `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
 | `project_map_get` | — | Renvoie `project_map`, la carte du projet telle qu'envoyée aux mentors (phase 9a) ; calculée d'abord si elle ne l'est pas encore |
+| `review_estimate` | `mentor_ids` | Coût et durée estimés d'une revue par ces mentors de projet (phase 9c) ; renvoie `review_estimate` |
+| `review_request` | `mentor_ids`, `confirm_over_budget` (facultatif, `false`) | Lance une revue demandée ; renvoie `review_started`, puis pousse `project_remarks` et `review_done` à toutes les fenêtres. Refus : `not_found` (pas un mentor de projet actif), `provider_error`, `budget_exceeded` sans confirmation |
+| `project_remarks_get` | — | Renvoie `project_remarks` : les remarques de projet ouvertes, répondues ou à réévaluer |
+| `reviews_get` | — | Renvoie `reviews` : mentors de projet et historique des revues |
 | `project_map_set` | `map_cap` (1 000 à 32 000), `disabled_blocks` (identifiants de blocs, sans `header`), `exclude` (motifs, 50 au plus) | Écrit les réglages de la carte propres au projet dans `<id-projet>/context.json`, recalcule la carte et renvoie `project_map` ; pousse aussi `map_updated` à toutes les fenêtres. Refus : `invalid_settings` |
 
 ## Du backend vers le front
@@ -76,7 +80,7 @@ connexion reste ouverte.
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
 | `pass_started` | `path`, `sections` (identifiants), `mentors` (titulaires appelés) | dès qu'une passe appelle le modèle |
 | `remarks` | `path`, `items` (nouvelles remarques complètes, au plus 2) | à la fin d'une passe |
-| `remark_update` | une remarque complète | réponse à `hint_next`, `remark_reply` et `remark_dismiss` ; relance après une réponse ; détachement après un enregistrement ou une modification externe |
+| `remark_update` | une remarque complète, de section ou de projet (`scope: "project"`, phase 9c) | réponse à `hint_next`, `remark_reply` et `remark_dismiss` ; relance après une réponse ; détachement après un enregistrement ou une modification externe |
 | `file_changed` | `path`, `version` (`null` si supprimé) | fichier ouvert dans la fenêtre, modifié ou supprimé hors de Hodegos |
 | `mentors_changed` | `warnings` (`file`, `message`) | rechargement à chaud des mentors ; aussi à la connexion s'il y a des fichiers en erreur |
 | `status` | `provider_ok`, `provider_message`, `budget_used`, `budget_cap`, `budget_level`, `last_pass`, `initial_file` | à la connexion, puis après chaque passe (enregistrement ou ouverture) |
@@ -92,12 +96,17 @@ connexion reste ouverte.
 | `provider_test_result` | `ok`, `message` | réponse à `provider_test` |
 | `eval_progress` | `level`, `done`, `total`, `cost` | poussé à toutes les fenêtres au début et à la fin de chaque cas d'une évaluation |
 | `eval_done` | un résultat d'évaluation (voir plus bas) | poussé à toutes les fenêtres à la fin d'une évaluation, suivi de `settings` et `status` |
-| `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
+| `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`, `scopes`), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
 | `mentor_file` | `id`, `origin`, `path`, `content`, `editable`, `form`, `body`, `errors` | réponse à `mentor_get`, `mentor_save` et `mentor_eject` |
 | `mentor_prompt` | `text` | réponse à `mentor_prompt` |
 | `term_opened` | `term_id`, `shell` (nom court, pour l'onglet), `warning` (`[terminal] binds` invalide) | réponse à `term_open` |
 | `term_output` | `term_id`, `data` (base64 : octets bruts, pas forcément de l'UTF-8) | sortie du terminal, regroupée toutes les 16 ms au plus, 64 Kio au plus par message |
 | `term_exited` | `term_id`, `code` (`null` si tué par un signal) | fin du shell (`exit`, `term_close`) |
+| `review_estimate` | `mentors` (`id`, `tokens`, `cost` ou `null`, `duration_ms`, `basis` : `last`, `price` ou `unknown`, `detail`), `total_cost` (`null` si un coût est inconnu), `duration_ms`, `budget_left` | réponse à `review_estimate` |
+| `review_started` | `review_id`, `trigger` (`request` en 9c), `mentor_ids` | réponse à `review_request`, poussé aussi à toutes les fenêtres |
+| `project_remarks` | `review_id` (absent pour `project_remarks_get`), `items` (remarques de projet complètes) | réponse à `project_remarks_get` ; poussé à la fin d'une revue avec ses nouvelles remarques |
+| `review_done` | `review_id`, `outcomes` (mentor → `ok`, `provider_error`, `invalid_response` ou `stale`), `cost`, `duration_ms` | poussé à toutes les fenêtres à la fin d'une revue, suivi de `status` |
+| `reviews` | `mentors` (`id`, `name`, `initials`, `model`, `triggers`, `last_review_at`, `reviewing`), `items` (`id`, `at`, `trigger`, `mentors` : `id`, `outcome`, `remarks`, `cost` ; `cost`, `duration_ms`), la plus récente d'abord | réponse à `reviews_get` |
 | `project_map` | `blocks` (`id`, `enabled`, `tokens`, `truncated`, `detail`), `tokens`, `cap`, `default_cap`, `exclude`, `updated_at`, `reason`, `text` | réponse à `project_map_get` et `project_map_set` |
 | `map_updated` | `tokens`, `cap`, `updated_at`, `reason` (`save`, `external` ou `settings`) | poussé à toutes les fenêtres quand la carte change après un enregistrement, un changement vu sur le disque ou un réglage ; pas au calcul initial (`open`) |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`), `errors` (seulement pour `mentor_invalid`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
@@ -321,8 +330,8 @@ Détails des mentors (phase 8e) :
   liste les niveaux inférieurs qui le définissent aussi. Un mentor désactivé garde
   le nom du niveau qu'il désactive. `errors` : fichiers ignorés par le chargeur.
 - `form` (dans `mentor_file`) : `{ id, name, initials, role, enabled, mode, model,
-  priority, entry_level, max_remarks, on_open, context, triggers { paths, languages,
-  headings, keywords } }`, absent pour un fichier invalide ou une surcharge
+  priority, entry_level, max_remarks, on_open, context, scopes, project { key_files,
+  max_remarks, triggers }, triggers { paths, languages, headings, keywords } }`, absent pour un fichier invalide ou une surcharge
   minimale (`id` et `enabled: false` seuls). Le formulaire réécrit le frontmatter
   dans l'ordre des mentors livrés, sans ses commentaires ; `content` garde le
   fichier tel quel.
@@ -349,6 +358,40 @@ Détails du terminal (phase 8f, ADR 0005) :
 - Les terminaux d'une fenêtre meurent avec elle (WebSocket fermée) et avec Hodegos.
 - Rien de ce qui passe dans un terminal n'est journalisé (seulement des tailles, au
   niveau `trace`) ni envoyé à un mentor.
+
+Détails des revues et des remarques de projet (phase 9c, `docs/phase9.md`, ADR 0010) :
+
+- Un mentor de projet a la portée `project` (`scopes`) ; il ne passe pas par le
+  casting (un mentor `[project]` seul n'apparaît ni comme interlocuteur ni dans
+  `available`). `mentors` porte `scopes` pour chaque mentor.
+- Une revue envoie à chaque mentor, en un appel et en parallèle : la carte, ses
+  fichiers clés (`project.key_files`) en entier sous `[context] key_files_cap`
+  (12 000 jetons par défaut ; les moins récemment modifiés réduits à leurs
+  signatures ou titres), le diff depuis sa dernière revue aboutie (20 fichiers au
+  plus, aucun à la première) et ses remarques de projet ouvertes ; tout est masqué.
+- Une seule revue à la fois par mentor : une nouvelle demande rend la précédente
+  caduque (`stale` : coût compté, remarques ignorées). L'instantané des textes relus
+  n'est noté qu'après une revue aboutie (`<id-projet>/snapshots/`, par empreinte).
+- Estimation : d'après la dernière revue aboutie du mentor (`last`, coût ramené aux
+  jetons du prompt), sinon d'après le prix du modèle dans le catalogue
+  (`price`, 800 jetons de réponse supposés), sinon `unknown`.
+- Remarque de projet : `{ id: "rp_…", scope: "project", mentor_id, about
+  (passage ou project), anchors: [{ path, section_id, section_name, quote,
+  line_hint, status }], level, kind, levels_given, status, thread, context,
+  review_id, created_at }`. Une citation n'est gardée que si elle figure mot pour
+  mot dans le fichier enregistré et dans un texte envoyé (fichier clé, diff ou
+  carte), un fichier au plus une fois ; une remarque `passage` sans sa citation
+  unique est écartée. `context` liste `map`, `key_files`, `key_file` (un par
+  fichier), `diff` et `open_remarks`, sans contenu.
+- `hint_next`, `remark_reply` et `remark_dismiss` acceptent un identifiant `rp_`.
+  Le mentor reçoit la carte, les sections citées et le fil ; la garde « pas de
+  solution » porte sur toutes les sections citées. Sans citation, le palier exemple
+  est refusé (`bad_message` : le dernier palier est la piste). `remark_reply`
+  renvoie la remarque avec la réponse, puis la relance est poussée par
+  `remark_update` à toutes les fenêtres.
+- Données personnelles : `<id-projet>/project_remarks.json`,
+  `<id-projet>/reviews.json` (historique, instantané et coût de la dernière revue
+  de chaque mentor) et `<id-projet>/snapshots/`.
 
 Détails de la carte du projet (phase 9a, `docs/phase9.md`, ADR 0009) :
 

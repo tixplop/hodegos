@@ -118,6 +118,7 @@ pub(crate) fn list(state: &AppState) -> ServerMessage {
                 mode: shown.map(|m| m.mode),
                 model: shown.map(|m| m.model),
                 on_open: shown.is_some_and(|m| m.on_open),
+                scopes: shown.map(|m| m.scopes.clone()).unwrap_or_default(),
                 id,
             })
         })

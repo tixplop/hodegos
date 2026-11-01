@@ -9,8 +9,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use hodegos_core::map::{
-    BlockId, DEFAULT_MAP_CAP, DEFAULT_NEIGHBORHOOD_CAP, Exclusions, MAX_MAP_CAP, MIN_MAP_CAP,
-    MapCache, MapSettings, Neighborhood, ProjectMap, build_map, neighborhood,
+    BlockId, DEFAULT_KEY_FILES_CAP, DEFAULT_MAP_CAP, DEFAULT_NEIGHBORHOOD_CAP, Exclusions,
+    MAX_MAP_CAP, MIN_MAP_CAP, MapCache, MapSettings, Neighborhood, ProjectMap, build_map,
+    neighborhood,
 };
 use hodegos_core::{RelPath, UserId};
 use jiff::Timestamp;
@@ -31,6 +32,8 @@ const MAX_WATCHED_DIRS: usize = 5_000;
 const MAP_FILE_VERSION: u32 = 2;
 /// Bornes du plafond du voisinage.
 const NEIGHBORHOOD_CAPS: std::ops::RangeInclusive<usize> = 500..=16_000;
+/// Bornes du plafond des fichiers clés d'une revue.
+const KEY_FILES_CAPS: std::ops::RangeInclusive<usize> = 2_000..=32_000;
 
 /// Réglages de `[context]` dans `config.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +42,8 @@ pub struct ContextOptions {
     pub map_cap: usize,
     /// Plafond du voisinage d'un fichier (phase 9b).
     pub neighborhood_cap: usize,
+    /// Plafond des fichiers clés d'une revue (phase 9c).
+    pub key_files_cap: usize,
 }
 
 impl Default for ContextOptions {
@@ -46,6 +51,7 @@ impl Default for ContextOptions {
         Self {
             map_cap: DEFAULT_MAP_CAP,
             neighborhood_cap: DEFAULT_NEIGHBORHOOD_CAP,
+            key_files_cap: DEFAULT_KEY_FILES_CAP,
         }
     }
 }
@@ -60,6 +66,7 @@ struct RawConfig {
 struct RawContext {
     map_cap: Option<usize>,
     neighborhood_cap: Option<usize>,
+    key_files_cap: Option<usize>,
 }
 
 /// Lit `[context]` dans `config.toml` ; une valeur illisible ou hors bornes laisse la
@@ -97,6 +104,15 @@ pub fn load_context(config_dir: &Path) -> (ContextOptions, Option<String>) {
             "[context] neighborhood_cap = {cap} : de {} à {}, {DEFAULT_NEIGHBORHOOD_CAP} retenu",
             NEIGHBORHOOD_CAPS.start(),
             NEIGHBORHOOD_CAPS.end()
+        )),
+        None => {}
+    }
+    match raw.context.key_files_cap {
+        Some(cap) if KEY_FILES_CAPS.contains(&cap) => options.key_files_cap = cap,
+        Some(cap) => warnings.push(format!(
+            "[context] key_files_cap = {cap} : de {} à {}, {DEFAULT_KEY_FILES_CAP} retenu",
+            KEY_FILES_CAPS.start(),
+            KEY_FILES_CAPS.end()
         )),
         None => {}
     }
@@ -153,6 +169,7 @@ pub(crate) struct MapState {
     dir: Option<PathBuf>,
     default_cap: usize,
     neighborhood_cap: usize,
+    pub(crate) key_files_cap: usize,
     inner: Mutex<Inner>,
     touches: mpsc::UnboundedSender<Touch>,
 }
@@ -185,6 +202,7 @@ impl MapState {
             dir,
             default_cap: options.map_cap,
             neighborhood_cap: options.neighborhood_cap,
+            key_files_cap: options.key_files_cap,
             inner: Mutex::new(Inner {
                 cache,
                 stale: true,
@@ -315,6 +333,17 @@ fn recompute(
         "carte du projet"
     );
     Some(message)
+}
+
+/// Texte et jetons de la carte à jour, et le cache sur lequel elle repose, pour `f` ;
+/// bloquant.
+pub(crate) fn with_map<R>(
+    state: &AppState,
+    f: impl FnOnce(&str, usize, &MapCache) -> R,
+) -> Option<R> {
+    let info = current(state)?;
+    let inner = state.map.inner.lock().ok()?;
+    Some(f(&info.text, info.tokens, &inner.cache))
 }
 
 /// Carte calculée au besoin ; bloquant.

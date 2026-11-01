@@ -26,9 +26,10 @@ use crate::pass::{
 };
 use crate::project_map;
 use crate::protocol::{
-    self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
-    Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
+    self, AnyRemark, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef,
+    MentorWarning, Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
 };
+use crate::review;
 use crate::settings;
 use crate::terminal;
 
@@ -581,6 +582,49 @@ impl Connection {
                 }
                 Ok(replies)
             }
+            // Remarques de projet (phase 9c) : identifiants `rp_`.
+            ClientMessage::HintNext {
+                remark_id,
+                confirm_over_budget,
+            } if remark_id.starts_with("rp_") => {
+                self.in_background(re, move |state| {
+                    review::follow_up(
+                        state,
+                        remark_id,
+                        FollowUpKind::NextLevel,
+                        confirm_over_budget,
+                    )
+                });
+                Ok(Vec::new())
+            }
+            ClientMessage::RemarkReply {
+                remark_id, text, ..
+            } if remark_id.starts_with("rp_") => Ok(self.project_reply(re, remark_id, &text)),
+            ClientMessage::RemarkDismiss { remark_id, reason } if remark_id.starts_with("rp_") => {
+                Ok(vec![settings_reply(
+                    re,
+                    review::dismiss(&self.state, &remark_id, reason.status()),
+                )])
+            }
+            ClientMessage::ReviewEstimate { mentor_ids } => {
+                self.in_background(re, move |state| review::estimate(state, mentor_ids));
+                Ok(Vec::new())
+            }
+            ClientMessage::ReviewRequest {
+                mentor_ids,
+                confirm_over_budget,
+            } => {
+                self.in_background(re, move |state| {
+                    review::request(state, mentor_ids, confirm_over_budget, "request")
+                });
+                Ok(Vec::new())
+            }
+            ClientMessage::ProjectRemarksGet => {
+                Ok(vec![Outgoing::reply(re, review::remarks(&self.state))])
+            }
+            ClientMessage::ReviewsGet => {
+                Ok(vec![Outgoing::reply(re, review::reviews(&self.state))])
+            }
             ClientMessage::HintNext {
                 remark_id,
                 confirm_over_budget,
@@ -810,6 +854,38 @@ impl Connection {
                 Outgoing::push(self.state.status()),
             ],
         }
+    }
+
+    /// Réponse à une remarque de projet : `remark_update` tout de suite, puis la relance
+    /// du mentor, poussée à toutes les fenêtres quand elle arrive.
+    fn project_reply(&mut self, re: Option<String>, id: String, text: &str) -> Vec<Outgoing> {
+        let text = text.trim();
+        if text.is_empty() || text.chars().count() > MAX_REPLY_CHARS {
+            return vec![Outgoing::error(
+                re,
+                ErrorCode::BadMessage,
+                "réponse vide ou de plus de 2 000 caractères",
+            )];
+        }
+        let remark = match review::reply(&self.state, &id, text) {
+            Ok(remark) => remark,
+            Err(refused) => return vec![Outgoing::error(re, refused.code, refused.message)],
+        };
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            match review::follow_up(state.clone(), id, FollowUpKind::Reply, true).await {
+                Ok(update) => {
+                    let _ = state.events.send(update);
+                }
+                Err(refused) => {
+                    tracing::info!(message = %refused.message, "réponse enregistrée sans relance du mentor");
+                }
+            }
+        });
+        vec![Outgoing::reply(
+            re,
+            ServerMessage::RemarkUpdate(Box::new(AnyRemark::Project(remark))),
+        )]
     }
 
     /// Réponse de l'utilisateur : `remark_update` tout de suite avec son message, puis
@@ -1306,7 +1382,10 @@ fn busy_error(re: Option<String>) -> Outgoing {
 }
 
 fn remark_update(re: Option<String>, remark: Remark) -> Outgoing {
-    Outgoing::reply(re, ServerMessage::RemarkUpdate(Box::new(remark)))
+    Outgoing::reply(
+        re,
+        ServerMessage::RemarkUpdate(Box::new(AnyRemark::Section(remark))),
+    )
 }
 
 fn section_info(section: &Section) -> SectionInfo {

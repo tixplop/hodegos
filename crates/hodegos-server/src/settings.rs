@@ -128,7 +128,7 @@ pub(crate) async fn refresh_catalog(state: &AppState) -> Result<(), String> {
 }
 
 /// Fiche d'un modèle ; `None` s'il n'existe pas chez OpenRouter.
-async fn model_info(state: &AppState, id: &str) -> Result<Option<ModelInfo>, String> {
+pub(crate) async fn model_info(state: &AppState, id: &str) -> Result<Option<ModelInfo>, String> {
     if let Some(info) = state.catalog.known(id) {
         return Ok(Some(info));
     }
