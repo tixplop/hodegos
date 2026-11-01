@@ -12,6 +12,7 @@ mod guard;
 mod mentor_settings;
 mod mentors;
 mod pass;
+mod project_map;
 pub mod protocol;
 mod secret;
 mod settings;
@@ -34,6 +35,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{Notify, broadcast};
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
+pub use project_map::{ContextOptions, load_context};
 pub use terminal::{Bind, BindMode, TerminalOptions, default_binds, load_binds};
 
 use crate::git::GitTracker;
@@ -128,6 +130,8 @@ pub struct ServerOptions {
     pub llm: Llm,
     /// Terminal intégré et confiné (phase 8f).
     pub terminal: TerminalOptions,
+    /// Plafonds de contexte des mentors (`[context]`, phase 9).
+    pub context: ContextOptions,
     /// Fichier que le front ouvre à la connexion (`hodegos new` : `docs/vision.md`).
     pub initial_file: Option<String>,
 }
@@ -158,6 +162,8 @@ struct AppState {
     terminals: terminal::Terminals,
     budget: Budget,
     store: Store,
+    /// Carte du projet (phase 9a).
+    map: project_map::MapState,
     /// Fournisseur joignable, et sinon pourquoi.
     provider: Mutex<(bool, Option<String>)>,
     last_pass: Mutex<Option<LastPass>>,
@@ -270,6 +276,7 @@ impl Server {
             data_dir,
             llm,
             terminal,
+            context,
             initial_file,
         } = options;
         let bind_error = |source: std::io::Error| match source.kind() {
@@ -301,7 +308,8 @@ impl Server {
         let project_dir = data_dir.join(project.id().as_str());
         let (mentors, mut mentor_changes) =
             Mentors::start(sources, Some(project_dir.join("overrides.json")));
-        let store = Store::open(Some(project_dir), project.root());
+        let store = Store::open(Some(project_dir.clone()), project.root());
+        let (map, map_touches) = project_map::MapState::open(Some(project_dir), context);
         let budget = Budget::open(data_dir.join("usage.json"), llm.config.budget.clone());
         let provider = match &llm.client {
             Ok(_) => (true, None),
@@ -330,6 +338,7 @@ impl Server {
             terminals: terminal::Terminals::new(terminal),
             budget,
             store,
+            map,
             provider: Mutex::new(provider),
             last_pass: Mutex::new(None),
             initial_file,
@@ -339,6 +348,7 @@ impl Server {
             let catalog_state = state.clone();
             tokio::spawn(async move { settings::refresh_catalog(&catalog_state).await });
         }
+        tokio::spawn(project_map::run(state.clone(), map_touches));
         let reload_state = state.clone();
         tokio::spawn(async move {
             while mentor_changes.recv().await.is_some() {

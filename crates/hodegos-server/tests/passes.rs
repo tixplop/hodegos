@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    Socket, data_dir, exchange, fake_llm, next, next_within, open_socket_with, project_in,
+    Socket, data_dir, exchange, fake_llm, next, next_besides_map, open_socket_with, project_in,
     session_cookie,
 };
 use hodegos_llm::{FakeLlmClient, LlmError, LlmResponse};
@@ -382,7 +382,7 @@ async fn panne_du_fournisseur_passe_abandonnee_sans_nouvelle_tentative() {
     );
 
     assert_eq!(
-        next_within(&mut socket, Duration::from_millis(1500)).await,
+        next_besides_map(&mut socket, Duration::from_millis(1500)).await,
         None
     );
     assert_eq!(fake.requests().len(), 1, "aucune nouvelle tentative");

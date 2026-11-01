@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{Socket, exchange, fake_llm, next, next_within, open_socket_with, send_raw};
+use common::{Socket, exchange, fake_llm, next, next_besides_map, open_socket_with, send_raw};
 use hodegos_llm::{BudgetConfig, FakeLlmClient, LlmError, LlmResponse};
 use serde_json::{Value, json};
 
@@ -186,7 +186,7 @@ async fn revenir_au_choix_automatique_ne_lance_rien() {
     assert_eq!(casting["type"], "casting");
     assert_eq!(casting["payload"]["forced"], Value::Null);
     assert_eq!(
-        next_within(&mut socket, Duration::from_millis(500)).await,
+        next_besides_map(&mut socket, Duration::from_millis(500)).await,
         None
     );
 
@@ -199,7 +199,7 @@ async fn revenir_au_choix_automatique_ne_lance_rien() {
     .await;
     assert_eq!(casting["payload"]["titular"]["id"], "architecte");
     assert_eq!(
-        next_within(&mut socket, Duration::from_millis(500)).await,
+        next_besides_map(&mut socket, Duration::from_millis(500)).await,
         None
     );
     assert!(fake.requests().is_empty());
@@ -270,7 +270,7 @@ async fn enregistrer_puis_activer_ne_fait_qu_une_passe() {
     .await;
     assert_eq!(saved["type"], "saved", "{saved}");
     assert_eq!(
-        next_within(&mut socket, Duration::from_millis(500)).await,
+        next_besides_map(&mut socket, Duration::from_millis(500)).await,
         None,
         "aucune passe après un enregistrement avec skip_pass"
     );

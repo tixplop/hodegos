@@ -47,6 +47,7 @@ async fn setup() -> (Setup, Socket) {
         data_dir: data_dir(setup.project.path()),
         llm: no_llm(),
         terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
+        context: Default::default(),
         initial_file: None,
     };
     let server = Server::bind(project_in(setup.project.path()), options)

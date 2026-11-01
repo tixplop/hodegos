@@ -62,6 +62,8 @@ connexion reste ouverte.
 | `term_resize` | `term_id`, `cols`, `rows` | Redimensionne le pseudo-terminal ; aucune réponse |
 | `term_close` | `term_id` | Tue le shell et tout ce qu'il a lancé ; `term_exited` suit |
 | `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
+| `project_map_get` | — | Renvoie `project_map`, la carte du projet telle qu'envoyée aux mentors (phase 9a) ; calculée d'abord si elle ne l'est pas encore |
+| `project_map_set` | `map_cap` (1 000 à 32 000), `disabled_blocks` (identifiants de blocs, sans `header`), `exclude` (motifs, 50 au plus) | Écrit les réglages de la carte propres au projet dans `<id-projet>/context.json`, recalcule la carte et renvoie `project_map` ; pousse aussi `map_updated` à toutes les fenêtres. Refus : `invalid_settings` |
 
 ## Du backend vers le front
 
@@ -96,6 +98,8 @@ connexion reste ouverte.
 | `term_opened` | `term_id`, `shell` (nom court, pour l'onglet), `warning` (`[terminal] binds` invalide) | réponse à `term_open` |
 | `term_output` | `term_id`, `data` (base64 : octets bruts, pas forcément de l'UTF-8) | sortie du terminal, regroupée toutes les 16 ms au plus, 64 Kio au plus par message |
 | `term_exited` | `term_id`, `code` (`null` si tué par un signal) | fin du shell (`exit`, `term_close`) |
+| `project_map` | `blocks` (`id`, `enabled`, `tokens`, `truncated`, `detail`), `tokens`, `cap`, `default_cap`, `exclude`, `updated_at`, `reason`, `text` | réponse à `project_map_get` et `project_map_set` |
+| `map_updated` | `tokens`, `cap`, `updated_at`, `reason` (`save`, `external` ou `settings`) | poussé à toutes les fenêtres quand la carte change après un enregistrement, un changement vu sur le disque ou un réglage ; pas au calcul initial (`open`) |
 | `error` | `code`, `message`, `version` (seulement pour `version_conflict`), `errors` (seulement pour `mentor_invalid`) ; `re` dans l'enveloppe si l'erreur répond à une demande | erreur liée ou non à une demande |
 
 Détails des fichiers :
@@ -330,6 +334,28 @@ Détails du terminal (phase 8f, ADR 0005) :
 - Rien de ce qui passe dans un terminal n'est journalisé (seulement des tailles, au
   niveau `trace`) ni envoyé à un mentor.
 
+Détails de la carte du projet (phase 9a, `docs/phase9.md`, ADR 0009) :
+
+- Calculée par Hodegos sans appel au modèle, au lancement, puis après chaque
+  enregistrement et chaque changement vu sur le disque (modification faite ailleurs,
+  fichier créé, supprimé ou déplacé), regroupés sur 500 ms. Tous les dossiers non
+  ignorés sont observés (5 000 au plus), y compris ceux créés ensuite.
+- Blocs, dans l'ordre de priorité : `header` (toujours actif), `vision`,
+  `decisions`, `tree`, `readme`, `dependencies`, `symbols`, `tests` (désactivé par
+  défaut). Au-delà de `cap`, ils sont raccourcis du dernier au premier, par
+  éléments entiers (fichier, décision, ligne), et le disent (« … 12 fichiers non
+  listés ») ; `truncated` le signale.
+- `tokens` est estimé à 4 caractères par jeton ; `text` est la carte telle
+  qu'envoyée, secrets masqués. Fichiers ignorés par git, fichiers de secrets
+  (par leur nom ou une clé privée) et motifs de `exclude` n'y entrent jamais.
+- `cap` : plafond appliqué ; `default_cap` : celui de `config.toml`
+  (`[context] map_cap`, 8 000 par défaut), qui s'applique tant que le projet n'en
+  fixe pas un autre. `updated_at` est en RFC 3339 (UTC) ; `reason` vaut `open`
+  (lancement), `save`, `external` ou `settings`.
+- Données personnelles : `<id-projet>/map.json` (ce que la carte sait de chaque
+  fichier, avec son empreinte, pour ne pas tout réanalyser au lancement) et
+  `<id-projet>/context.json` ; rien n'est écrit dans le projet.
+
 ## Codes d'erreur
 
 | Code | Sens |
@@ -350,7 +376,7 @@ Détails du terminal (phase 8f, ADR 0005) :
 | `terminal_unavailable` | `term_open` : pas de confinement possible (bwrap absent, espaces de noms refusés) ; le message dit pourquoi et comment y remédier |
 | `terminal_limit` | `term_open` : 4 terminaux déjà ouverts ; `term_input` : saisie que le terminal ne lit plus |
 | `mentor_invalid` | `mentor_save`, `mentor_prompt` : le chargeur refuse le mentor ; `errors` champ par champ |
-| `invalid_settings` | `settings_set`, `api_key_set` : valeur hors limites, deux niveaux à évaluer à la fois, clé vide, ou réglages en lecture seule |
+| `invalid_settings` | `settings_set`, `api_key_set`, `project_map_set` : valeur hors limites (plafond, motif d'exclusion), deux niveaux à évaluer à la fois, clé vide, ou réglages en lecture seule |
 
 Conflit : si `base_version` ne correspond plus à la version sur disque, le serveur
 refuse `save` avec `version_conflict` et la version sur disque dans `version` ; le

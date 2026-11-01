@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use hodegos_core::map::{BlockId, MapBlock};
 use hodegos_llm::Effort;
 use hodegos_mentors::{FieldError, MentorForm, Mode, ModelTier, Origin};
 use serde::{Deserialize, Serialize};
@@ -203,6 +204,14 @@ pub enum ClientMessage {
     /// Ferme le terminal : son shell et tout ce qu'il a lancé sont tués.
     TermClose {
         term_id: u32,
+    },
+    /// Carte du projet telle qu'envoyée (phase 9a).
+    ProjectMapGet,
+    /// Réglages de la carte propres au projet : plafond, blocs désactivés, exclusions.
+    ProjectMapSet {
+        map_cap: usize,
+        disabled_blocks: Vec<BlockId>,
+        exclude: Vec<String>,
     },
 }
 
@@ -419,6 +428,43 @@ pub enum ServerMessage {
         term_id: u32,
         code: Option<i32>,
     },
+    ProjectMap(Box<ProjectMapInfo>),
+    /// Carte recalculée (ouverture, enregistrement, changement sur le disque, réglages).
+    MapUpdated {
+        tokens: usize,
+        cap: usize,
+        updated_at: String,
+        reason: MapReason,
+    },
+}
+
+/// Carte du projet : blocs, poids estimé, plafond et texte tel qu'envoyé.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectMapInfo {
+    pub blocks: Vec<MapBlock>,
+    pub tokens: usize,
+    pub cap: usize,
+    /// Plafond de `config.toml` (`[context] map_cap`), qui s'applique sans réglage du projet.
+    pub default_cap: usize,
+    pub exclude: Vec<String>,
+    pub updated_at: String,
+    pub reason: MapReason,
+    pub text: String,
+}
+
+/// Ce qui a fait recalculer la carte.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MapReason {
+    /// Lancement de Hodegos sur le projet.
+    Open,
+    /// Enregistrement depuis Hodegos.
+    Save,
+    /// Changement vu sur le disque : modification faite ailleurs, fichier créé,
+    /// supprimé ou déplacé.
+    External,
+    /// Réglages de la carte.
+    Settings,
 }
 
 /// Un mentor connu : son fichier retenu et les niveaux qu'il remplace.
@@ -1073,6 +1119,63 @@ mod tests {
         assert_eq!(
             serde_json::to_value(ErrorCode::InvalidMove).unwrap(),
             json!("invalid_move")
+        );
+    }
+
+    #[test]
+    fn forme_des_messages_de_la_carte() {
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "project_map_get", "id": "c-1" }))
+                .unwrap()
+                .1,
+            ClientMessage::ProjectMapGet
+        );
+        assert_eq!(
+            parse_value(json!({ "v": 1, "type": "project_map_set", "id": "c-2",
+                "payload": { "map_cap": 6000, "disabled_blocks": ["tests", "symbols"],
+                    "exclude": ["data/**"] } }))
+            .unwrap()
+            .1,
+            ClientMessage::ProjectMapSet {
+                map_cap: 6000,
+                disabled_blocks: vec![BlockId::Tests, BlockId::Symbols],
+                exclude: vec!["data/**".to_owned()],
+            }
+        );
+        let map = ServerMessage::ProjectMap(Box::new(ProjectMapInfo {
+            blocks: vec![MapBlock {
+                id: BlockId::Tree,
+                enabled: true,
+                tokens: 12,
+                truncated: false,
+                detail: "2 fichiers".to_owned(),
+            }],
+            tokens: 30,
+            cap: 8000,
+            default_cap: 8000,
+            exclude: vec!["data/**".to_owned()],
+            updated_at: "2026-11-01T10:42:00Z".to_owned(),
+            reason: MapReason::Open,
+            text: "# x".to_owned(),
+        }));
+        assert_eq!(
+            serde_json::to_value(Outgoing::reply(Some("c-1".to_owned()), map)).unwrap(),
+            json!({ "v": 1, "type": "project_map", "re": "c-1", "payload": {
+                "blocks": [{ "id": "tree", "enabled": true, "tokens": 12,
+                    "truncated": false, "detail": "2 fichiers" }],
+                "tokens": 30, "cap": 8000, "default_cap": 8000, "exclude": ["data/**"],
+                "updated_at": "2026-11-01T10:42:00Z", "reason": "open", "text": "# x" } })
+        );
+        let updated = Outgoing::push(ServerMessage::MapUpdated {
+            tokens: 30,
+            cap: 8000,
+            updated_at: "2026-11-01T10:42:00Z".to_owned(),
+            reason: MapReason::External,
+        });
+        assert_eq!(
+            serde_json::to_value(&updated).unwrap(),
+            json!({ "v": 1, "type": "map_updated", "payload": { "tokens": 30, "cap": 8000,
+                "updated_at": "2026-11-01T10:42:00Z", "reason": "external" } })
         );
     }
 

@@ -30,7 +30,14 @@ fn project() -> tempfile::TempDir {
 }
 
 /// Messages spontanés étrangers à l'arbre.
-const BACKGROUND: [&str; 5] = ["casting", "status", "pass_started", "remarks", "git_status"];
+const BACKGROUND: [&str; 6] = [
+    "casting",
+    "status",
+    "pass_started",
+    "remarks",
+    "git_status",
+    "map_updated",
+];
 
 async fn request(socket: &mut Socket, id: &str, kind: &str, payload: Value) -> Value {
     let mut reply = exchange(

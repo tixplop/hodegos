@@ -48,7 +48,13 @@ async fn request(socket: &mut Socket, id: &str, kind: &str, payload: Value) -> V
 }
 
 /// Messages spontanés étrangers aux fichiers : interlocuteurs, état, passes.
-const BACKGROUND: [&str; 4] = ["casting", "status", "pass_started", "remarks"];
+const BACKGROUND: [&str; 5] = [
+    "casting",
+    "status",
+    "pass_started",
+    "remarks",
+    "map_updated",
+];
 
 fn background(message: &Value) -> bool {
     BACKGROUND.contains(&message["type"].as_str().unwrap_or_default())

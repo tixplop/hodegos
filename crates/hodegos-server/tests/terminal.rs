@@ -61,6 +61,7 @@ async fn start(project: &Path, terminal: TerminalOptions) -> Socket {
         data_dir: data_dir(project),
         llm: no_llm(),
         terminal,
+        context: Default::default(),
         initial_file: None,
     };
     let server = Server::bind(project_in(project), options).await.unwrap();

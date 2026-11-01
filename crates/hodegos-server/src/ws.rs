@@ -24,6 +24,7 @@ use crate::mentor_settings::{self, Content};
 use crate::pass::{
     self, PassRequest, PassResult, Prepared, Trigger, cast_section, locate_anchor, mentor_ref,
 };
+use crate::project_map;
 use crate::protocol::{
     self, ClientMessage, DirEntry, ErrorCode, ForcedBy, LastPass, MentorRef, MentorWarning,
     Outgoing, PassOutcome, Remark, SectionInfo, ServerMessage, ThreadEntry,
@@ -312,6 +313,20 @@ impl Connection {
         let project = &self.state.project;
         match message {
             ClientMessage::Ping => Ok(vec![Outgoing::reply(re, ServerMessage::Pong)]),
+            ClientMessage::ProjectMapGet => {
+                self.in_background(re, project_map::get);
+                Ok(Vec::new())
+            }
+            ClientMessage::ProjectMapSet {
+                map_cap,
+                disabled_blocks,
+                exclude,
+            } => {
+                self.in_background(re, move |state| {
+                    project_map::set(state, map_cap, disabled_blocks, exclude)
+                });
+                Ok(Vec::new())
+            }
             ClientMessage::SettingsGet => {
                 Ok(vec![Outgoing::reply(re, settings::info(&self.state))])
             }
@@ -461,6 +476,9 @@ impl Connection {
                 let base = Version::from_client(base_version);
                 let version = project.write_file(&self.session, &rel, &content, &base)?;
                 self.state.git.refresh();
+                self.state
+                    .map
+                    .touched(vec![rel.clone()], protocol::MapReason::Save);
                 self.watch(&rel);
                 let language = Language::of(rel.as_str());
                 let old = self

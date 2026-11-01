@@ -69,6 +69,7 @@ pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
         data_dir: data_dir(dir),
         llm,
         terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
+        context: Default::default(),
         initial_file: None,
     }
 }
@@ -194,6 +195,19 @@ pub async fn next_within(socket: &mut Socket, wait: Duration) -> Option<Value> {
             Message::Text(text) => return Some(serde_json::from_str(text.as_str()).unwrap()),
             Message::Ping(_) | Message::Pong(_) => continue,
             other => panic!("message inattendu : {other:?}"),
+        }
+    }
+}
+
+/// Prochain message autre que `map_updated` (carte du projet recalculée en fond,
+/// phase 9a), ou `None` si rien d'autre n'arrive pendant `wait`.
+pub async fn next_besides_map(socket: &mut Socket, wait: Duration) -> Option<Value> {
+    let deadline = tokio::time::Instant::now() + wait;
+    loop {
+        let left = deadline.checked_duration_since(tokio::time::Instant::now())?;
+        let message = next_within(socket, left).await?;
+        if message["type"] != "map_updated" {
+            return Some(message);
         }
     }
 }
