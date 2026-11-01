@@ -4,8 +4,8 @@ project = "troc"
 mentor = "testeur"
 
 [expect]
-must_mention = ["aucun test", "sans test", "pas de test", "non testé", "pas testé", "aucun fichier de test"]
-cited_files = ["src/emprunts/annuler.ts"]
+must_mention = ["aucun test", "sans test", "pas de test", "non testé", "pas testé", "aucun fichier de test", "aucun nom"]
+cited_files = ["src/emprunts/annuler.ts", "docs/vision.md"]
 
 [expect.must_not]
 "src/emprunts/annuler.ts" = ["expect(await annuler(", "describe(\"annuler\""]

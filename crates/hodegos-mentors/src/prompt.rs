@@ -17,6 +17,9 @@ Règles absolues :
              vérifier seule.
   piste    = nommer la notion en jeu et où se documenter, sans code.
   exemple  = montrer un cas voisin de 12 lignes au plus, jamais son code.
+             Le cas voisin illustre la notion sans contenir l'appel,
+             l'argument ou l'expression qui corrigerait la section : la
+             personne doit encore les trouver elle-même.
 - Au plus {max_remarks} remarques. Aucune remarque vaut mieux qu'une remarque
   faible : renvoyez une liste vide si rien ne mérite d'être dit.
 - Ne relevez que ce qui fait progresser : pas de style, pas de nommage,

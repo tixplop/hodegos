@@ -91,7 +91,7 @@ cargo run --release -p hodegos-cli -- eval evals/
 cargo run --release -p hodegos-cli -- eval            # cas intégrés, rapport personnel
 cargo run --release -p hodegos-cli -- eval evals/ --fast fournisseur/modele-a --strong fournisseur/modele-b
 cargo run --release -p hodegos-cli -- eval evals/ --model fournisseur/modele-c --case adr --max-cost 1
-cargo run --release -p hodegos-cli -- eval evals/ --mentors evals/mentors/ --case troc
+cargo run --release -p hodegos-cli -- eval evals/ --mentors ~/brouillons-de-mentors/ --case troc
 ```
 
 - La clé et `config.toml` sont ceux de l'IDE (`~/.config/hodegos/`). `--fast`,
@@ -99,8 +99,8 @@ cargo run --release -p hodegos-cli -- eval evals/ --mentors evals/mentors/ --cas
   pour comparer des candidats sans toucher à la configuration.
 - Seuls les mentors livrés sont utilisés : vos surcharges personnelles n'influent
   pas sur les résultats. `--mentors <dossier>` place un dossier de mentors
-  par-dessus, comme des mentors personnels : `--mentors evals/mentors/` évalue
-  les mentors de la phase 9 avant de les livrer. Sans mentor de projet, un cas de
+  par-dessus, comme des mentors personnels, pour évaluer des mentors avant de les
+  livrer (la 9f l'a fait pour ceux de la phase 9). Sans mentor de projet, un cas de
   revue ou de réévaluation est signalé « non joué ».
 - Le Mentor du langage utilise le modèle `fast`, l'Architecte et le Mentor produit
   le modèle `strong` : chaque modèle est jugé sur les cas de son niveau (15 et 7 cas).

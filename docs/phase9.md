@@ -90,9 +90,9 @@ Points réglés par défaut, à revoir si l'usage le demande :
 | 9f | Évaluation sur plusieurs fichiers ; activation par défaut des mentors de projet livrés | 9c à 9e |
 
 Une sous-phase à la fois, avec ses critères de fin (`docs/plan.md`). Tant que
-9f n'est pas passée, les mentors livrés n'ont pas la portée `project` (on
-l'essaie avec un mentor personnel) et le Mentor du langage garde le contexte
-`section`.
+9f n'était pas passée, les mentors livrés n'avaient pas la portée `project` et le
+Mentor du langage gardait le contexte `section`. Depuis l'évaluation 9f (ADR
+0011), ils sont livrés dans leurs portées.
 
 ## Règles inchangées
 
@@ -625,6 +625,15 @@ Poussés : `review_started` (avec `trigger`), `review_done`,
   rejoués minute par minute avec le planificateur et `ReviewOptions::default()` ;
   coût d'une revue mesuré par mentor (moyenne des revues sinon), surcoût du
   voisinage par passe ; 22 jours ouvrés par mois, comparé à 10 $.
+- Résultat (ADR 0011) : strong retenu (notion 88 %, citations 84 %), fast retenu
+  après une précision du palier exemple dans le cadre commun (le cas voisin ne
+  contient ni l'appel, ni l'argument, ni l'expression qui corrigerait la section) ;
+  journée type à 5,80 $ par mois : rythme et plafonds par défaut **confirmés**.
+  Les brouillons sont installés dans `mentors/` et `evals/mentors/` disparaît.
+- Les revues automatiques ne marquent rien quand elles sont coupées ou que le
+  déclencheur n'est pas réglé : plus de revue « en attente » affichée un instant
+  pour rien. Les tests du serveur coupent les revues automatiques par défaut ; ceux
+  qui les testent désactivent les mentors de projet livrés.
 
 ---
 

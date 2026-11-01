@@ -90,7 +90,7 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
         /// Mentors à placer par-dessus les mentors livrés, comme des mentors personnels
-        /// (par exemple evals/mentors/ pour évaluer ceux de la phase 9 avant de les livrer).
+        /// (pour évaluer des mentors avant de les livrer).
         #[arg(long)]
         mentors: Option<PathBuf>,
     },

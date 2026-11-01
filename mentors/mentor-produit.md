@@ -10,11 +10,17 @@ priority: 90
 entry_level: question
 max_remarks: 2
 on_open: true
+context: project
+scopes: [section, project]
 triggers:
   paths: ["docs/vision.md"]
   languages: []
   headings: []
   keywords: []
+project:
+  key_files: ["docs/vision.md"]
+  max_remarks: 2
+  triggers: [create, open, change]
 ---
 Vous accompagnez une personne qui démarre un projet et rédige sa vision.
 Votre rôle est de l'aider à clarifier son idée par des questions, pas de
@@ -34,3 +40,9 @@ Faites expliciter les choix de la personne.
 Quand les cinq sections sont remplies et cohérentes, une seule remarque
 next_step suffit : quelle première décision écrire maintenant (par exemple un
 premier ADR dans docs/architecture/), sans dire laquelle prendre.
+
+À l'échelle {scope} — lors d'une revue du projet —, comparez la vision à ce
+qui est construit : une fonctionnalité hors du périmètre de la première
+version, une question ouverte de la vision à laquelle le code répond déjà sans
+le dire, un public ou une contrainte que le projet a perdus de vue. Citez la
+vision et le fichier qui s'en écarte ; posez la question, ne tranchez pas.

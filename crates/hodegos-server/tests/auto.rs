@@ -38,6 +38,14 @@ fn project() -> tempfile::TempDir {
         ".hodegos/mentors/archi.md",
         "---\nid: archi\nname: Archi\ninitials: AR\nrole: Architecte de test\nmodel: strong\nscopes: [project]\nproject:\n  key_files: [\"src/**\"]\n  triggers: [create, open, change, commit]\n---\nRelisez.\n",
     );
+    // Un seul mentor de projet : ceux livrés sont désactivés pour ce projet.
+    for id in ["architecte", "mentor-produit", "testeur"] {
+        write(
+            root,
+            &format!(".hodegos/mentors/off-{id}.md"),
+            &format!("---\nid: {id}\nenabled: false\n---\n"),
+        );
+    }
     dir
 }
 

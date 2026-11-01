@@ -6,7 +6,6 @@ mentor = "testeur"
 [expect]
 must_mention = ["assertion", "ne vérifie rien", "toujours vrai", "test_planning", "is not None", "isinstance"]
 cited_files = ["tests/test_planning.py"]
-about = "project"
 
 [expect.must_not]
 "tests/test_planning.py" = ["len(jour.taches) <= 2", "jour.taches == []", "all(len(", "weekday() != 6"]

@@ -52,7 +52,18 @@ fn project_mentors(state: &AppState) -> Vec<Mentor> {
         .collect()
 }
 
+/// Une revue pour `trigger` peut partir : revues actives et déclencheur réglé. Sinon
+/// rien n'est marqué (le planificateur l'oublierait aussitôt, et l'état du projet
+/// afficherait un instant une revue en attente).
+fn accepts(state: &AppState, trigger: ReviewTrigger) -> bool {
+    let options = state.review_options();
+    options.enabled && options.triggers.contains(&trigger)
+}
+
 fn mark_all(state: &AppState, trigger: ReviewTrigger) {
+    if !accepts(state, trigger) {
+        return;
+    }
     let now = state.clock.now();
     if let Ok(mut scheduler) = state.auto.scheduler.lock() {
         for mentor in project_mentors(state) {
@@ -144,6 +155,9 @@ fn startup(state: &AppState) {
     }
     if state.project_store.never_reviewed() {
         mark_all(state, ReviewTrigger::Create);
+        return;
+    }
+    if !accepts(state, ReviewTrigger::Open) {
         return;
     }
     let session = state.project.session(UserId::local());

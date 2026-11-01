@@ -1012,30 +1012,30 @@ Vous accompagnez {name} en {language}.
     }
 
     #[test]
-    fn brouillons_des_mentors_livres_de_la_phase_9_valides() {
-        // `evals/mentors/` : installés dans `mentors/` après l'évaluation 9f.
+    fn mentors_livres_de_la_phase_9_valides() {
+        // Installés dans `mentors/` après l'évaluation 9f.
         for (name, text, scopes, context) in [
             (
                 "architecte.md",
-                include_str!("../../../evals/mentors/architecte.md"),
+                include_str!("../../../mentors/architecte.md"),
                 vec![Scope::Section, Scope::Project],
                 ContextScope::Project,
             ),
             (
                 "mentor-produit.md",
-                include_str!("../../../evals/mentors/mentor-produit.md"),
+                include_str!("../../../mentors/mentor-produit.md"),
                 vec![Scope::Section, Scope::Project],
                 ContextScope::Project,
             ),
             (
                 "mentor-langage.md",
-                include_str!("../../../evals/mentors/mentor-langage.md"),
+                include_str!("../../../mentors/mentor-langage.md"),
                 vec![Scope::Section],
                 ContextScope::Neighborhood,
             ),
             (
                 "testeur.md",
-                include_str!("../../../evals/mentors/testeur.md"),
+                include_str!("../../../mentors/testeur.md"),
                 vec![Scope::Project],
                 ContextScope::Section,
             ),

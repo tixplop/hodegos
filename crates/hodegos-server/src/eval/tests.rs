@@ -352,13 +352,9 @@ fn rapport_ecrit_sans_ecraser_celui_du_jour() {
     assert!(second.to_string_lossy().ends_with("-2.md"));
 }
 
-/// Mentors livrés avec les brouillons de la phase 9 par-dessus (`evals/mentors/`),
-/// comme `hodegos eval --mentors evals/mentors/`.
+/// Mentors livrés, ceux de la phase 9 compris (installés après l'évaluation 9f).
 fn phase9_registry() -> Registry {
-    Registry::load(&MentorSources {
-        user_dir: Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals/mentors")),
-        project_dir: None,
-    })
+    registry()
 }
 
 /// Aucun motif interdit n'est déjà écrit dans le projet : sinon le mentor ne pourrait
@@ -649,9 +645,19 @@ async fn reevaluation_jugee_sur_le_verdict_attendu() {
 
 #[test]
 fn sans_mentor_de_projet_le_cas_n_est_pas_joue() {
-    // Mentors livrés seuls (avant l'installation des brouillons) : la revue est
-    // signalée, pas jouée, et ne compte pas dans l'estimation.
+    // Le Testeur désactivé : la revue est signalée, pas jouée, et ne compte pas dans
+    // l'estimation.
     let case = project_case("25-troc");
-    assert!(super::run::first_prompt(&registry(), &case).is_none());
-    assert!(super::run::first_prompt(&phase9_registry(), &case).is_some());
+    assert!(super::run::first_prompt(&registry(), &case).is_some());
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("testeur.md"),
+        "---\nid: testeur\nenabled: false\n---\n",
+    )
+    .unwrap();
+    let without = Registry::load(&MentorSources {
+        user_dir: Some(dir.path().to_path_buf()),
+        project_dir: None,
+    });
+    assert!(super::run::first_prompt(&without, &case).is_none());
 }

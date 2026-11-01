@@ -53,7 +53,8 @@ fn llm(config_dir: &Path) -> Llm {
     }
 }
 
-async fn open(dir: &Path, config_dir: &Path, clock: Arc<ManualClock>) -> Socket {
+/// Socket ouverte, et revues en attente à l'accueil.
+async fn open(dir: &Path, config_dir: &Path, clock: Arc<ManualClock>) -> (Socket, Value) {
     let options = ServerOptions {
         review: ReviewOptions {
             tick: Duration::from_millis(20),
@@ -72,8 +73,13 @@ async fn open(dir: &Path, config_dir: &Path, clock: Arc<ManualClock>) -> Socket 
     let mut socket = common::connect(port, Some(&origin), Some(&cookie))
         .await
         .unwrap();
-    common::welcome(&mut socket).await;
-    socket
+    let status = common::next(&mut socket).await;
+    assert_eq!(status["type"], "status", "{status}");
+    let git = common::next(&mut socket).await;
+    assert_eq!(git["type"], "git_status", "{git}");
+    let project = common::next(&mut socket).await;
+    assert_eq!(project["type"], "project_status", "{project}");
+    (socket, project["payload"]["pending"].clone())
 }
 
 async fn request(socket: &mut Socket, id: &str, kind: &str, payload: Value) -> (Value, Vec<Value>) {
@@ -111,12 +117,34 @@ async fn reglages_des_revues_ecrits_et_appliques_sans_redemarrage() {
         ".hodegos/mentors/archi.md",
         "---\nid: archi\nname: Archi\ninitials: AR\nrole: R\nscopes: [project]\n---\nRelisez.\n",
     );
+    // Un seul mentor de projet : ceux livrés sont désactivés pour ce projet.
+    for id in ["architecte", "mentor-produit", "testeur"] {
+        write(
+            dir.path(),
+            &format!(".hodegos/mentors/off-{id}.md"),
+            &format!("---\nid: {id}\nenabled: false\n---\n"),
+        );
+    }
     let config = tempfile::tempdir().unwrap();
     fs::write(config.path().join("config.toml"), CONFIG).unwrap();
     let clock = Arc::new(ManualClock::new(
         Timestamp::from_second(1_793_000_000).unwrap(),
     ));
-    let mut socket = open(dir.path(), config.path(), clock.clone()).await;
+    let (mut socket, pending) = open(dir.path(), config.path(), clock.clone()).await;
+    // La revue `create` est notée au démarrage, peut-être après l'accueil : on
+    // l'attend avant de retirer son déclencheur.
+    if pending.as_array().is_none_or(|p| p.is_empty()) {
+        loop {
+            let message = next_within(&mut socket, Duration::from_secs(5))
+                .await
+                .expect("revue create en attente");
+            if message["type"] == "project_status"
+                && !message["payload"]["pending"].as_array().unwrap().is_empty()
+            {
+                break;
+            }
+        }
+    }
 
     let (settings, _) = request(&mut socket, "c-1", "settings_get", Value::Null).await;
     let payload = &settings["payload"];
@@ -221,7 +249,7 @@ async fn portees_et_bloc_projet_dans_l_editeur_de_mentors() {
     let clock = Arc::new(ManualClock::new(
         Timestamp::from_second(1_793_000_000).unwrap(),
     ));
-    let mut socket = open(dir.path(), config.path(), clock).await;
+    let (mut socket, _) = open(dir.path(), config.path(), clock).await;
     let form = |scopes: Value, project: Value| {
         json!({ "origin": "project", "id": "archi", "body": "Relisez à l'échelle {scope}.",
             "form": { "id": "archi", "name": "Archi", "initials": "AR", "role": "R",

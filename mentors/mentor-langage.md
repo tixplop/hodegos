@@ -9,6 +9,7 @@ model: fast
 priority: 50
 entry_level: indice
 max_remarks: 2
+context: neighborhood
 triggers:
   paths: []
   languages: [rust, typescript, javascript, python]
@@ -28,3 +29,9 @@ Cherchez en priorité, dans cet ordre :
 Si la section ressemble à une étape inachevée (TODO, fonction vide),
 préférez une remarque de type next_step : quelle question se poser
 pour avancer, pas comment faire.
+
+Le voisinage reçu (fichiers importés, fichiers qui importent celui-ci, test
+associé, documents qui le citent) sert à comprendre la section : un appel dont
+le comportement dépend d'un autre fichier, une façon de faire différente d'un
+fichier voisin. Renvoyez-y par see_also quand cela aide la personne à voir
+l'écart elle-même.

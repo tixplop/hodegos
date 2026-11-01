@@ -188,7 +188,7 @@ Gestion :
 - **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est créé dans le projet qu'à votre demande, par `mentors eject --project` ou, à partir de la phase 8e, en enregistrant un mentor du dépôt depuis les réglages ; jusque-là, Hodegos en observe les parents pour le voir apparaître.
 - **`on_open`** (phase 7, `false` par défaut) : un fichier dont le titulaire d'au moins une section a `on_open: true` reçoit une passe d'ouverture (voir « Déroulé d'une passe »). Le Mentor produit l'utilise sur `docs/vision.md`.
 - **Validation** : `id` en `[a-z0-9-]`, `initials` de deux caractères, `priority` de 0 à 100, `max_remarks` de 1 à 2, `mode`, `model` et `entry_level` parmi les valeurs connues ; deux fichiers de même `id` au même niveau : le second est signalé. Les frontmatters sont lus avec `serde-saphyr` (`serde_yaml` n'est plus maintenu).
-- **Portées** (phase 9, `docs/phase9.md`, 9c) : `scopes` vide ou inconnu est une erreur de validation ; le bloc `project` est ignoré sans la portée `project`. Avec la portée `section`, rien ne change (casting, `triggers`, `on_open`, `context`). Avec la portée `project`, le mentor est un **mentor de projet** : hors casting, il relit le projet lors d'une revue. La posture est commune aux deux portées. Les mentors livrés ne reçoivent la portée `project` (et le Mentor du langage le contexte `neighborhood`) qu'après l'évaluation de la sous-phase 9f.
+- **Portées** (phase 9, `docs/phase9.md`, 9c) : `scopes` vide ou inconnu est une erreur de validation ; le bloc `project` est ignoré sans la portée `project`. Avec la portée `section`, rien ne change (casting, `triggers`, `on_open`, `context`). Avec la portée `project`, le mentor est un **mentor de projet** : hors casting, il relit le projet lors d'une revue. La posture est commune aux deux portées. Depuis l'évaluation de la sous-phase 9f (ADR 0011), l'Architecte et le Mentor produit sont livrés en portées `section` et `project`, le Testeur en portée `project`, et le Mentor du langage avec le contexte `neighborhood`.
 - Un fichier invalide est ignoré, avec un avertissement dans la barre d'état et le journal ; il ne bloque jamais le démarrage. Un champ inconnu est ignoré, pour permettre d'ajouter des champs plus tard.
 
 Un mentor ne peut pas modifier le cadre commun (règles absolues, paliers, format JSON, garde « pas de solution ») : son corps est ajouté après le cadre, jamais à sa place.
@@ -384,6 +384,9 @@ Règles absolues :
              vérifier seule.
   piste    = nommer la notion en jeu et où se documenter, sans code.
   exemple  = montrer un cas voisin de 12 lignes au plus, jamais son code.
+             Le cas voisin illustre la notion sans contenir l'appel,
+             l'argument ou l'expression qui corrigerait la section : la
+             personne doit encore les trouver elle-même.
 - Au plus {max_remarks} remarques. Aucune remarque vaut mieux qu'une remarque
   faible : renvoyez une liste vide si rien ne mérite d'être dit.
 - Ne relevez que ce qui fait progresser : pas de style, pas de nommage,
@@ -501,7 +504,7 @@ La phase 9 donne aux mentors une connaissance du projet calculée sans modèle, 
 - **9c** : portées (`scopes`), revue demandée avec coût estimé, remarques de projet sur plusieurs fichiers, vue Projet.
 - **9d** : revues automatiques (création, ouverture, modifications au calme, commit en option ; calme, intervalle et plafond quotidien), ancres des remarques de projet, réévaluation.
 - **9e** : réglages des revues et des plafonds de contexte (`[context]`, `[project_review]` de `config.toml`), portées dans l'éditeur de mentors, mentors livrés (dont le Testeur).
-- **9f** : évaluation sur trois projets d'exemple ; coût d'une journée type mesuré avant d'activer les mentors livrés dans leurs portées.
+- **9f** : évaluation sur trois projets d'exemple ; coût d'une journée type mesuré (5,80 $ par mois), rythme et plafonds par défaut confirmés, mentors livrés activés dans leurs portées (ADR 0011).
 
 Inchangés : la garde « pas de solution » (appliquée à chaque section citée), le cadre commun hors d'atteinte des fichiers de mentor, aucun fichier ignoré ni secret envoyé, données personnelles hors du dépôt, budget mensuel qui fait foi (au plafond, plus rien d'automatique). Entrent dans le périmètre : le mentor Testeur et le déclencheur « commit ».
 

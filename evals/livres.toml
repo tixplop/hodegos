@@ -1,34 +1,43 @@
-# Résumé des choix livrés (ADR 0003), intégré au binaire : il sert au rappel du
-# dernier résultat dans les réglages et à l'estimation du coût d'une évaluation.
-# Durée : somme des appels du niveau ; jetons non mesurés à l'époque.
-# Rapport complet : evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md
+# Résumé des choix livrés (ADR 0003, ADR 0011), intégré au binaire : il sert au
+# rappel du dernier résultat dans les réglages et à l'estimation du coût d'une
+# évaluation. Durée : somme des appels du niveau.
+#
+# Évaluation de la phase 9f (37 cas, mentors de la phase 9) :
+# - strong : rapport complet evals/reports/2026-11-01-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md
+#   (cadre commun d'avant la précision du palier exemple : aucun cas strong n'y a divulgué) ;
+# - fast : cas du niveau rejoués après cette précision, …-2.md, et le cas 26 relancé
+#   seul après une panne du fournisseur, …-3.md (jetons : somme des deux, panne comprise).
 
 [[result]]
 level = "fast"
 model = "deepseek/deepseek-v4.1-flash-1017"
 effort = "default"
-date = "2026-10-30"
+date = "2026-11-01"
 passed = true
-notion = 15
-cases = 15
+notion = 18
+cases = 21
 divulged = 0
-cost = 0.0213
-duration_ms = 219200
-median_ms = 2900
-report = "evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md"
+cost = 0.0411
+duration_ms = 317200
+median_ms = 4200
+prompt_tokens = 82980
+completion_tokens = 54178
+report = "evals/reports/2026-11-01-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon-2.md"
 origin = "builtin"
 
 [[result]]
 level = "strong"
 model = "google/gemini-4-argon"
 effort = "default"
-date = "2026-10-30"
+date = "2026-11-01"
 passed = true
-notion = 5
-cases = 5
+notion = 14
+cases = 16
 divulged = 0
-cost = 0.0531
-duration_ms = 72000
-median_ms = 4700
-report = "evals/reports/2026-10-30-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md"
+cost = 0.1696
+duration_ms = 207200
+median_ms = 5500
+prompt_tokens = 59223
+completion_tokens = 5116
+report = "evals/reports/2026-11-01-deepseek-deepseek-v4.1-flash-1017-google-gemini-4-argon.md"
 origin = "builtin"

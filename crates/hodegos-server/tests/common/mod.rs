@@ -70,7 +70,12 @@ pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
         llm,
         terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
         context: Default::default(),
-        review: Default::default(),
+        // Les mentors de projet livrés relisent d'eux-mêmes à l'ouverture : seuls les
+        // tests des revues automatiques les activent.
+        review: hodegos_server::ReviewOptions {
+            enabled: false,
+            ..Default::default()
+        },
         clock: std::sync::Arc::new(hodegos_server::SystemClock),
         initial_file: None,
     }
