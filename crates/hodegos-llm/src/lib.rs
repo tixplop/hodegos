@@ -9,6 +9,7 @@ mod client;
 mod config;
 mod fake;
 mod openrouter;
+mod project;
 mod validate;
 
 pub use ask::{AskError, Asked, Replied, ask_for_remarks, ask_for_reply};
@@ -22,6 +23,11 @@ pub use config::{
 };
 pub use fake::FakeLlmClient;
 pub use openrouter::{ModelInfo, OpenRouterClient, check_key, fetch_models};
+pub use project::{
+    About, AskedProject, MAX_PROJECT_QUOTES, ProjectRemarkDraft, ProjectRules, ProjectValidated,
+    QuoteDraft, ask_for_project_remarks, parse_project_remarks, project_remarks_schema,
+    validate_project,
+};
 pub use validate::{
     MAX_SEE_ALSO, MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules,
     SeeAlsoDraft, SeeAlsoSource, ValidRemark, filter_see_also, parse_remarks, parse_replies,

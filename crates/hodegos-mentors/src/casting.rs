@@ -133,7 +133,12 @@ fn score<'m>(mentor: &'m Mentor, request: &CastRequest<'_>) -> Score<'m> {
 
 /// Titulaire, consultant et mentors disponibles pour une section.
 pub fn cast(registry: &Registry, request: &CastRequest<'_>) -> Casting {
-    let mut scores: Vec<Score<'_>> = registry.active().map(|m| score(m, request)).collect();
+    // Seuls les mentors de section passent par le casting (phase 9c).
+    let mut scores: Vec<Score<'_>> = registry
+        .active()
+        .filter(|m| m.has_section_scope())
+        .map(|m| score(m, request))
+        .collect();
     // Meilleur score d'abord, puis priorité, puis id.
     scores.sort_by(|a, b| {
         b.points
@@ -152,7 +157,10 @@ pub fn cast(registry: &Registry, request: &CastRequest<'_>) -> Casting {
                 "imposé par le document (mentors:)",
             ),
         };
-        registry.get(id).map(|_| (id.clone(), by, reason))
+        registry
+            .get(id)
+            .filter(|m| m.has_section_scope())
+            .map(|_| (id.clone(), by, reason))
     });
 
     let titular = match forced {
@@ -197,6 +205,7 @@ pub fn cast(registry: &Registry, request: &CastRequest<'_>) -> Casting {
 
     let mut available: Vec<&Mentor> = registry
         .active()
+        .filter(|m| m.has_section_scope())
         .filter(|m| Some(&m.id) != titular.as_ref() && !casting.consultants.contains(&m.id))
         .collect();
     available.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
@@ -608,5 +617,30 @@ mod tests {
                 casting.reasons
             );
         }
+    }
+
+    #[test]
+    fn un_mentor_de_projet_seul_ne_passe_pas_par_le_casting() {
+        let (_dir, registry) = isolated(&[
+            (
+                "testeur",
+                "priority: 100\nscopes: [project]\ntriggers:\n  languages: [rust]\n",
+            ),
+            (
+                "les-deux",
+                "priority: 50\nscopes: [section, project]\ntriggers:\n  languages: [rust]\n",
+            ),
+        ]);
+        let casting = cast(&registry, &request("a.rs", "rust"));
+        assert_eq!(casting.titular.as_deref(), Some("les-deux"));
+        assert!(!casting.available.contains(&"testeur".to_owned()));
+        let forced = CastRequest {
+            forced: Some(Forced::User("testeur".to_owned())),
+            ..request("a.rs", "rust")
+        };
+        assert_eq!(
+            cast(&registry, &forced).titular.as_deref(),
+            Some("les-deux")
+        );
     }
 }

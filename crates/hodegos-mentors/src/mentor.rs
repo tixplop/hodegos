@@ -66,6 +66,82 @@ impl ContextScope {
     }
 }
 
+/// Portée d'un mentor (phase 9c) : la section relue, ou le projet entier lors d'une revue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    Section,
+    Project,
+}
+
+impl Scope {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Section => "section",
+            Self::Project => "project",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Section, Self::Project]
+            .into_iter()
+            .find(|s| s.as_str() == name)
+    }
+}
+
+/// Ce qui déclenche une revue automatique (9d).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewTrigger {
+    Create,
+    Open,
+    Change,
+    Commit,
+}
+
+impl ReviewTrigger {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Create => "create",
+            Self::Open => "open",
+            Self::Change => "change",
+            Self::Commit => "commit",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Create, Self::Open, Self::Change, Self::Commit]
+            .into_iter()
+            .find(|t| t.as_str() == name)
+    }
+}
+
+/// Réglages d'un mentor de projet (bloc `project`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectSettings {
+    /// Fichiers relus en entier lors d'une revue (motifs).
+    #[serde(default)]
+    pub key_files: Vec<String>,
+    /// Remarques au plus par revue, de 1 à 3.
+    pub max_remarks: i64,
+    /// Déclencheurs des revues automatiques (9d).
+    pub triggers: Vec<ReviewTrigger>,
+}
+
+impl Default for ProjectSettings {
+    fn default() -> Self {
+        Self {
+            key_files: Vec::new(),
+            max_remarks: 3,
+            triggers: vec![
+                ReviewTrigger::Create,
+                ReviewTrigger::Open,
+                ReviewTrigger::Change,
+            ],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ModelTier {
@@ -141,6 +217,11 @@ pub struct Mentor {
     pub on_open: bool,
     /// Contexte reçu en plus de la section (phase 9b).
     pub context: ContextScope,
+    /// Portées (phase 9c), jamais vide.
+    pub scopes: Vec<Scope>,
+    /// Réglages de la portée `project` ; `None` sans elle.
+    pub project: Option<ProjectSettings>,
+    pub(crate) key_globs: GlobSet,
     pub triggers: Triggers,
     /// Posture, injectée après le cadre commun des prompts.
     pub body: String,
@@ -150,6 +231,18 @@ pub struct Mentor {
     /// Texte complet du fichier, pour `mentors eject`.
     pub source_text: String,
     pub(crate) path_globs: GlobSet,
+}
+
+impl Mentor {
+    /// Mentor de section : il passe par le casting.
+    pub fn has_section_scope(&self) -> bool {
+        self.scopes.contains(&Scope::Section)
+    }
+
+    /// Fichier clé d'un mentor de projet (motifs `project.key_files`).
+    pub fn is_key_file(&self, path: &str) -> bool {
+        self.key_globs.is_match(path)
+    }
 }
 
 /// Résultat de la lecture d'un fichier.
@@ -202,8 +295,17 @@ pub struct MentorForm {
     /// Absent d'un formulaire envoyé avant la phase 9b : `section`.
     #[serde(default)]
     pub context: ContextScope,
+    /// Absent d'un formulaire envoyé avant la phase 9c : `[section]`.
+    #[serde(default = "section_only")]
+    pub scopes: Vec<Scope>,
+    #[serde(default)]
+    pub project: ProjectSettings,
     #[serde(default)]
     pub triggers: FormTriggers,
+}
+
+fn section_only() -> Vec<Scope> {
+    vec![Scope::Section]
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,8 +334,18 @@ struct RawFrontmatter {
     max_remarks: Option<i64>,
     on_open: Option<bool>,
     context: Option<String>,
+    scopes: Option<Vec<String>>,
+    project: Option<RawProject>,
     #[serde(default)]
     triggers: FormTriggers,
+}
+
+#[derive(Deserialize, Default)]
+struct RawProject {
+    #[serde(default)]
+    key_files: Vec<String>,
+    max_remarks: Option<i64>,
+    triggers: Option<Vec<String>>,
 }
 
 /// Frontmatter lu et posture.
@@ -282,7 +394,10 @@ fn check_id(raw: &RawFrontmatter) -> Result<String, Vec<FieldError>> {
 }
 
 /// Valide tous les champs d'un mentor actif, en collectant chaque erreur.
-fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet), Vec<FieldError>> {
+fn check_fields(
+    raw: RawFrontmatter,
+    id: String,
+) -> Result<(MentorForm, GlobSet, GlobSet), Vec<FieldError>> {
     let mut errors = Vec::new();
     let mut required = |field: &str, value: Option<String>| {
         value.unwrap_or_else(|| {
@@ -352,6 +467,80 @@ fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet)
     let context = choice("context", raw.context, "section, neighborhood, project")
         .and_then(|c| ContextScope::from_name(&c))
         .unwrap_or_default();
+    let scopes = match raw.scopes {
+        None => section_only(),
+        Some(names) if names.is_empty() => {
+            errors.push(FieldError::new(
+                "scopes",
+                "scopes vide (section, project ou les deux)".into(),
+            ));
+            section_only()
+        }
+        Some(names) => {
+            let mut scopes = Vec::new();
+            for name in names {
+                match Scope::from_name(&name) {
+                    Some(scope) if !scopes.contains(&scope) => scopes.push(scope),
+                    Some(_) => {}
+                    None => errors.push(FieldError::new(
+                        "scopes",
+                        format!("portée « {name} » inconnue (section, project)"),
+                    )),
+                }
+            }
+            scopes.sort();
+            if scopes.is_empty() {
+                section_only()
+            } else {
+                scopes
+            }
+        }
+    };
+    let raw_project = raw.project.unwrap_or_default();
+    let defaults = ProjectSettings::default();
+    let project_max = raw_project.max_remarks.unwrap_or(defaults.max_remarks);
+    if !(1..=3).contains(&project_max) {
+        errors.push(FieldError::new(
+            "project.max_remarks",
+            format!("project.max_remarks {project_max} hors de 1 à 3"),
+        ));
+    }
+    let mut review_triggers = Vec::new();
+    for name in raw_project.triggers.unwrap_or_else(|| {
+        defaults
+            .triggers
+            .iter()
+            .map(|t| t.as_str().to_owned())
+            .collect()
+    }) {
+        match ReviewTrigger::from_name(&name) {
+            Some(trigger) if !review_triggers.contains(&trigger) => review_triggers.push(trigger),
+            Some(_) => {}
+            None => errors.push(FieldError::new(
+                "project.triggers",
+                format!("déclencheur « {name} » inconnu (create, open, change, commit)"),
+            )),
+        }
+    }
+    review_triggers.sort();
+    let mut key_globs = GlobSetBuilder::new();
+    for (index, pattern) in raw_project.key_files.iter().enumerate() {
+        match Glob::new(pattern) {
+            Ok(glob) => {
+                key_globs.add(glob);
+            }
+            Err(e) => errors.push(FieldError::new(
+                &format!("project.key_files[{index}]"),
+                format!("motif de fichier clé « {pattern} » invalide : {e}"),
+            )),
+        }
+    }
+    let key_globs = key_globs.build().unwrap_or_else(|_| GlobSet::empty());
+    let project = ProjectSettings {
+        key_files: raw_project.key_files,
+        max_remarks: project_max.clamp(1, 3),
+        triggers: review_triggers,
+    };
 
     let mut globs = GlobSetBuilder::new();
     for (index, pattern) in raw.triggers.paths.iter().enumerate() {
@@ -391,9 +580,11 @@ fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet)
         max_remarks: i64::from(max_remarks),
         on_open: raw.on_open.unwrap_or(false),
         context,
+        scopes,
+        project,
         triggers: raw.triggers,
     };
-    Ok((form, path_globs))
+    Ok((form, path_globs, key_globs))
 }
 
 /// Valide un fichier de mentor avec toutes ses erreurs, champ par champ : c'est la
@@ -405,7 +596,11 @@ pub fn validate(text: &str, origin: Origin, source_name: &str) -> Result<Parsed,
     if raw.enabled == Some(false) {
         return Ok(Parsed::Disabled { id });
     }
-    let (form, path_globs) = check_fields(raw, id)?;
+    let (form, path_globs, key_globs) = check_fields(raw, id)?;
+    let project = form
+        .scopes
+        .contains(&Scope::Project)
+        .then(|| form.project.clone());
     Ok(Parsed::Active(Box::new(Mentor {
         id: form.id,
         name: form.name,
@@ -418,6 +613,9 @@ pub fn validate(text: &str, origin: Origin, source_name: &str) -> Result<Parsed,
         max_remarks: u8::try_from(form.max_remarks).unwrap_or(2),
         on_open: form.on_open,
         context: form.context,
+        scopes: form.scopes,
+        project,
+        key_globs,
         triggers: Triggers {
             paths: form.triggers.paths,
             languages: form.triggers.languages,
@@ -452,7 +650,7 @@ pub fn join(errors: &[FieldError]) -> String {
 pub fn read_form(text: &str) -> Result<(MentorForm, String), Vec<FieldError>> {
     let (raw, body) = read(text)?;
     let id = check_id(&raw)?;
-    let (form, _) = check_fields(raw, id)?;
+    let (form, _, _) = check_fields(raw, id)?;
     Ok((form, body))
 }
 
@@ -472,7 +670,18 @@ struct Written<'a> {
     on_open: bool,
     #[serde(skip_serializing_if = "ContextScope::is_section")]
     context: ContextScope,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scopes: Option<FlowSeq<&'a [Scope]>>,
     triggers: WrittenTriggers<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project: Option<WrittenProject<'a>>,
+}
+
+#[derive(Serialize)]
+struct WrittenProject<'a> {
+    key_files: FlowSeq<&'a [String]>,
+    max_remarks: i64,
+    triggers: FlowSeq<&'a [ReviewTrigger]>,
 }
 
 #[derive(Serialize)]
@@ -499,12 +708,22 @@ pub fn render(form: &MentorForm, body: &str) -> Result<String, MentorError> {
         max_remarks: form.max_remarks,
         on_open: form.on_open,
         context: form.context,
+        scopes: (form.scopes != section_only()).then_some(FlowSeq(&form.scopes)),
         triggers: WrittenTriggers {
             paths: FlowSeq(&form.triggers.paths),
             languages: FlowSeq(&form.triggers.languages),
             headings: FlowSeq(&form.triggers.headings),
             keywords: FlowSeq(&form.triggers.keywords),
         },
+        // Le bloc `project` n'est écrit qu'avec la portée projet.
+        project: form
+            .scopes
+            .contains(&Scope::Project)
+            .then(|| WrittenProject {
+                key_files: FlowSeq(&form.project.key_files),
+                max_remarks: form.project.max_remarks,
+                triggers: FlowSeq(&form.project.triggers),
+            }),
     };
     let yaml = serde_saphyr::to_string(&written)
         .map_err(|e| MentorError(format!("frontmatter impossible à écrire : {e}")))?;
@@ -721,5 +940,74 @@ Vous accompagnez {name} en {language}.
             .collect();
         let parsed: MentorForm = serde_saphyr::from_str(&yaml).unwrap();
         assert_eq!(parsed.context, ContextScope::Section);
+    }
+
+    #[test]
+    fn portees_et_bloc_projet_valides_et_gardes() {
+        let mentor = active(VALID);
+        assert_eq!(mentor.scopes, vec![Scope::Section], "section par défaut");
+        assert!(mentor.project.is_none());
+        assert!(mentor.has_section_scope());
+
+        let both = VALID.replace(
+            "max_remarks: 1\n",
+            "max_remarks: 1\nscopes: [project, section]\nproject:\n  key_files: [\"docs/architecture/**\"]\n  max_remarks: 3\n  triggers: [change]\n",
+        );
+        let mentor = active(&both);
+        assert_eq!(mentor.scopes, vec![Scope::Section, Scope::Project]);
+        let project = mentor.project.clone().unwrap();
+        assert_eq!(project.max_remarks, 3);
+        assert_eq!(project.triggers, vec![ReviewTrigger::Change]);
+        assert!(mentor.is_key_file("docs/architecture/0001.md"));
+        assert!(!mentor.is_key_file("src/a.ts"));
+
+        // Défauts du bloc project ; bloc ignoré sans la portée.
+        let only = VALID.replace("max_remarks: 1\n", "max_remarks: 1\nscopes: [project]\n");
+        let mentor = active(&only);
+        assert!(!mentor.has_section_scope());
+        assert_eq!(mentor.project, Some(ProjectSettings::default()));
+        let ignored = VALID.replace(
+            "max_remarks: 1\n",
+            "max_remarks: 1\nproject:\n  max_remarks: 2\n",
+        );
+        assert!(active(&ignored).project.is_none());
+
+        for (extra, field) in [
+            ("scopes: []\n", "scopes"),
+            ("scopes: [tout]\n", "scopes"),
+            (
+                "scopes: [project]\nproject:\n  max_remarks: 4\n",
+                "project.max_remarks",
+            ),
+            (
+                "scopes: [project]\nproject:\n  triggers: [save]\n",
+                "project.triggers",
+            ),
+            (
+                "scopes: [project]\nproject:\n  key_files: [\"a[\"]\n",
+                "project.key_files[0]",
+            ),
+        ] {
+            let text = VALID.replace("max_remarks: 1\n", &format!("max_remarks: 1\n{extra}"));
+            let errors = validate(&text, Origin::User, "testeur.md").unwrap_err();
+            assert_eq!(errors[0].field, field, "{extra}");
+        }
+
+        // Le formulaire réécrit portées et bloc ; `[section]` seul n'est pas écrit.
+        let (form, body) = read_form(&both).unwrap();
+        let written = render(&form, &body).unwrap();
+        assert!(written.contains("scopes: [section, project]"), "{written}");
+        assert!(
+            written.contains("key_files: [docs/architecture/**]")
+                || written.contains("key_files: [\"docs/architecture/**\"]"),
+            "{written}"
+        );
+        assert_eq!(read_form(&written).unwrap().0, form);
+        let (form, body) = read_form(VALID).unwrap();
+        let plain = render(&form, &body).unwrap();
+        assert!(
+            !plain.contains("scopes") && !plain.contains("project"),
+            "{plain}"
+        );
     }
 }

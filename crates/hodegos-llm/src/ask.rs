@@ -82,7 +82,7 @@ pub async fn ask_for_reply(
 
 /// Appelle le modèle et lit sa réponse avec `parse` ; une seule relance si elle est
 /// illisible. Renvoie le résultat lu, le coût cumulé et s'il y a eu relance.
-async fn ask_parsed<T>(
+pub(crate) async fn ask_parsed<T>(
     client: &dyn LlmClient,
     mut request: LlmRequest,
     parse: fn(&str) -> Result<T, String>,

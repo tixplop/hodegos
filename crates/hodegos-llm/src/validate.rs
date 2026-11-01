@@ -10,7 +10,7 @@ use serde_json::json;
 
 /// Confiance minimale d'une remarque gardée.
 pub const MIN_CONFIDENCE: f64 = 0.5;
-const QUOTE_CHARS: std::ops::RangeInclusive<usize> = 3..=120;
+pub(crate) const QUOTE_CHARS: std::ops::RangeInclusive<usize> = 3..=120;
 /// Lignes d'apparence code tolérées dans un message, hors palier exemple.
 const MAX_CODE_LINES: usize = 2;
 /// Lignes de code d'un exemple, au plus.
@@ -342,7 +342,7 @@ fn rejection(draft: &RemarkDraft, rules: &Rules<'_>) -> Option<&'static str> {
 }
 
 /// Longueur du message, selon le palier.
-fn message_rejection(message: &str, level: RemarkLevel) -> Option<&'static str> {
+pub(crate) fn message_rejection(message: &str, level: RemarkLevel) -> Option<&'static str> {
     if message.trim().is_empty() || message.chars().count() > level.max_message_chars() {
         return Some("message vide ou trop long");
     }
@@ -352,7 +352,7 @@ fn message_rejection(message: &str, level: RemarkLevel) -> Option<&'static str> 
 /// Garde « pas de solution » : aucun code avant le palier exemple ; au palier
 /// exemple, 12 lignes de code au plus, sans reprendre plus de 3 identifiants de la
 /// section.
-fn solution_guard(message: &str, rules: &Rules<'_>) -> Option<&'static str> {
+pub(crate) fn solution_guard(message: &str, rules: &Rules<'_>) -> Option<&'static str> {
     if rules.level != RemarkLevel::Exemple {
         return gives_code(message)
             .then_some("garde « pas de solution » : code avant le palier exemple");

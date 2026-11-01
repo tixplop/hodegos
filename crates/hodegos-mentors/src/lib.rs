@@ -5,6 +5,7 @@
 mod casting;
 mod eject;
 mod mentor;
+mod project_prompt;
 mod prompt;
 mod registry;
 mod section_prompt;
@@ -16,8 +17,12 @@ pub use casting::{
 pub use eject::{EjectError, eject};
 pub use mentor::{
     ContextScope, FieldError, FormTriggers, Level, Mentor, MentorError, MentorForm, Mode,
-    ModelTier, Origin, Parsed, Triggers, join, minimal_override, parse, read_form, render,
-    validate,
+    ModelTier, Origin, Parsed, ProjectSettings, ReviewTrigger, Scope, Triggers, join,
+    minimal_override, parse, read_form, render, validate,
+};
+pub use project_prompt::{
+    FileDiff, FileText, OpenRemark, ProjectFollowUpInput, ReviewInput, project_follow_up_prompt,
+    review_prompt,
 };
 pub use prompt::{
     Author, Extra, FollowUp, FollowUpKind, NeighborText, Prompt, PromptInput, build_prompt,
