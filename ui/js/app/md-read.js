@@ -252,11 +252,12 @@ export function renderTable(state, node, docPath, onLink, anchors = []) {
   const out = table(node, state.doc, inline);
   for (const anchor of anchors) {
     const last = wrapRange(segments, anchor.from, anchor.to, () => {
-      const mark = element('span', anchor.active ? 'app-anchor app-anchor--active' : 'app-anchor');
+      const mark = element('span', `app-anchor${anchor.active ? ' app-anchor--active' : ''}${anchor.project ? ' app-anchor--project' : ''}`);
       mark.dataset.remark = anchor.id;
       return mark;
     });
     const badge = marker(anchor.number, anchor.active, 'app-marker');
+    if (anchor.project) badge.classList.add('app-marker--project');
     if (last) {
       last.after(badge);
     } else {
@@ -455,12 +456,13 @@ export function createReader(container, { onLink, onBlock, onAnchor }) {
       for (const anchor of anchors) {
         const last = anchor.to > anchor.from
           ? wrapRange(segments, anchor.from, anchor.to, () => {
-            const mark = element('mark', anchor.active ? 'hd-anchor hd-anchor--active' : 'hd-anchor');
+            const mark = element('mark', `hd-anchor${anchor.active ? ' hd-anchor--active' : ''}${anchor.project ? ' app-anchor-project' : ''}`);
             mark.dataset.remark = anchor.id;
             return mark;
           })
           : null;
         const badge = marker(anchor.number, anchor.active);
+        if (anchor.project) badge.classList.add('app-marker-project');
         if (last) {
           last.after(badge);
         } else {

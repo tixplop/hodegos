@@ -102,6 +102,10 @@ const theme = EditorView.theme({
   '.app-anchor--active': { outline: '2px solid var(--accent)', outlineOffset: '1px' },
   '.app-marker': { display: 'inline-block', marginLeft: '3px', padding: '0 5px', borderRadius: '999px', backgroundColor: 'var(--ink)', color: 'var(--surface-0)', fontFamily: 'var(--font-sans)', fontSize: '10px', lineHeight: '15px', fontWeight: '600', verticalAlign: 'super' },
   '.app-marker--active': { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
+  // Remarque de projet : marqueur carré cerclé, surlignage en pointillés (phase 9d).
+  '.app-marker--project': { borderRadius: '3px', backgroundColor: 'var(--surface-0)', color: 'var(--ink)', boxShadow: 'inset 0 0 0 1.5px var(--ink)' },
+  '.app-marker--project.app-marker--active': { backgroundColor: 'var(--accent)', color: 'var(--on-accent)', boxShadow: 'none' },
+  '.app-anchor--project': { borderBottomStyle: 'dashed' },
   '.cm-textfield': { font: 'inherit', border: '1px solid var(--border-control)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--surface-0)', color: 'var(--ink)' },
   '.cm-button': { font: 'inherit', border: '1px solid var(--border-control)', borderRadius: 'var(--radius-sm)', backgroundImage: 'none', backgroundColor: 'var(--surface-0)', color: 'var(--ink)' },
 });
@@ -113,19 +117,21 @@ const setAnchors = StateEffect.define();
 
 /** Numéro de la remarque, juste après le passage cité (hd-marker). */
 class MarkerWidget extends WidgetType {
-  constructor(number, active) {
+  /** `project` : remarque de projet, marqueur de forme distincte (phase 9d). */
+  constructor(number, active, project = false) {
     super();
     this.number = number;
     this.active = active;
+    this.project = project;
   }
 
   eq(other) {
-    return other.number === this.number && other.active === this.active;
+    return other.number === this.number && other.active === this.active && other.project === this.project;
   }
 
   toDOM() {
     const span = document.createElement('span');
-    span.className = this.active ? 'app-marker app-marker--active' : 'app-marker';
+    span.className = `app-marker${this.active ? ' app-marker--active' : ''}${this.project ? ' app-marker--project' : ''}`;
     span.setAttribute('aria-hidden', 'true');
     span.textContent = String(this.number);
     return span;
@@ -137,11 +143,11 @@ function anchorDecorations(anchors) {
   for (const anchor of anchors) {
     if (anchor.to > anchor.from) {
       ranges.push(Decoration.mark({
-        class: anchor.active ? 'app-anchor app-anchor--active' : 'app-anchor',
+        class: `app-anchor${anchor.active ? ' app-anchor--active' : ''}${anchor.project ? ' app-anchor--project' : ''}`,
         attributes: { 'data-remark': anchor.id },
       }).range(anchor.from, anchor.to));
     }
-    ranges.push(Decoration.widget({ widget: new MarkerWidget(anchor.number, anchor.active), side: 1 }).range(anchor.to));
+    ranges.push(Decoration.widget({ widget: new MarkerWidget(anchor.number, anchor.active, anchor.project), side: 1 }).range(anchor.to));
   }
   return Decoration.set(ranges, true);
 }

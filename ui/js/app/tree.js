@@ -60,6 +60,8 @@ let inputs = 0;
 export function createTree(root, {
   list, create, move, onOpen, onCreated, onDelete, onMoveTo, onMoved, onError, zone, head, problem,
 }) {
+  /** Fichiers cités par une remarque de projet. */
+  let projectPaths = new Set();
   let current = null;
   /** Dossiers dépliés : ils le restent quand l'arbre est rechargé. */
   const expanded = new Set();
@@ -156,6 +158,13 @@ export function createTree(root, {
       button.append(name);
       const end = document.createElement('span');
       end.className = 'hd-row app-tree__end';
+      if (projectPaths.has(path)) {
+        const cited = document.createElement('span');
+        cited.className = 'app-tree__project';
+        cited.textContent = 'P';
+        cited.title = 'Cité par une remarque de projet';
+        end.append(cited);
+      }
       if (entry.mentors?.length) {
         const meta = document.createElement('span');
         meta.className = 'hd-nav__meta';
@@ -470,6 +479,13 @@ export function createTree(root, {
     setCurrent(path) {
       current = path;
       markCurrent();
+    },
+    /** Fichiers cités par une remarque de projet (repère « P », phase 9d). */
+    setProjectPaths(paths) {
+      const next = new Set(paths);
+      if (next.size === projectPaths.size && [...next].every((p) => projectPaths.has(p))) return;
+      projectPaths = next;
+      refresh();
     },
     /** Statut git (`null` sans dépôt) ; l'arbre est rechargé pour suivre les fichiers. */
     setGit(status) {

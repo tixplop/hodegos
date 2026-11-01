@@ -231,3 +231,15 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-project__check { gap: var(--space-2); flex-wrap: nowrap; font-size: 14px; }
 .app-project__estimate { font-weight: 600; }
 .app-project__tabs .hd-count[hidden] { display: none; }
+.app-marker-project { border-radius: 3px; background: var(--surface-0); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.app-marker-project.hd-marker--active { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.app-anchor-project { border-bottom-style: dashed; }
+.app-tree__project { font-family: var(--font-sans); font-size: 11px; font-weight: 700; color: var(--accent); }
+.app-header__count { margin-left: 4px; }
+.app-header__count[hidden] { display: none; }
+.app-project-file { font-size: 13px; }
+.app-project-file summary { cursor: pointer; font-weight: 600; }
+.app-project-file__list { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+.app-project-file__card { gap: var(--space-1); padding: var(--space-3); }
+.app-project-file__text { margin: 0; font-size: 13px; line-height: 19px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.app-remark__review-note { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }

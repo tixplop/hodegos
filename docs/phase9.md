@@ -502,6 +502,33 @@ Poussés : `review_started` (avec `trigger`), `review_done`,
 `project_status { pending: [{ mentor_id, trigger, at }], open, to_review }`.
 `file` ajoute `project_remarks` (celles qui citent ce fichier).
 
+### Précisions retenues à l'implémentation de 9d (1er novembre 2026)
+
+- Réponses aux points du plan : une remarque `answered` dont un passage disparaît
+  passe aussi en `to_review` (votre réponse part dans le fil) ; une réponse seule ne
+  déclenche pas de réévaluation. La réévaluation attend le calme, une à la fois par
+  mentor, sans intervalle ni plafond quotidien, un appel par remarque. Le jour du
+  plafond quotidien est le jour UTC. Un fichier supprimé depuis Hodegos rend ses
+  passages `gone` ; déplacé, ses citations suivent (annulé si l'écriture échoue).
+- Horloge injectable (`ServerOptions.clock`) ; la boucle interroge le planificateur
+  chaque seconde. Les dates des revues et des remarques suivent cette horloge.
+- L'intervalle minimal vaut pour tous les déclencheurs automatiques, depuis la
+  dernière revue du mentor, demandée ou non, aboutie ou non ; une revue automatique
+  en panne compte dans le plafond quotidien (pas de relance en boucle).
+- `open` compare l'empreinte de chaque fichier masqué à l'instantané de la dernière
+  revue du mentor. `commit` compare `HEAD` à chaque rafraîchissement du suivi git,
+  même quand le statut affiché ne change pas ; le premier commit d'un dépôt n'en
+  déclenche pas.
+- Une suppression depuis Hodegos compte comme une modification (le calme repart).
+  À l'ouverture du projet, les remarques à réévaluer le sont dès que possible.
+- `keep` rend la remarque `open`, ou `answered` si votre réponse est le dernier
+  message du fil. Une remarque à réévaluer ne prend ni palier ni réponse.
+- Interface : marqueur « P1 », carré et cerclé, et soulignement en pointillés pour
+  un passage cité par une remarque de projet ; un clic dessus ouvre la vue Projet
+  sur cette remarque ; section repliée « Remarques de projet sur ce fichier »,
+  repère « P » dans l'arbre, compteur sur le bouton « Projet », revue prévue ou en
+  cours dans la barre d'état et le panneau des mentors de projet.
+
 ## 9e — Réglages et mentors livrés (UC-9.11, UC-9.12)
 
 - **Réglages · Revues du projet** (maquette `09-5`) : déclencheurs, rythme,

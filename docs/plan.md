@@ -362,12 +362,30 @@ Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9d — Revues automatiques, ancres, réévaluation
 
-- [ ] Revues automatiques à la création, à l'ouverture après un changement fait hors de Hodegos, et
+- [x] Revues automatiques à la création, à l'ouverture après un changement fait hors de Hodegos, et
   après des modifications une fois au calme ; intervalle et plafond quotidien respectés ; arrêt au
   plafond du budget
-- [ ] Remarques de projet dans la vue Projet, puis dans le fichier ouvert
-- [ ] Passage supprimé : remarque `passage` disparue ; remarque `project` réévaluée, puis maintenue
+  (`scheduler.rs` avec une horloge simulée ; `crates/hodegos-server/tests/auto.rs` : création,
+  relance sans changement, ouverture après un changement fait ailleurs, calme, intervalle, plafond
+  quotidien puis lendemain, budget, commit désactivé par défaut puis activé)
+- [x] Remarques de projet dans la vue Projet, puis dans le fichier ouvert
+  (`tests/reevaluate.rs` : `file.project_remarks` ; `project_status` à la connexion et à chaque
+  changement)
+- [x] Passage supprimé : remarque `passage` disparue ; remarque `project` réévaluée, puis maintenue
   ou levée avec sa raison
+  (llm : verdicts `keep` et `withdraw` ; `tests/reevaluate.rs` : détachement à l'enregistrement,
+  réévaluation au calme après une modification faite ailleurs, maintenue avec une nouvelle
+  citation puis levée avec sa raison, réponse illisible retentée après la revue suivante,
+  fichier déplacé puis supprimé depuis Hodegos, déplacement annulé si l'écriture échoue)
+
+Vérification de l'interface, le 1er novembre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, faux fournisseur local, `calm_secs = 5`, `min_interval_secs = 10`) dans les deux
+thèmes : compteur sur le bouton « Projet », repère « P » sur les fichiers cités, passage surligné en
+pointillés avec marqueurs « P1 »… dans le fichier ouvert, section « Remarques de projet sur ce
+fichier » qui renvoie à la remarque dans la vue Projet, « Revue du projet prévue au calme » dans la
+barre d'état et le panneau après une modification faite hors de Hodegos, revue « Modifications »
+dans l'historique, passage cité retiré puis remarque « À réévaluer » avec son explication, levée au
+calme, aucune erreur dans la console.
 
 ### 9e — Réglages et mentors livrés
 

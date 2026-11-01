@@ -43,9 +43,10 @@ function plural(count, one, many) {
 
 /**
  * `root` : l'écran #projet. `request(type, payload)` ; `onOpenAt(path, line)` ouvre un fichier ;
- * `onShowMap()` : onglet Carte ; `mentorName(id)` ; `onCount(n)` : remarques ouvertes.
+ * `onShowMap()` : onglet Carte ; `mentorName(id)` ; `onCount(n)` : remarques ouvertes ;
+ * `onChange()` : les remarques ont changé (fichier ouvert, arbre).
  */
-export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mentorName, onCount }) {
+export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mentorName, onCount, onChange }) {
   const $ = (id) => root.querySelector(`#${id}`);
   const ui = {
     count: $('projet-compte'),
@@ -68,10 +69,13 @@ export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mento
   const drafts = new Map();
   /** Mentors dont une revue est en cours. */
   const reviewing = new Set();
+  /** Revues automatiques prévues : mentor → déclencheur (`project_status`). */
+  let planned = new Map();
 
   const nameOf = (id) => mentors.find((m) => m.id === id)?.name ?? mentorName(id);
 
   function renderList() {
+    onChange();
     const visible = [...remarks.values()].filter((r) => ['open', 'answered', 'to_review'].includes(r.status));
     onCount(visible.length);
     ui.count.hidden = visible.length === 0;
@@ -134,6 +138,11 @@ export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mento
     }
     head.append(marker, author, badge);
     article.append(head);
+    article.id = `remarque-${remark.id}`;
+    if (remark.status === 'to_review') {
+      article.append(element('p', 'app-remark__review-note',
+        `Un passage cité a disparu. Cette remarque porte sur le projet : ${nameOf(remark.mentor_id)} la relit à l'échelle du projet, au calme, puis la maintient avec de nouvelles citations ou la lève en disant pourquoi.`));
+    }
     if (remark.kind !== 'next_step') article.append(stepper(remark));
     for (const entry of remark.thread) article.append(threadEntry(entry));
     if (waiting) {
@@ -251,6 +260,9 @@ export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mento
       head.append(element('strong', 'hd-mentor__name', mentor.name));
       if (reviewing.has(mentor.id) || mentor.reviewing) {
         head.append(element('span', 'hd-badge hd-badge--mentor', 'Relit le projet…'));
+      } else if (planned.has(mentor.id)) {
+        const trigger = planned.get(mentor.id);
+        head.append(element('span', 'hd-badge', trigger === 'change' ? 'Revue prévue au calme' : 'Revue prévue'));
       }
       const triggers = mentor.triggers.map((t) => TRIGGERS[t] ?? t).join(', ');
       const last = mentor.last_review_at ? `dernière revue : ${date(mentor.last_review_at)}` : 'jamais relu';
@@ -361,7 +373,34 @@ export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mento
 
   ui.ask.addEventListener('click', askReview);
 
+  const visible = (r) => ['open', 'answered', 'to_review'].includes(r.status);
+
   return {
+    /** Nom d'un mentor de projet (il n'apparaît pas forcément dans le casting). */
+    nameOf,
+    /** Remarques affichées qui citent `path` (passage présent). */
+    citing(path) {
+      return [...remarks.values()].filter((r) => visible(r) && r.anchors.some((a) => a.path === path && a.status === 'ok'));
+    },
+    /** Fichiers cités par une remarque affichée. */
+    citedPaths() {
+      return [...remarks.values()].filter(visible)
+        .flatMap((r) => r.anchors.filter((a) => a.status === 'ok').map((a) => a.path));
+    },
+    /** `project_status` : revues prévues et en cours. */
+    status({ pending, reviewing: busy }) {
+      planned = new Map(pending.map((p) => [p.mentor_id, p.trigger]));
+      reviewing.clear();
+      for (const id of busy) reviewing.add(id);
+      renderMentors();
+    },
+    /** Met une remarque en avant dans la liste (venue d'un fichier ouvert). */
+    focus(id) {
+      activeId = id;
+      filter = null;
+      renderList();
+      root.querySelector(`#remarque-${CSS.escape(id)}`)?.scrollIntoView({ block: 'center' });
+    },
     /** Remarques et revues, à l'ouverture de la vue. */
     async load() {
       try {

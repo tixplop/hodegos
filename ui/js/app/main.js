@@ -114,7 +114,7 @@ const editor = createEditor(ui.editor, {
     ui.position.textContent = `l.${line}, col. ${col}`;
     scheduleCursor(line, col);
   },
-  onAnchor: (id) => selectRemark(id, false),
+  onAnchor: (id) => (id.startsWith('rp_') ? openProjectRemark(id) : selectRemark(id, false)),
   onLink: openFile,
 });
 const reader = createReader(ui.reading, {
@@ -124,7 +124,7 @@ const reader = createReader(ui.reading, {
     setMarkdownMode('preview');
     editor.reveal(pos);
   },
-  onAnchor: (id) => selectRemark(id, false),
+  onAnchor: (id) => (id.startsWith('rp_') ? openProjectRemark(id) : selectRemark(id, false)),
 });
 for (const choice of ui.modes.querySelectorAll('[data-value]')) {
   choice.addEventListener('click', () => setMarkdownMode(choice.dataset.value));
@@ -151,6 +151,10 @@ const projectRemarks = createProjectRemarks(ui.project, {
   onShowMap: () => showProjectTab('carte'),
   mentorName: (id) => mentorNames.get(id) ?? id,
   onCount: () => {},
+  onChange: () => {
+    renderRemarksPanel();
+    tree.setProjectPaths(projectRemarks.citedPaths());
+  },
 });
 ui.openProject.addEventListener('click', () => showProject(ui.project.hidden));
 for (const tab of ui.project.querySelectorAll('[role="tab"]')) {
@@ -209,6 +213,7 @@ function onState(state) {
     tree.load();
     settings.load();
     mentorsPage.count();
+    projectRemarks.load();
     if (wasConnected) resync();
     wasConnected = true;
   } else {
@@ -277,6 +282,10 @@ function onPush(message) {
   }
   if (message.type === 'map_updated') {
     projectView.updated(!ui.project.hidden && projectTab === 'carte');
+    return;
+  }
+  if (message.type === 'project_status') {
+    renderProjectStatus(message.payload);
     return;
   }
   if (message.type === 'review_started') {
@@ -362,7 +371,7 @@ function showProject(open) {
   ui.ide.hidden = open;
   ui.project.hidden = !open;
   ui.openProject.setAttribute('aria-expanded', String(open));
-  ui.openProject.textContent = open ? 'Revenir à l\'éditeur' : 'Projet';
+  $('ouvrir-projet-texte').textContent = open ? 'Revenir à l\'éditeur' : 'Projet';
   if (open) {
     projectRemarks.load();
     showProjectTab(projectTab);
@@ -792,6 +801,8 @@ function renderRemarksPanel() {
     },
   });
   if (!currentPath) return;
+  const projectItems = projectRemarkItems(currentPath);
+  if (projectItems.length) ui.remarks.append(projectSection(projectItems));
   const anchors = items
     .filter((item) => item.position)
     .map(({ remark, number, position }) => ({
@@ -800,9 +811,99 @@ function renderRemarksPanel() {
       from: position.from,
       to: position.to,
       active: remark.id === activeRemark,
-    }));
+    }))
+    .concat(projectItems.filter((item) => item.position).map(({ remark, number, position }) => ({
+      id: remark.id,
+      number: `P${number}`,
+      from: position.from,
+      to: position.to,
+      active: remark.id === activeRemark,
+      project: true,
+    })));
   editor.showAnchors(anchors);
   if (isReading()) reader.render(editor.state, currentPath, anchors);
+}
+
+/* ---------- Remarques de projet dans le fichier ouvert (phase 9d) ---------- */
+
+/** Passages du fichier `path` cités par une remarque de projet. */
+function projectRemarkItems(path) {
+  const tab = tabs.get(path);
+  if (!tab) return [];
+  const doc = path === currentPath ? editor.state.doc : tab.state.doc;
+  return projectRemarks.citing(path).flatMap((remark) => remark.anchors
+    .filter((a) => a.path === path && a.status === 'ok')
+    .map((anchor) => ({ remark, anchor, position: locate(doc, anchor.quote, anchor.line_hint) })))
+    .sort((a, b) => a.anchor.line_hint - b.anchor.line_hint)
+    .map((item, index) => ({ ...item, number: index + 1 }));
+}
+
+/** Section repliée « Remarques de projet sur ce fichier » : cartes courtes vers la vue Projet. */
+function projectSection(items) {
+  const details = document.createElement('details');
+  details.className = 'app-project-file';
+  const summary = document.createElement('summary');
+  summary.textContent = `Remarques de projet sur ce fichier (${items.length})`;
+  const list = document.createElement('div');
+  list.className = 'app-project-file__list';
+  for (const { remark, number } of items) {
+    const card = document.createElement('article');
+    card.className = remark.id === activeRemark ? 'hd-card hd-card--active app-project-file__card' : 'hd-card app-project-file__card';
+    const head = document.createElement('div');
+    head.className = 'hd-card__head';
+    const marker = document.createElement('span');
+    marker.className = 'hd-marker app-marker-project app-marker-inline';
+    marker.textContent = `P${number}`;
+    const author = document.createElement('span');
+    author.className = 'hd-msg__author--mentor';
+    author.textContent = projectRemarks.nameOf(remark.mentor_id);
+    head.append(marker, author);
+    if (remark.status === 'to_review') {
+      const badge = document.createElement('span');
+      badge.className = 'hd-badge hd-badge--warning hd-card__end';
+      badge.textContent = 'À réévaluer';
+      head.append(badge);
+    }
+    const text = document.createElement('p');
+    text.className = 'app-project-file__text';
+    text.textContent = remark.thread[0]?.text ?? '';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'hd-btn hd-btn--ghost hd-btn--sm';
+    open.textContent = 'Voir dans la vue Projet';
+    open.addEventListener('click', () => openProjectRemark(remark.id));
+    card.append(head, text, open);
+    list.append(card);
+  }
+  details.append(summary, list);
+  return details;
+}
+
+/** Ouvre la vue Projet sur une remarque de projet ; le fil s'y traite. */
+function openProjectRemark(id) {
+  showProject(true);
+  showProjectTab('remarques');
+  projectRemarks.focus(id);
+}
+
+/** `project_status` : compteur du bouton Projet, barre d'état, panneau des mentors. */
+function renderProjectStatus(status) {
+  projectRemarks.status(status);
+  const count = status.open + status.to_review;
+  const counter = $('projet-compteur');
+  counter.hidden = count === 0;
+  counter.textContent = String(count);
+  ui.openProject.setAttribute('aria-label', count ? `Projet, ${count} remarques de projet` : 'Projet');
+  const name = (id) => projectRemarks.nameOf(id);
+  const line = $('revues');
+  if (status.reviewing.length) {
+    line.textContent = `Relit le projet : ${status.reviewing.map(name).join(', ')}…`;
+  } else if (status.pending.length) {
+    const calm = status.pending.every((p) => p.trigger === 'change');
+    line.textContent = `Revue du projet prévue${calm ? ' au calme' : ''} : ${status.pending.map((p) => name(p.mentor_id)).join(', ')}`;
+  } else {
+    line.textContent = status.to_review ? `${status.to_review} remarque${status.to_review > 1 ? 's' : ''} de projet à réévaluer` : '';
+  }
 }
 
 /** Met en avant une remarque ; `reveal` amène aussi son passage à l'écran. */
@@ -906,6 +1007,7 @@ async function openFile(path, line = null) {
   try {
     const { payload } = await server.request('open_file', { path });
     remarksByPath.set(path, payload.remarks);
+    projectRemarks.remarksArrived(payload.project_remarks ?? []);
     const state = editor.createState(payload.content, payload.language, path);
     tabs.set(path, {
       path,
