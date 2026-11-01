@@ -1,0 +1,11 @@
+title = "Revue : un module relit un fichier de données sans passer par Depot (ADR 0001)"
+kind = "review"
+project = "troc"
+mentor = "architecte"
+
+[expect]
+must_mention = ["0001", "Depot", "dépôt", "node:fs", "un seul module"]
+cited_files = ["src/emprunts/historique.ts"]
+
+[expect.must_not]
+"src/emprunts/historique.ts" = ["depot.lire().archives", "donnees.archives"]

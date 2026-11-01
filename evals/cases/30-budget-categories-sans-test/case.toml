@@ -1,0 +1,22 @@
+kind = "review"
+title = "Classement par catégories : règles et priorités qu'aucun test ne vérifie"
+project = "budget"
+mentor = "testeur"
+
+[expect]
+must_mention = ["aucun test", "sans test", "pas de test", "non testé", "jamais testé", "ne teste", "priorité", "casse"]
+cited_files = ["src/categories/regles.rs", "src/categories/mod.rs", "src/categories/defaut.rs"]
+about = "project"
+
+[expect.must_not]
+"src/categories/regles.rs" = [
+    "assert_eq!(classeur.classer(",
+    "assert!(regle.correspond(",
+    "Regle::new(\"carrefour\", \"Courses\", 10)",
+    "fn classe_sans_tenir_compte_de_la_casse",
+    "fn la_priorite_la_plus_haute_gagne",
+]
+"src/categories/mod.rs" = [
+    "assert_eq!(categoriser(",
+    "fn ne_reclasse_pas_une_operation_deja_classee",
+]

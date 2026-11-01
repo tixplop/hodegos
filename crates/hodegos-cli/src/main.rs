@@ -89,6 +89,10 @@ enum Command {
         /// pour les cas intégrés).
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Mentors à placer par-dessus les mentors livrés, comme des mentors personnels
+        /// (par exemple evals/mentors/ pour évaluer ceux de la phase 9 avant de les livrer).
+        #[arg(long)]
+        mentors: Option<PathBuf>,
     },
 }
 
@@ -154,6 +158,7 @@ fn main() -> ExitCode {
                 model,
                 max_cost,
                 out,
+                mentors,
             }),
             _,
         ) => match evaluate(eval::EvalArgs {
@@ -164,6 +169,7 @@ fn main() -> ExitCode {
             model,
             max_cost,
             out,
+            mentors,
         }) {
             // Un modèle non retenu : code de sortie 1, le rapport dit pourquoi.
             Ok(false) => return ExitCode::FAILURE,

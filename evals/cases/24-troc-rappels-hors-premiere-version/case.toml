@@ -1,0 +1,13 @@
+title = "Revue : les rappels par e-mail grossissent alors que la vision les place hors de la première version"
+kind = "review"
+project = "troc"
+mentor = "mentor-produit"
+
+[expect]
+must_mention = ["première version", "hors", "vision"]
+cited_files = ["src/notifications/email.ts", "docs/vision.md"]
+about = "project"
+
+[expect.must_not]
+"src/notifications/email.ts" = ["if (!RAPPELS_ACTIFS)"]
+"docs/vision.md" = ["## Première version\n\n- Rappels par e-mail"]

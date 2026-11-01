@@ -1,0 +1,11 @@
+kind = "neighborhood"
+title = "Rapport du mois : arguments de Periode::new dans le mauvais ordre"
+project = "budget"
+file = "src/rapport/mensuel.rs"
+section = "fn:rapport_du_mois"
+expected_mentor = "mentor-langage"
+level = "indice"
+
+[expect]
+must_mention = ["ordre", "inversé", "inverse", "annee", "année", "signature", "MoisInvalide"]
+must_not = ["Periode::new(annee, mois)", "new(annee, mois)?"]

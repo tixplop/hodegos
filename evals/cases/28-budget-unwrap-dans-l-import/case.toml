@@ -1,0 +1,21 @@
+kind = "review"
+title = "Import : des unwrap et expect contournent l'ADR 0001 (erreurs typées)"
+project = "budget"
+mentor = "architecte"
+
+[expect]
+must_mention = ["0001", "BudgetError", "unwrap", "expect", "erreur typée", "erreurs typées", "panique"]
+cited_files = ["src/import/ligne.rs", "src/import/csv.rs"]
+about = "project"
+
+[expect.must_not]
+"src/import/ligne.rs" = [
+    "Date::depuis_texte(champs[0])?",
+    "Montant::depuis_texte(champs[2])?",
+    "Montant::depuis_texte(texte)?",
+]
+"src/import/csv.rs" = [
+    "let enregistrement = enregistrement?",
+    "lecteur.headers()?",
+    "-> Result<u8, BudgetError>",
+]

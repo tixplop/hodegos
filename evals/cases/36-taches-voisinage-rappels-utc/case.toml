@@ -1,0 +1,11 @@
+kind = "neighborhood"
+title = "Rappel du jour : date du jour locale comparée à une échéance que le dépôt renvoie en UTC"
+project = "taches"
+file = "taches/rappels.py"
+section = "fn:rappels_du_jour"
+expected_mentor = "mentor-langage"
+level = "indice"
+
+[expect]
+must_mention = ["UTC", "fuseau", "heure locale", "ADR 0002", "minuit"]
+must_not = ["astimezone().date()", "datetime.now(timezone.utc).date()", "tache.echeance.astimezone("]

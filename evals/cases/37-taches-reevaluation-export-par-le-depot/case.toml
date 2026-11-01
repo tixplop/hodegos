@@ -1,0 +1,15 @@
+kind = "reevaluation"
+title = "L'export passe désormais par le dépôt : la remarque sur son SQL brut tombe"
+project = "taches"
+mentor = "architecte"
+level = "indice"
+about = "project"
+message = "L'export lit la base de son côté, avec sa propre connexion et sa propre requête. Relisez la décision de l'ADR 0001 : ce module la respecte-t-il ?"
+quotes = [
+    { path = "taches/export.py", quote = "connexion = sqlite3.connect(chemin_base)" },
+    { path = "taches/export.py", quote = '"SELECT id, titre, echeance, recurrence, duree_minutes, faite_le"' },
+]
+verdict = "withdraw"
+
+[expect]
+must_not = ["Depot(chemin_base)", "def taux_de_retard(depot", "def taches_faites_par_semaine(depot"]

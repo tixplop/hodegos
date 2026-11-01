@@ -1,0 +1,14 @@
+kind = "review"
+title = "La vision vise des familles à plusieurs membres, le code ne connaît qu'une personne"
+project = "taches"
+mentor = "mentor-produit"
+
+[expect]
+must_mention = ["famille", "membre", "plusieurs personnes", "attribu", "rotation", "qui fait quoi"]
+cited_files = ["docs/vision.md", "taches/modele.py", "taches/planning.py", "taches/priorites.py"]
+about = "project"
+
+[expect.must_not]
+"taches/modele.py" = ["membre: str", "attribuee_a", "class Membre"]
+"taches/planning.py" = ["par_membre", "for membre in"]
+"taches/priorites.py" = ["par_membre", "for membre in"]

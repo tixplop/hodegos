@@ -1,0 +1,15 @@
+kind = "reevaluation"
+title = "Import : un seul des deux passages contournant l'ADR 0001 a été repris"
+project = "budget"
+mentor = "architecte"
+level = "indice"
+about = "project"
+message = "L'ADR 0001 annonce qu'un relevé mal formé n'arrête jamais le programme. Que se passe-t-il, dans l'import, quand la date ou le montant d'une ligne est illisible ?"
+quotes = [
+    { path = "src/import/ligne.rs", quote = "let date = Date::depuis_texte(champs[0]).expect(\"date du relevé\");" },
+    { path = "src/import/ligne.rs", quote = "let montant = Montant::depuis_texte(champs[2]).unwrap();" },
+]
+verdict = "keep"
+
+[expect]
+must_not = ["Montant::depuis_texte(champs[2])?", "depuis_texte(champs[2])?"]

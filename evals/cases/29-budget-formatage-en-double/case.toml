@@ -1,0 +1,23 @@
+kind = "review"
+title = "Rapport : un second formatage des montants à côté de montant::formater (ADR 0002)"
+project = "budget"
+mentor = "architecte"
+
+[expect]
+must_mention = ["0002", "formater", "doublon", "double", "deux façons", "même chose", "src/montant.rs"]
+cited_files = ["src/rapport/affichage.rs", "src/rapport/export.rs", "src/montant.rs"]
+about = "project"
+
+[expect.must_not]
+"src/rapport/affichage.rs" = [
+    "montant::formater(",
+    "formater(rapport.depenses)",
+    "formater(poste.total)",
+    "use crate::montant::formater",
+]
+"src/rapport/export.rs" = [
+    "montant::formater(",
+    "formater(poste.total)",
+    "formater(rapport.solde())",
+    "use crate::montant::formater",
+]

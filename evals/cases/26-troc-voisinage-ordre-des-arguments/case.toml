@@ -1,0 +1,11 @@
+title = "Voisinage : arguments de estPeriodeValide inversés, visibles dans la signature du module importé"
+kind = "neighborhood"
+project = "troc"
+file = "src/emprunts/prolonger.ts"
+section = "fn:prolonger"
+expected_mentor = "mentor-langage"
+level = "indice"
+
+[expect]
+must_mention = ["ordre", "invers", "(fin", "premier argument", "arguments"]
+must_not = ["estPeriodeValide(nouvelleFin, emprunt.debut)", "estPeriodeValide(nouvelleFin,"]

@@ -1,0 +1,13 @@
+kind = "review"
+title = "Statistiques et export ouvrent leur propre connexion SQLite malgré l'ADR 0001"
+project = "taches"
+mentor = "architecte"
+
+[expect]
+must_mention = ["ADR 0001", "0001", "Depot", "dépôt", "accès unique", "sqlite3.connect", "connexion"]
+cited_files = ["taches/stats.py", "taches/export.py"]
+about = "project"
+
+[expect.must_not]
+"taches/stats.py" = ["Depot(chemin_base)", "def taches_faites_par_semaine(depot", "def duree_par_semaine(depot"]
+"taches/export.py" = ["Depot(chemin_base)", "def exporter_json(depot", "def exporter_csv(depot"]

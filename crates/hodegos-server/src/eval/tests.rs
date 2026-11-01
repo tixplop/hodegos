@@ -46,6 +46,7 @@ fn case(levels: Vec<Level>) -> Case {
         levels,
         must_mention: vec!["référence".to_owned()],
         must_not: vec!["getTime() ===".to_owned()],
+        kind: super::case::Kind::Pass,
     }
 }
 
@@ -351,64 +352,166 @@ fn rapport_ecrit_sans_ecraser_celui_du_jour() {
     assert!(second.to_string_lossy().ends_with("-2.md"));
 }
 
-/// Les cas livrés se lisent, leur section existe et le casting donne le mentor
-/// attendu : vérifiable sans modèle.
-#[test]
-fn les_cas_livres_sont_coherents() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals");
-    let cases = load_cases(&root, None).unwrap();
-    assert!(cases.len() >= 20, "{} cas seulement", cases.len());
-    // Les cas intégrés au binaire sont ceux du dépôt.
-    let builtin = builtin_cases(None).unwrap();
-    assert_eq!(
-        builtin
-            .iter()
-            .map(|c| (&c.name, &c.content))
-            .collect::<Vec<_>>(),
-        cases
-            .iter()
-            .map(|c| (&c.name, &c.content))
-            .collect::<Vec<_>>()
-    );
-    let registry = registry();
-    let mut languages = std::collections::BTreeSet::new();
-    let mut mentors = std::collections::BTreeSet::new();
-    for case in &cases {
-        let reloaded = load_case(&root.join("cases").join(&case.name)).unwrap();
-        assert_eq!(reloaded.name, case.name);
-        let all = hodegos_core::sections(case.language, &case.content);
-        let section = all
-            .iter()
-            .find(|s| s.id == case.section)
-            .unwrap_or_else(|| panic!("{} : section {} introuvable", case.name, case.section));
-        let text = section.text(&case.content);
-        let casting = hodegos_mentors::cast(
-            &registry,
-            &hodegos_mentors::CastRequest {
-                path: &case.file,
-                language: case.language.as_str(),
-                headings: hodegos_mentors::section_headings(case.language, Some(section)),
-                text: &text,
-                forced: None,
-            },
-        );
-        assert_eq!(
-            casting.titular.as_deref(),
-            Some(case.expected_mentor.as_str()),
-            "{} : casting",
-            case.name
-        );
-        // Aucun motif interdit n'est déjà écrit dans la section : sinon le mentor ne
-        // pourrait même pas la citer sans « divulguer ».
-        for pattern in &case.must_not {
+/// Mentors livrés avec les brouillons de la phase 9 par-dessus (`evals/mentors/`),
+/// comme `hodegos eval --mentors evals/mentors/`.
+fn phase9_registry() -> Registry {
+    Registry::load(&MentorSources {
+        user_dir: Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals/mentors")),
+        project_dir: None,
+    })
+}
+
+/// Aucun motif interdit n'est déjà écrit dans le projet : sinon le mentor ne pourrait
+/// même pas le citer sans « divulguer ».
+fn assert_not_written(case: &Case, files: &[&super::case::Files]) {
+    for pattern in &case.must_not {
+        let lower = pattern.to_lowercase();
+        for (path, text) in files.iter().flat_map(|f| f.iter()) {
             assert!(
-                !text.to_lowercase().contains(&pattern.to_lowercase()),
-                "{} : must_not « {pattern} » figure déjà dans la section",
+                !text.to_lowercase().contains(&lower),
+                "{} : must_not « {pattern} » figure déjà dans {path}",
                 case.name
             );
         }
-        languages.insert(case.language.as_str());
+    }
+}
+
+/// Les cas livrés se lisent, leur section existe et le casting donne le mentor
+/// attendu ; les cas sur projet se préparent (citations, diff, voisinage) : vérifiable
+/// sans modèle.
+#[test]
+fn les_cas_livres_sont_coherents() {
+    use super::case::Kind;
+    use super::project::{Workspace, neighborhood_request, prepare_reevaluation, prepare_review};
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals");
+    let cases = load_cases(&root, None).unwrap();
+    assert!(cases.len() >= 35, "{} cas seulement", cases.len());
+    // Les cas intégrés au binaire sont ceux du dépôt, projets d'exemple compris.
+    let builtin = builtin_cases(None).unwrap();
+    let summary = |cases: &[Case]| -> Vec<String> {
+        cases
+            .iter()
+            .map(|c| format!("{} {} {:?}", c.name, c.content, c.kind))
+            .collect()
+    };
+    assert_eq!(summary(&builtin), summary(&cases));
+    let registry = phase9_registry();
+    let mut languages = std::collections::BTreeSet::new();
+    let mut mentors = std::collections::BTreeSet::new();
+    let mut kinds = std::collections::BTreeMap::new();
+    for case in &cases {
+        let reloaded = load_case(&root.join("cases").join(&case.name)).unwrap();
+        assert_eq!(reloaded.name, case.name);
+        *kinds.entry(case.kind_name()).or_insert(0) += 1;
         mentors.insert(case.expected_mentor.clone());
+        match &case.kind {
+            Kind::Pass | Kind::Neighborhood(_) => {
+                let all = hodegos_core::sections(case.language, &case.content);
+                let section = all
+                    .iter()
+                    .find(|s| s.id == case.section)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "{} : section {} introuvable ({:?})",
+                            case.name,
+                            case.section,
+                            all.iter().map(|s| &s.id).collect::<Vec<_>>()
+                        )
+                    });
+                let text = section.text(&case.content);
+                let casting = hodegos_mentors::cast(
+                    &registry,
+                    &hodegos_mentors::CastRequest {
+                        path: &case.file,
+                        language: case.language.as_str(),
+                        headings: hodegos_mentors::section_headings(case.language, Some(section)),
+                        text: &text,
+                        forced: None,
+                    },
+                );
+                assert_eq!(
+                    casting.titular.as_deref(),
+                    Some(case.expected_mentor.as_str()),
+                    "{} : casting",
+                    case.name
+                );
+                if let Kind::Neighborhood(sample) = &case.kind {
+                    assert_not_written(case, &[&sample.files]);
+                    let workspace = Workspace::new(sample).unwrap();
+                    let mentor = registry.get(&case.expected_mentor).unwrap();
+                    let size = |widened| {
+                        let (request, _) =
+                            neighborhood_request(&workspace, mentor, "m", &models(), case, widened)
+                                .unwrap();
+                        request.messages[1].content.clone()
+                    };
+                    let (alone, widened) = (size(false), size(true));
+                    assert!(
+                        widened.len() > alone.len() + 50,
+                        "{} : le voisinage n'ajoute rien",
+                        case.name
+                    );
+                } else {
+                    for pattern in &case.must_not {
+                        assert!(
+                            !text.to_lowercase().contains(&pattern.to_lowercase()),
+                            "{} : must_not « {pattern} » figure déjà dans la section",
+                            case.name
+                        );
+                    }
+                    languages.insert(case.language.as_str());
+                }
+            }
+            Kind::Review(review) => {
+                assert_not_written(case, &[&review.sample.files, &review.sample.after]);
+                let mentor = registry.get(&case.expected_mentor).unwrap_or_else(|| {
+                    panic!("{} : mentor {} inconnu", case.name, case.expected_mentor)
+                });
+                for path in &review.cited_files {
+                    assert!(
+                        review.sample.files.contains_key(path)
+                            || review.sample.after.contains_key(path),
+                        "{} : {path} absent du projet",
+                        case.name
+                    );
+                }
+                for path in review.must_not_by_file.keys() {
+                    assert!(
+                        review.sample.files.contains_key(path)
+                            || review.sample.after.contains_key(path),
+                        "{} : must_not pour {path}, absent du projet",
+                        case.name
+                    );
+                }
+                let prepared = prepare_review(mentor, "m", &models(), review)
+                    .unwrap_or_else(|e| panic!("{} : {e}", case.name));
+                assert_eq!(
+                    prepared.request.schema_name, "revue",
+                    "{} : schéma",
+                    case.name
+                );
+                if !review.sample.after.is_empty() {
+                    assert!(
+                        prepared
+                            .sent
+                            .iter()
+                            .any(|(_, text)| text.starts_with("---")),
+                        "{} : after/ ne change rien",
+                        case.name
+                    );
+                }
+            }
+            Kind::Reevaluation(reevaluation) => {
+                assert_not_written(
+                    case,
+                    &[&reevaluation.sample.files, &reevaluation.sample.after],
+                );
+                let mentor = registry.get(&case.expected_mentor).unwrap();
+                prepare_reevaluation(mentor, "m", &models(), case.levels[0], reevaluation)
+                    .unwrap_or_else(|e| panic!("{} : {e}", case.name));
+            }
+        }
     }
     assert_eq!(
         languages.into_iter().collect::<Vec<_>>(),
@@ -416,6 +519,139 @@ fn les_cas_livres_sont_coherents() {
     );
     assert_eq!(
         mentors.into_iter().collect::<Vec<_>>(),
-        ["architecte", "mentor-langage", "mentor-produit"]
+        ["architecte", "mentor-langage", "mentor-produit", "testeur"]
     );
+    assert!(kinds["review"] >= 9 && kinds["neighborhood"] >= 3 && kinds["reevaluation"] >= 3);
+}
+
+fn project_case(name: &str) -> Case {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../evals");
+    load_cases(&root, Some(name)).unwrap().remove(0)
+}
+
+#[tokio::test]
+async fn revue_jouee_sur_le_projet_avec_le_diff_et_la_garde() {
+    let case = project_case("23-troc");
+    let fake = FakeLlmClient::new([ok(json!({ "remarks": [
+        { "about": "project", "level": "indice", "kind": "observation", "confidence": 0.9,
+          "quotes": [{ "path": "src/emprunts/historique.ts",
+                       "quote": "readFileSync(\"data/archives.json\", \"utf8\")" }],
+          "message": "Relisez la décision 0001 : ce module lit lui-même un fichier de données." },
+        // Citation jamais envoyée, peu sûre, avec un fragment de solution : écartée, mais
+        // comptée.
+        { "about": "project", "level": "indice", "kind": "observation", "confidence": 0.1,
+          "quotes": [{ "path": "src/notifications/email.ts", "quote": "JSON.parse(readFileSync(FILE, \"utf8\"))" }],
+          "message": "Il suffirait d'écrire depot.lire().archives." }
+    ] }))]);
+    let result = run_case(&fake, &phase9_registry(), &models(), &case, &mut spend(3.0)).await;
+
+    assert_eq!(result.error, None, "{:?}", result.notes);
+    assert_eq!(result.kind, "review");
+    assert_eq!(result.model.as_deref(), Some("test/fort"));
+    let level = &result.levels[0];
+    assert_eq!(level.outcome, Outcome::Shown);
+    assert!(result.mentions(), "la bonne remarque cite historique.ts");
+    assert_eq!(level.valid_quotes, Some((1, 2)));
+    assert_eq!(result.quotes(), (1, 2));
+    assert_eq!(level.leaks_drafts, ["depot.lire().archives"]);
+    assert!(level.leaks_shown.is_empty());
+    let requests = fake.requests();
+    assert_eq!(requests[0].schema_name, "revue");
+    let user = &requests[0].messages[1].content;
+    assert!(user.contains("archivesDe"), "le diff part");
+    assert!(
+        user.contains("# troc — carte du projet"),
+        "{}",
+        &user[..200]
+    );
+    assert!(result.notes.iter().any(|n| n.contains("revue suivante")));
+
+    // Coût d'une journée type : les mentors de projet des brouillons, au coût mesuré.
+    let day = super::day::typical_day(&phase9_registry(), std::slice::from_ref(&result)).unwrap();
+    let ids: Vec<&str> = day.mentors.iter().map(|m| m.id.as_str()).collect();
+    assert_eq!(ids, ["architecte", "mentor-produit", "testeur"]);
+    assert!(day.mentors[0].measured && !day.mentors[2].measured);
+    assert!((day.mentors[0].cost_per_review - 0.01).abs() < 1e-9);
+    assert!(day.monthly() > 0.0);
+    let summaries = super::report::summarize(std::slice::from_ref(&result));
+    let text =
+        super::report::markdown("2026-11-01 12:00", &[result], &summaries, false, Some(&day));
+    assert!(text.contains("## Par sorte de cas"));
+    assert!(text.contains("## Coût d'une revue"));
+    assert!(text.contains("## Coût d'une journée type"));
+    assert!(text.contains("| Revue | 1 | 1 | 1/2 | 1 |"), "{text}");
+}
+
+#[tokio::test]
+async fn voisinage_compare_section_seule_et_voisinage() {
+    let case = project_case("26-troc");
+    let quoted = |message: &str| {
+        ok(
+            json!({ "remarks": [{ "quote": "estPeriodeValide(emprunt.debut, nouvelleFin)",
+            "level": "indice", "kind": "observation", "message": message, "confidence": 0.9,
+            "see_also": [] }] }),
+        )
+    };
+    let fake = FakeLlmClient::new([
+        quoted("Regardez cette condition."),
+        quoted("Comparez l'ordre des arguments avec la signature du module importé."),
+    ]);
+    let result = run_case(&fake, &phase9_registry(), &models(), &case, &mut spend(3.0)).await;
+    assert_eq!(result.error, None);
+    assert_eq!(result.levels.len(), 2);
+    assert_eq!(result.levels[0].context, Some("section"));
+    assert!(!result.levels[0].mentions);
+    assert!(result.levels[1].mentions);
+    assert!(result.mentions());
+    let requests = fake.requests();
+    assert!(!requests[0].messages[1].content.contains("<voisinage>"));
+    assert!(
+        requests[1].messages[1]
+            .content
+            .contains("estPeriodeValide(fin: Date, debut: Date)")
+    );
+}
+
+#[tokio::test]
+async fn reevaluation_jugee_sur_le_verdict_attendu() {
+    let case = project_case("27-troc");
+    let fake = FakeLlmClient::new([ok(json!({ "verdict": "withdraw", "quotes": [],
+        "reason": "La vision prévoit désormais ce rappel dans la première version." }))]);
+    let result = run_case(&fake, &phase9_registry(), &models(), &case, &mut spend(3.0)).await;
+    assert_eq!(result.error, None);
+    assert!(result.mentions());
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|n| n.contains("verdict obtenu : `withdraw`"))
+    );
+    let user = &fake.requests()[0].messages[1].content;
+    assert!(
+        user.contains("Rappels par e-mail avant la date de retour."),
+        "passage disparu"
+    );
+
+    // Maintenue à tort : le cas échoue.
+    let fake = FakeLlmClient::new([ok(json!({ "verdict": "keep", "quotes": [
+        { "path": "src/notifications/email.ts",
+          "quote": "export function envoyerRappelEmail(emprunt: Emprunt, adresse: string): void {" }],
+        "reason": "" }))]);
+    let result = run_case(&fake, &phase9_registry(), &models(), &case, &mut spend(3.0)).await;
+    assert!(!result.mentions());
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|n| n.contains("verdict obtenu : `keep`"))
+    );
+}
+
+#[test]
+fn sans_mentor_de_projet_le_cas_n_est_pas_joue() {
+    // Mentors livrés seuls (avant l'installation des brouillons) : la revue est
+    // signalée, pas jouée, et ne compte pas dans l'estimation.
+    let case = project_case("25-troc");
+    assert!(super::run::first_prompt(&registry(), &case).is_none());
+    assert!(super::run::first_prompt(&phase9_registry(), &case).is_some());
 }

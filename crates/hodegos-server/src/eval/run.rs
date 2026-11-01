@@ -16,7 +16,8 @@ use hodegos_mentors::{
     cast, frontmatter_mentor, section_headings, section_prompt,
 };
 
-use super::case::Case;
+use super::case::{Case, Kind};
+use super::project;
 
 /// Modèles utilisés pour chaque niveau.
 #[derive(Debug, Clone, Default)]
@@ -93,10 +94,12 @@ pub struct LevelResult {
     pub leaks_drafts: Vec<String>,
     pub cost_usd: f64,
     pub duration_ms: u64,
+    /// Contexte envoyé, pour un cas de voisinage : `section` ou `voisinage`.
+    pub context: Option<&'static str>,
 }
 
 impl LevelResult {
-    fn skipped(level: Level, outcome: Outcome) -> Self {
+    pub(super) fn skipped(level: Level, outcome: Outcome) -> Self {
         Self {
             level,
             outcome,
@@ -109,6 +112,7 @@ impl LevelResult {
             leaks_drafts: Vec::new(),
             cost_usd: 0.0,
             duration_ms: 0,
+            context: None,
         }
     }
 
@@ -133,16 +137,50 @@ pub struct CaseResult {
     pub levels: Vec<LevelResult>,
     /// Jetons de tous les appels du cas.
     pub tokens: Tokens,
+    /// Sorte de cas : `pass`, `review`, `neighborhood` ou `reevaluation`.
+    pub kind: &'static str,
+    /// Précisions pour le rapport (projet, fichiers cités, verdict obtenu…).
+    pub notes: Vec<String>,
 }
 
 impl CaseResult {
+    pub(super) fn new(case: &Case) -> Self {
+        Self {
+            name: case.name.clone(),
+            title: case.title.clone(),
+            file: case.file.clone(),
+            expected_mentor: case.expected_mentor.clone(),
+            mentor: None,
+            tier: None,
+            model: None,
+            error: None,
+            levels: Vec::new(),
+            tokens: Tokens::default(),
+            kind: case.kind_name(),
+            notes: Vec::new(),
+        }
+    }
+
     pub fn casting_ok(&self) -> bool {
         self.mentor.as_deref() == Some(self.expected_mentor.as_str())
     }
 
-    /// Un palier au moins a fait émerger la notion.
+    /// Un palier au moins a fait émerger la notion ; pour le voisinage, la passe avec
+    /// le voisinage ; pour une revue, la bonne remarque ; pour une réévaluation, le
+    /// verdict attendu.
     pub fn mentions(&self) -> bool {
+        if self.kind == "neighborhood" {
+            return self.levels.last().is_some_and(|l| l.mentions);
+        }
         self.levels.iter().any(|l| l.mentions)
+    }
+
+    /// Citations valides, sur toutes les citations proposées.
+    pub fn quotes(&self) -> (usize, usize) {
+        self.levels
+            .iter()
+            .filter_map(|l| l.valid_quotes)
+            .fold((0, 0), |(ok, total), (o, t)| (ok + o, total + t))
     }
 
     pub fn leaks_drafts(&self) -> usize {
@@ -178,14 +216,14 @@ pub struct Spend {
 }
 
 impl Spend {
-    fn add(&mut self, cost: f64) {
+    pub(super) fn add(&mut self, cost: f64) {
         self.used_usd += cost;
         if cost > 0.0 {
             (self.on_cost)(cost);
         }
     }
 
-    fn exhausted(&self) -> bool {
+    pub(super) fn exhausted(&self) -> bool {
         self.used_usd >= self.max_usd
     }
 }
@@ -197,18 +235,20 @@ pub async fn run_case(
     case: &Case,
     spend: &mut Spend,
 ) -> CaseResult {
-    let mut result = CaseResult {
-        name: case.name.clone(),
-        title: case.title.clone(),
-        file: case.file.clone(),
-        expected_mentor: case.expected_mentor.clone(),
-        mentor: None,
-        tier: None,
-        model: None,
-        error: None,
-        levels: Vec::new(),
-        tokens: Tokens::default(),
-    };
+    match &case.kind {
+        Kind::Pass => {}
+        Kind::Review(review) => {
+            return project::run_review(client, registry, models, case, review, spend).await;
+        }
+        Kind::Neighborhood(sample) => {
+            return project::run_neighborhood(client, registry, models, case, sample, spend).await;
+        }
+        Kind::Reevaluation(reevaluation) => {
+            return project::run_reevaluation(client, registry, models, case, reevaluation, spend)
+                .await;
+        }
+    }
+    let mut result = CaseResult::new(case);
     let fail = |mut result: CaseResult, message: String| {
         result.error = Some(message);
         result
@@ -328,49 +368,12 @@ pub async fn run_case(
         let started = Instant::now();
         let mut level_result = LevelResult::skipped(level, Outcome::Nothing);
         if index == 0 {
-            match ask_for_remarks(client, request, &rules).await {
-                Ok(asked) => {
-                    level_result.cost_usd = asked.cost_usd;
-                    level_result.drafts = asked
-                        .drafts
-                        .iter()
-                        .map(|d| Draft {
-                            message: d.message.clone(),
-                            quote: Some(d.quote.clone()),
-                            rejected: (!asked.remarks.contains(d)).then(|| {
-                                validate(vec![d.clone()], &rules)
-                                    .rejected
-                                    .first()
-                                    .copied()
-                                    .unwrap_or("plafond de remarques")
-                            }),
-                        })
-                        .collect();
-                    let valid = asked
-                        .drafts
-                        .iter()
-                        .filter(|d| {
-                            (d.kind == RemarkKind::NextStep && d.quote.is_empty())
-                                || (!d.quote.is_empty() && text.contains(&d.quote))
-                        })
-                        .count();
-                    level_result.valid_quotes = Some((valid, asked.drafts.len()));
-                    level_result.right_level = (
-                        asked
-                            .drafts
-                            .iter()
-                            .filter(|d| d.level == rules.level)
-                            .count(),
-                        asked.drafts.len(),
-                    );
-                    level_result.shown = asked.remarks.iter().map(|r| r.message.clone()).collect();
-                    if let Some(best) = asked.remarks.first() {
-                        quote = best.quote.clone();
-                        thread.push(best.message.clone());
-                        given.push(level);
-                    }
-                }
-                Err(err) => fill_error(&mut level_result, err),
+            let best;
+            (level_result, best) = first_level(client, request, &rules, level).await;
+            if let Some((best_quote, message)) = best {
+                quote = best_quote;
+                thread.push(message);
+                given.push(level);
             }
         } else {
             match ask_for_reply(client, request, &rules).await {
@@ -413,36 +416,102 @@ pub async fn run_case(
             }
         }
         level_result.duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        if level_result.outcome == Outcome::Nothing && !level_result.shown.is_empty() {
-            level_result.outcome = Outcome::Shown;
-        }
         if matches!(
             level_result.outcome,
             Outcome::InvalidResponse | Outcome::ProviderError(_)
         ) {
             thread.clear();
         }
-        level_result.mentions = level_result
-            .shown
-            .iter()
-            .any(|m| matches_any(m, &case.must_mention).is_some());
-        level_result.leaks_shown = leaks(
-            level_result.shown.iter().map(String::as_str),
-            &case.must_not,
-        );
-        level_result.leaks_drafts = leaks(
-            level_result.drafts.iter().map(|d| d.message.as_str()),
-            &case.must_not,
-        );
+        finish(&mut level_result, case);
         spend.add(level_result.cost_usd);
         result.levels.push(level_result);
     }
     result
 }
 
+/// Première passe sur une section : brouillons, citations valides, palier respecté,
+/// messages affichés ; renvoie aussi la citation et le message de la remarque la plus
+/// confiante, pour la suite du fil.
+pub(super) async fn first_level(
+    client: &dyn LlmClient,
+    request: LlmRequest,
+    rules: &Rules<'_>,
+    level: Level,
+) -> (LevelResult, Option<(String, String)>) {
+    let mut level_result = LevelResult::skipped(level, Outcome::Nothing);
+    let mut best = None;
+    match ask_for_remarks(client, request, rules).await {
+        Ok(asked) => {
+            level_result.cost_usd = asked.cost_usd;
+            level_result.drafts = asked
+                .drafts
+                .iter()
+                .map(|d| Draft {
+                    message: d.message.clone(),
+                    quote: Some(d.quote.clone()),
+                    rejected: (!asked.remarks.contains(d)).then(|| {
+                        validate(vec![d.clone()], rules)
+                            .rejected
+                            .first()
+                            .copied()
+                            .unwrap_or("plafond de remarques")
+                    }),
+                })
+                .collect();
+            let valid = asked
+                .drafts
+                .iter()
+                .filter(|d| {
+                    (d.kind == RemarkKind::NextStep && d.quote.is_empty())
+                        || (!d.quote.is_empty() && rules.section_text.contains(&d.quote))
+                })
+                .count();
+            level_result.valid_quotes = Some((valid, asked.drafts.len()));
+            level_result.right_level = (
+                asked
+                    .drafts
+                    .iter()
+                    .filter(|d| d.level == rules.level)
+                    .count(),
+                asked.drafts.len(),
+            );
+            level_result.shown = asked.remarks.iter().map(|r| r.message.clone()).collect();
+            best = asked
+                .remarks
+                .first()
+                .map(|r| (r.quote.clone(), r.message.clone()));
+        }
+        Err(err) => fill_error(&mut level_result, err),
+    }
+    (level_result, best)
+}
+
+/// Issue, notion et motifs interdits d'un palier joué.
+pub(super) fn finish(level_result: &mut LevelResult, case: &Case) {
+    if level_result.outcome == Outcome::Nothing && !level_result.shown.is_empty() {
+        level_result.outcome = Outcome::Shown;
+    }
+    level_result.mentions = level_result
+        .shown
+        .iter()
+        .any(|m| matches_any(m, &case.must_mention).is_some());
+    level_result.leaks_shown = leaks(
+        level_result.shown.iter().map(String::as_str),
+        &case.must_not,
+    );
+    level_result.leaks_drafts = leaks(
+        level_result.drafts.iter().map(|d| d.message.as_str()),
+        &case.must_not,
+    );
+}
+
 /// Niveau du titulaire d'un cas et taille, en caractères, de son premier prompt :
 /// de quoi trier les cas par niveau et estimer les jetons sans appel au modèle.
+/// Pour un cas sur projet, la taille de tous ses prompts.
 pub fn first_prompt(registry: &Registry, case: &Case) -> Option<(ModelTier, usize)> {
+    if !matches!(case.kind, Kind::Pass) {
+        return project::prompt_chars(registry, case);
+    }
     let all = sections(case.language, &case.content);
     let section = all.iter().find(|s| s.id == case.section)?;
     let text = section.text(&case.content);
@@ -479,7 +548,7 @@ pub fn first_prompt(registry: &Registry, case: &Case) -> Option<(ModelTier, usiz
     ))
 }
 
-fn fill_error(level_result: &mut LevelResult, err: AskError) {
+pub(super) fn fill_error(level_result: &mut LevelResult, err: AskError) {
     level_result.cost_usd = err.cost_usd();
     level_result.outcome = match err {
         AskError::Provider { error, .. } => Outcome::ProviderError(error.to_string()),
@@ -487,7 +556,7 @@ fn fill_error(level_result: &mut LevelResult, err: AskError) {
     };
 }
 
-fn remark_level(level: Level) -> RemarkLevel {
+pub(super) fn remark_level(level: Level) -> RemarkLevel {
     match level {
         Level::Indice => RemarkLevel::Indice,
         Level::Question => RemarkLevel::Question,
@@ -506,7 +575,10 @@ pub fn matches_any<'a>(text: &str, patterns: &'a [String]) -> Option<&'a str> {
 }
 
 /// Motifs `must_not` présents dans au moins un des messages, sans doublon.
-fn leaks<'a>(messages: impl Iterator<Item = &'a str>, must_not: &[String]) -> Vec<String> {
+pub(super) fn leaks<'a>(
+    messages: impl Iterator<Item = &'a str>,
+    must_not: &[String],
+) -> Vec<String> {
     let all: Vec<String> = messages.map(str::to_lowercase).collect();
     must_not
         .iter()

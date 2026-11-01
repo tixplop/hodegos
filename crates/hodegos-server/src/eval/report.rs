@@ -6,10 +6,13 @@ use std::fmt::Write as _;
 use hodegos_llm::Tokens;
 use hodegos_mentors::{Level, ModelTier};
 
+use super::day::{self, TypicalDay};
 use super::run::{CaseResult, Outcome, tier_name};
 
 /// Part minimale des cas où la notion doit émerger.
 pub const MENTION_THRESHOLD: f64 = 0.7;
+/// Part minimale des citations valides (phase 9f).
+pub const QUOTE_THRESHOLD: f64 = 0.8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
@@ -42,6 +45,8 @@ pub struct Summary {
     pub provider_errors: usize,
     pub casting_mismatches: usize,
     pub incomplete: usize,
+    /// Citations valides, sur toutes les citations proposées.
+    pub quotes: (usize, usize),
     pub cost_usd: f64,
     pub tokens: Tokens,
     pub median_ms: u64,
@@ -57,14 +62,24 @@ impl Summary {
         }
     }
 
-    /// Retenu : aucune solution dans ce que le modèle propose (brouillons compris) et
-    /// la notion émerge dans 70 % des cas au moins.
+    /// Part des citations valides ; 1 sans citation.
+    pub fn quote_rate(&self) -> f64 {
+        let (ok, total) = self.quotes;
+        if total == 0 {
+            1.0
+        } else {
+            ok as f64 / total as f64
+        }
+    }
+
+    /// Retenu : aucune solution dans ce que le modèle propose (brouillons compris), la
+    /// notion émerge dans 70 % des cas au moins et 80 % des citations sont valides.
     pub fn verdict(&self) -> Verdict {
         if self.leaks_drafts > 0 {
             Verdict::Rejected
         } else if self.incomplete > 0 || self.model.is_none() {
             Verdict::Inconclusive
-        } else if self.mention_rate() >= MENTION_THRESHOLD {
+        } else if self.mention_rate() >= MENTION_THRESHOLD && self.quote_rate() >= QUOTE_THRESHOLD {
             Verdict::Retained
         } else {
             Verdict::Rejected
@@ -106,6 +121,10 @@ pub fn summarize(results: &[CaseResult]) -> Vec<Summary> {
                 provider_errors: count_levels(&group, |o| matches!(o, Outcome::ProviderError(_))),
                 casting_mismatches: group.iter().filter(|r| !r.casting_ok()).count(),
                 incomplete: group.iter().filter(|r| !r.complete()).count(),
+                quotes: group.iter().fold((0, 0), |(ok, total), r| {
+                    let (o, t) = r.quotes();
+                    (ok + o, total + t)
+                }),
                 cost_usd: group.iter().map(|r| r.cost_usd()).sum(),
                 tokens: group.iter().fold(Tokens::default(), |mut sum, r| {
                     sum.add(r.tokens);
@@ -163,6 +182,136 @@ fn level_name(level: Level) -> &'static str {
     }
 }
 
+/// Palier, et contexte envoyé pour un cas de voisinage.
+fn level_label(l: &super::run::LevelResult) -> String {
+    match l.context {
+        Some(context) => format!("{} ({context})", level_name(l.level)),
+        None => level_name(l.level).to_owned(),
+    }
+}
+
+fn kind_label(kind: &str) -> &'static str {
+    match kind {
+        "review" => "Revue",
+        "neighborhood" => "Voisinage",
+        "reevaluation" => "Réévaluation",
+        _ => "Passe",
+    }
+}
+
+/// Une ligne par sorte de cas.
+fn by_kind(out: &mut String, results: &[CaseResult]) {
+    let kinds = ["pass", "review", "neighborhood", "reevaluation"];
+    if results.iter().all(|r| r.kind == "pass") {
+        return;
+    }
+    let _ = writeln!(out, "\n## Par sorte de cas\n");
+    let _ = writeln!(
+        out,
+        "| Sorte | Cas | Réussis | Citations valides | Solution (brouillons) | Coût |"
+    );
+    let _ = writeln!(out, "| --- | --- | --- | --- | --- | --- |");
+    for kind in kinds {
+        let group: Vec<&CaseResult> = results.iter().filter(|r| r.kind == kind).collect();
+        if group.is_empty() {
+            continue;
+        }
+        let quotes = group.iter().fold((0, 0), |(ok, total), r| {
+            let (o, t) = r.quotes();
+            (ok + o, total + t)
+        });
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} | {} | {} | {} |",
+            kind_label(kind),
+            group.len(),
+            group.iter().filter(|r| r.mentions()).count(),
+            ratio(quotes),
+            group.iter().map(|r| r.leaks_drafts()).sum::<usize>(),
+            money(group.iter().map(|r| r.cost_usd()).sum())
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\nUne revue réussit si une remarque affichée fait émerger la notion et cite un \
+         fichier attendu ; un cas de voisinage, si la passe avec le voisinage la fait \
+         émerger ; une réévaluation, si le verdict est celui attendu."
+    );
+}
+
+/// Contexte `section` contre `neighborhood`, cas par cas.
+fn neighborhood(out: &mut String, results: &[CaseResult]) {
+    let group: Vec<&CaseResult> = results
+        .iter()
+        .filter(|r| r.kind == "neighborhood" && r.levels.len() == 2)
+        .collect();
+    if group.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\n## Voisinage\n");
+    let _ = writeln!(
+        out,
+        "| Cas | Notion (section seule) | Notion (voisinage) | Coût (section) | Coût (voisinage) |"
+    );
+    let _ = writeln!(out, "| --- | --- | --- | --- | --- |");
+    let yes = |b: bool| if b { "oui" } else { "non" };
+    for r in group {
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} | {} | {} |",
+            r.name,
+            yes(r.levels[0].mentions),
+            yes(r.levels[1].mentions),
+            money(r.levels[0].cost_usd),
+            money(r.levels[1].cost_usd)
+        );
+    }
+}
+
+/// Coût moyen d'une revue, par mentor.
+fn review_costs(out: &mut String, results: &[CaseResult]) {
+    let mut mentors: Vec<&str> = results
+        .iter()
+        .filter(|r| r.kind == "review" && r.error.is_none())
+        .map(|r| r.expected_mentor.as_str())
+        .collect();
+    mentors.sort_unstable();
+    mentors.dedup();
+    if mentors.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\n## Coût d'une revue\n");
+    let _ = writeln!(
+        out,
+        "| Mentor | Modèle | Revues | Coût moyen | Jetons moyens (entrée / sortie) | Durée moyenne |"
+    );
+    let _ = writeln!(out, "| --- | --- | --- | --- | --- | --- |");
+    for mentor in mentors {
+        let group: Vec<&CaseResult> = results
+            .iter()
+            .filter(|r| r.kind == "review" && r.error.is_none() && r.expected_mentor == mentor)
+            .collect();
+        let n = group.len().max(1);
+        let prompt: u64 = group.iter().map(|r| r.tokens.prompt).sum();
+        let completion: u64 = group.iter().map(|r| r.tokens.completion).sum();
+        let ms: u64 = group
+            .iter()
+            .flat_map(|r| r.levels.iter())
+            .map(|l| l.duration_ms)
+            .sum();
+        let _ = writeln!(
+            out,
+            "| `{mentor}` | {} | {} | {} | {} / {} | {} |",
+            group[0].model.as_deref().unwrap_or("—"),
+            group.len(),
+            money(group.iter().map(|r| r.cost_usd()).sum::<f64>() / n as f64),
+            prompt / n as u64,
+            completion / n as u64,
+            seconds(ms / n as u64)
+        );
+    }
+}
+
 fn outcome_label(outcome: &Outcome) -> String {
     match outcome {
         Outcome::Shown => "affiché".to_owned(),
@@ -196,6 +345,7 @@ pub fn markdown(
     results: &[CaseResult],
     summaries: &[Summary],
     partial: bool,
+    day: Option<&TypicalDay>,
 ) -> String {
     let mut out = String::new();
     let total: f64 = results.iter().map(CaseResult::cost_usd).sum();
@@ -210,30 +360,33 @@ pub fn markdown(
         out,
         "{} cas, coût total {}. Un modèle est retenu s'il ne propose aucune solution \
          (motifs `must_not`, brouillons écartés compris) et fait émerger la notion \
-         (`must_mention`) dans {} des cas au moins.\n",
+         (`must_mention`) dans {} des cas au moins, avec {} de citations valides au moins.\n",
         results.len(),
         money(total),
-        percent(MENTION_THRESHOLD)
+        percent(MENTION_THRESHOLD),
+        percent(QUOTE_THRESHOLD)
     );
 
     let _ = writeln!(out, "## Verdict par modèle\n");
     let _ = writeln!(
         out,
-        "| Niveau · modèle | Cas | Notion émergée | Solution (brouillons) | Solution (affichée) | JSON invalides | Pannes | Casting différent | Coût | Jetons (entrée / sortie) | Durée médiane | Durée p90 | Verdict |"
+        "| Niveau · modèle | Cas | Notion émergée | Citations valides | Solution (brouillons) | Solution (affichée) | JSON invalides | Pannes | Casting différent | Coût | Jetons (entrée / sortie) | Durée médiane | Durée p90 | Verdict |"
     );
     let _ = writeln!(
         out,
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     );
     for s in summaries {
         let _ = writeln!(
             out,
-            "| {} | {} | {}/{} ({}) | {} | {} | {} | {} | {} | {} | {} / {} | {} | {} | **{}** |",
+            "| {} | {} | {}/{} ({}) | {} ({}) | {} | {} | {} | {} | {} | {} | {} / {} | {} | {} | **{}** |",
             model_label(s),
             s.cases,
             s.mentions,
             s.cases,
             percent(s.mention_rate()),
+            ratio(s.quotes),
+            percent(s.quote_rate()),
             s.leaks_drafts,
             s.leaks_shown,
             s.invalid,
@@ -246,6 +399,13 @@ pub fn markdown(
             seconds(s.p90_ms),
             s.verdict().label()
         );
+    }
+
+    by_kind(&mut out, results);
+    neighborhood(&mut out, results);
+    review_costs(&mut out, results);
+    if let Some(day) = day {
+        out.push_str(&day::markdown(day));
     }
 
     let _ = writeln!(out, "\n## Cas\n");
@@ -273,6 +433,12 @@ pub fn markdown(
             },
             money(r.cost_usd())
         );
+        for note in &r.notes {
+            let _ = writeln!(out, "- {note}");
+        }
+        if !r.notes.is_empty() {
+            out.push('\n');
+        }
         if let Some(error) = &r.error {
             let _ = writeln!(out, "**Cas non joué** : {error}\n");
             continue;
@@ -291,7 +457,7 @@ pub fn markdown(
             let _ = writeln!(
                 out,
                 "| {} | {} | {} | {} | {} | {} | {} | {} |",
-                level_name(l.level),
+                level_label(l),
                 outcome_label(&l.outcome).replace('|', "/"),
                 l.valid_quotes.map_or("—".to_owned(), ratio),
                 ratio(l.right_level),
@@ -308,7 +474,7 @@ pub fn markdown(
                     None => "affiché".to_owned(),
                     Some(reason) => format!("écarté : {reason}"),
                 };
-                let _ = writeln!(out, "**{}** — {status}\n", level_name(l.level));
+                let _ = writeln!(out, "**{}** — {status}\n", level_label(l));
                 if let Some(quote) = draft.quote.as_deref().filter(|q| !q.is_empty()) {
                     let _ = writeln!(out, "Citation : `{}`\n", quote.replace('`', "'"));
                 }
@@ -379,6 +545,7 @@ mod tests {
             leaks_drafts: leaks.iter().map(|s| (*s).to_owned()).collect(),
             cost_usd: 0.001,
             duration_ms: ms,
+            context: None,
         }
     }
 
@@ -393,6 +560,8 @@ mod tests {
             model: Some("test/rapide".to_owned()),
             error: None,
             tokens: Tokens::default(),
+            kind: "pass",
+            notes: vec![],
             levels: vec![
                 level(Level::Indice, false, &[], 800),
                 level(Level::Question, mentions, leaks, 1200),
@@ -454,10 +623,16 @@ mod tests {
     fn rapport_markdown() {
         let mut results = vec![case("01-a", true, &[]), case("02-b", false, &["solution"])];
         results[1].mentor = Some("architecte".to_owned());
-        let text = markdown("2026-10-29 12:00", &results, &summarize(&results), false);
+        let text = markdown(
+            "2026-10-29 12:00",
+            &results,
+            &summarize(&results),
+            false,
+            None,
+        );
         assert!(text.starts_with("# Évaluation des mentors — 2026-10-29 12:00"));
         assert!(
-            text.contains("| fast · test/rapide | 2 | 1/2 (50 %) | 1 | 0 |"),
+            text.contains("| fast · test/rapide | 2 | 1/2 (50 %) | 4/4 (100 %) | 1 | 0 |"),
             "{text}"
         );
         assert!(text.contains("**non retenu**"));

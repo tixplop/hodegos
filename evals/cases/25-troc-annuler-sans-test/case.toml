@@ -1,0 +1,11 @@
+title = "Revue : l'annulation, avec ses trois refus, n'a aucun test"
+kind = "review"
+project = "troc"
+mentor = "testeur"
+
+[expect]
+must_mention = ["aucun test", "sans test", "pas de test", "non testé", "pas testé", "aucun fichier de test"]
+cited_files = ["src/emprunts/annuler.ts"]
+
+[expect.must_not]
+"src/emprunts/annuler.ts" = ["expect(await annuler(", "describe(\"annuler\""]

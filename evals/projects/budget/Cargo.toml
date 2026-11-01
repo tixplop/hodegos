@@ -1,0 +1,10 @@
+[package]
+name = "budget"
+version = "0.1.0"
+edition = "2021"
+description = "Suivi d'un budget personnel à partir des relevés bancaires"
+license = "MIT"
+
+[dependencies]
+csv = "1.3"
+thiserror = "1.0"

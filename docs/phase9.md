@@ -601,6 +601,31 @@ Poussés : `review_started` (avec `trigger`), `review_done`,
   décrit dans le rapport), on réduit les plafonds par défaut avant d'activer les
   mentors livrés.
 
+### Précisions retenues à l'implémentation de 9f (1er novembre 2026)
+
+- Trois sortes de cas s'ajoutent aux passes (`kind` dans `case.toml`, format dans
+  `evals/README.md`) : `review`, `neighborhood`, `reevaluation`. Les projets
+  d'exemple (`evals/projects/`) sont intégrés au binaire avec les cas. Un projet
+  est recopié dans un dossier temporaire ; `after/` modifie la copie (diff d'une
+  revue suivante, passage disparu d'une réévaluation).
+- À une première revue, un mentor ne voit que la carte (signatures, jamais les
+  corps) et ses fichiers clés : un écart caché dans un corps de fonction ne se
+  voit que dans un diff. Les cas qui le visent ont donc un `after/`.
+- Une revue réussit si une remarque affichée fait émerger la notion **et** cite un
+  fichier attendu (`cited_files`, `about` facultatif) ; un cas de voisinage, si la
+  passe avec le voisinage la fait émerger (la passe avec la section seule est
+  rapportée à côté) ; une réévaluation, si le verdict est celui attendu.
+- Seuil ajouté au verdict : 80 % des citations valides (texte envoyé et fichier).
+- `hodegos eval --mentors <dossier>` place des mentors par-dessus les mentors
+  livrés : `--mentors evals/mentors/` évalue ceux de la phase 9 avant de les
+  livrer. Avec les seuls mentors livrés, un cas de revue ou de réévaluation est
+  « non joué » et ne compte pas dans l'estimation d'une réévaluation de niveau.
+- Journée type (rapport) : 40 enregistrements en huit rafales sur 9 h – 12 h et
+  14 h – 17 h, ouvertures à 9 h et 14 h, quatre commits, deux réévaluations,
+  rejoués minute par minute avec le planificateur et `ReviewOptions::default()` ;
+  coût d'une revue mesuré par mentor (moyenne des revues sinon), surcoût du
+  voisinage par passe ; 22 jours ouvrés par mois, comparé à 10 $.
+
 ---
 
 ## Protocole : récapitulatif des ajouts

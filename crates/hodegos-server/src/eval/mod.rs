@@ -3,6 +3,8 @@
 //! consomme du budget.
 
 pub mod case;
+pub mod day;
+pub mod project;
 pub mod report;
 pub mod run;
 

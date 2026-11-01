@@ -10,6 +10,7 @@ use anyhow::{Context, bail};
 use hodegos_llm::{Budget, Effort, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry};
 use hodegos_server::eval::case::{builtin_cases, load_cases};
+use hodegos_server::eval::day::{WORK_DAYS, typical_day};
 use hodegos_server::eval::report::{self, Verdict, markdown, summarize, terminal};
 use hodegos_server::eval::run::{Models, Spend};
 use hodegos_server::eval::{Step, evaluate, models_report_path};
@@ -29,6 +30,8 @@ pub struct EvalArgs {
     pub max_cost: f64,
     /// Dossier des rapports ; par défaut `<dir>/reports`.
     pub out: Option<PathBuf>,
+    /// Mentors placés par-dessus les mentors livrés (couche personnelle).
+    pub mentors: Option<PathBuf>,
 }
 
 /// Joue l'évaluation ; `Ok(true)` si chaque modèle évalué est retenu.
@@ -68,11 +71,25 @@ pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyh
         );
     };
     let client = OpenRouterClient::new(key, &config.base_url, config.timeout)?;
-    // Mentors livrés seulement : les résultats ne dépendent pas de vos surcharges.
+    // Mentors livrés seulement, ou ceux de --mentors par-dessus : les résultats ne
+    // dépendent pas de vos surcharges personnelles.
+    if let Some(dir) = &args.mentors
+        && !dir.is_dir()
+    {
+        bail!("{} : dossier de mentors introuvable", dir.display());
+    }
     let registry = Registry::load(&MentorSources {
-        user_dir: None,
+        user_dir: args.mentors.clone(),
         project_dir: None,
     });
+    // Le README d'un dossier de mentors n'est pas un mentor.
+    for warning in registry
+        .warnings()
+        .iter()
+        .filter(|w| !w.file.ends_with("README.md"))
+    {
+        println!("  mentor ignoré : {} ({})", warning.file, warning.message);
+    }
     // L'évaluation est une vraie dépense : elle compte dans le budget du mois, sans
     // être bloquée par son plafond (seul --max-cost l'arrête).
     let budget = Arc::new(Budget::open(
@@ -106,7 +123,8 @@ pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyh
     let when = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M").to_string();
     // Réécrit après chaque cas : un arrêt en cours laisse un rapport partiel.
     let write = |results: &[_], partial: bool| {
-        let text = markdown(&when, results, &summarize(results), partial);
+        let day = typical_day(&registry, results);
+        let text = markdown(&when, results, &summarize(results), partial, day.as_ref());
         fs::write(&path, text).with_context(|| format!("{} : rapport non écrit", path.display()))
     };
     let mut written = Ok(());
@@ -132,6 +150,14 @@ pub async fn command(args: EvalArgs, config_dir: &Path, data_dir: &Path) -> anyh
     let summaries = summarize(&results);
     println!();
     print!("{}", terminal(&results, &summaries));
+    if let Some(day) = typical_day(&registry, &results) {
+        println!(
+            "Journée type : {} par jour, {} par mois ({} jours ouvrés)",
+            report::money(day.daily()),
+            report::money(day.monthly()),
+            WORK_DAYS
+        );
+    }
     println!();
     println!("Rapport : {}", path.display());
     Ok(summaries.iter().all(|s| s.verdict() == Verdict::Retained))

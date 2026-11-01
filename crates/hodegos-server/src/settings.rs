@@ -17,7 +17,8 @@ use hodegos_mentors::{MentorSources, ModelTier, Registry};
 use jiff::Timestamp;
 use serde::Deserialize;
 
-use crate::eval::case::{Case, builtin_cases};
+use crate::eval::case::{Case, Kind, builtin_cases};
+use crate::eval::day::typical_day;
 use crate::eval::report::{Verdict, markdown, summarize};
 use crate::eval::run::{CaseResult, Models, Spend, first_prompt};
 use crate::eval::{Step, evaluate, report_path, slug};
@@ -642,7 +643,7 @@ fn estimate(
 ) -> ServerMessage {
     let registry = builtin_registry();
     let cases = level_cases(&registry, tier);
-    let calls: u64 = cases.iter().map(|(c, _)| c.levels.len() as u64).sum();
+    let calls: u64 = cases.iter().map(|(c, _)| c.calls() as u64).sum();
     let price = |prompt: u64, completion: u64| {
         info.map_or(0.0, |i| {
             prompt as f64 * i.prompt_price + completion as f64 * i.completion_price
@@ -664,10 +665,18 @@ fn estimate(
                 EstimateBasis::Tokens,
             )
         } else {
-            // Environ quatre caractères par jeton ; chaque palier renvoie le contexte.
+            // Environ quatre caractères par jeton ; chaque palier d'une passe renvoie le
+            // contexte, un cas sur projet donne déjà la taille de tous ses prompts.
             let prompt: u64 = cases
                 .iter()
-                .map(|(c, chars)| (*chars as u64 / 4) * c.levels.len() as u64)
+                .map(|(c, chars)| {
+                    let repeat = if matches!(c.kind, Kind::Pass) {
+                        c.levels.len() as u64
+                    } else {
+                        1
+                    };
+                    (*chars as u64 / 4) * repeat
+                })
                 .sum();
             let duration = builtin
                 .iter()
@@ -736,7 +745,8 @@ async fn run_eval(
     );
     let when = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M").to_string();
     let write = |path: &Path, results: &[CaseResult], partial: bool| {
-        let text = markdown(&when, results, &summarize(results), partial);
+        let day = typical_day(&registry, results);
+        let text = markdown(&when, results, &summarize(results), partial, day.as_ref());
         if let Err(err) = fs::write(path, text) {
             tracing::error!(error = %err, "rapport d'évaluation non écrit");
         }
@@ -899,10 +909,21 @@ mod tests {
         let registry = builtin_registry();
         let fast = level_cases(&registry, Tier::Fast);
         let strong = level_cases(&registry, Tier::Strong);
-        assert_eq!(
-            fast.len() + strong.len(),
-            builtin_cases(None).unwrap().len()
+        // Les cas sur projet ne se jouent qu'avec des mentors de projet : avant
+        // l'installation des mentors de la phase 9, ils ne comptent pas.
+        let all = builtin_cases(None).unwrap();
+        let unplayable: Vec<&Case> = all
+            .iter()
+            .filter(|c| first_prompt(&registry, c).is_none())
+            .collect();
+        assert!(
+            unplayable
+                .iter()
+                .all(|c| matches!(c.kind, Kind::Review(_) | Kind::Reevaluation(_))),
+            "{:?}",
+            unplayable.iter().map(|c| &c.name).collect::<Vec<_>>()
         );
+        assert_eq!(fast.len() + strong.len() + unplayable.len(), all.len());
         assert!(
             fast.len() >= 15 && strong.len() >= 5,
             "{} / {}",

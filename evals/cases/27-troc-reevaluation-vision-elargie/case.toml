@@ -1,0 +1,15 @@
+title = "Réévaluation : la vision intègre désormais les rappels par e-mail à la première version"
+kind = "reevaluation"
+project = "troc"
+mentor = "mentor-produit"
+level = "question"
+about = "project"
+message = "La vision range les rappels par e-mail hors de la première version, et pourtant email.ts les prépare déjà : qu'est-ce qui a changé dans ce que vous voulez livrer d'abord ?"
+quotes = [
+  { path = "docs/vision.md", quote = "- Rappels par e-mail avant la date de retour." },
+  { path = "src/notifications/email.ts", quote = "export function envoyerRappelEmail(emprunt: Emprunt, adresse: string): void {" },
+]
+verdict = "withdraw"
+
+[expect]
+must_not = ["RAPPELS_ACTIFS"]
