@@ -313,6 +313,7 @@ aussitôt ; plafond à 50 et motif `../x` refusés sous le poids ; fichier cré�
 un dossier jamais ouvert, puis enregistrement de `README.md` depuis l'éditeur, repris par la carte
 (« après un changement sur le disque », « après un enregistrement ») ; réglages écrits dans
 `~/.local/share/hodegos/<id>/context.json`, rien dans le projet ; aucune erreur dans la console.
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9b — Contexte des mentors de section
 
