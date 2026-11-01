@@ -5,7 +5,7 @@ use std::fmt;
 
 use hodegos_core::map::{BlockId, MapBlock};
 use hodegos_llm::Effort;
-use hodegos_mentors::{FieldError, MentorForm, Mode, ModelTier, Origin};
+use hodegos_mentors::{ContextScope, FieldError, MentorForm, Mode, ModelTier, Origin};
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -697,6 +697,35 @@ pub struct Remark {
     pub status: String,
     pub thread: Vec<ThreadEntry>,
     pub created_at: String,
+    /// Renvois vers d'autres fichiers du contexte (phase 9b), 3 au plus.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub see_also: Vec<SeeAlso>,
+    /// Ce qui est parti vers le modèle pour cette remarque, sans les contenus.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context: Vec<ContextItem>,
+}
+
+/// Renvoi d'une remarque : fichier, citation éventuelle et où l'ouvrir.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeeAlso {
+    pub path: String,
+    /// Vide : le fichier entier.
+    pub quote: String,
+    /// Section de la citation (ou du début du fichier sans citation).
+    pub section_id: Option<String>,
+    /// Nom de cette section, pour le libellé du lien.
+    pub section_name: Option<String>,
+    pub line_hint: usize,
+}
+
+/// Un bloc envoyé avec une passe : `section`, `neighborhood`, `neighbor` (un fichier du
+/// voisinage) ou `map` ; jamais son contenu.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextItem {
+    pub block: String,
+    pub detail: String,
+    /// Jetons estimés (4 caractères par jeton) ; 0 pour un bloc non envoyé.
+    pub tokens: usize,
 }
 
 impl Remark {
@@ -779,6 +808,9 @@ pub struct MentorRef {
     pub name: String,
     pub initials: String,
     pub role: String,
+    /// Contexte reçu en plus de la section (phase 9b) ; absent : `section`.
+    #[serde(default, skip_serializing_if = "ContextScope::is_section")]
+    pub context: ContextScope,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -971,6 +1003,8 @@ mod tests {
                 at: "2026-10-29T12:04:00Z".to_owned(),
             }],
             created_at: "2026-10-29T12:04:00Z".to_owned(),
+            see_also: Vec::new(),
+            context: Vec::new(),
         }
     }
 
@@ -1311,6 +1345,7 @@ mod tests {
                     name: "Mentor du langage".to_owned(),
                     initials: "ML".to_owned(),
                     role: "Mentor du langage".to_owned(),
+                    context: ContextScope::Neighborhood,
                 }),
                 consultants: vec![],
                 available: vec![],

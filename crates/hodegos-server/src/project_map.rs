@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use hodegos_core::map::{
-    BlockId, DEFAULT_MAP_CAP, Exclusions, MAX_MAP_CAP, MIN_MAP_CAP, MapCache, MapSettings,
-    ProjectMap, build_map,
+    BlockId, DEFAULT_MAP_CAP, DEFAULT_NEIGHBORHOOD_CAP, Exclusions, MAX_MAP_CAP, MIN_MAP_CAP,
+    MapCache, MapSettings, Neighborhood, ProjectMap, build_map, neighborhood,
 };
 use hodegos_core::{RelPath, UserId};
 use jiff::Timestamp;
@@ -27,18 +27,25 @@ use crate::store::write_json;
 const SETTLE: Duration = Duration::from_millis(500);
 /// Dossiers observés au plus pour la carte.
 const MAX_WATCHED_DIRS: usize = 5_000;
+/// Version de `map.json` : la 2 garde les imports (phase 9b) ; une autre est ignorée.
+const MAP_FILE_VERSION: u32 = 2;
+/// Bornes du plafond du voisinage.
+const NEIGHBORHOOD_CAPS: std::ops::RangeInclusive<usize> = 500..=16_000;
 
 /// Réglages de `[context]` dans `config.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ContextOptions {
     /// Plafond de la carte, en jetons estimés.
     pub map_cap: usize,
+    /// Plafond du voisinage d'un fichier (phase 9b).
+    pub neighborhood_cap: usize,
 }
 
 impl Default for ContextOptions {
     fn default() -> Self {
         Self {
             map_cap: DEFAULT_MAP_CAP,
+            neighborhood_cap: DEFAULT_NEIGHBORHOOD_CAP,
         }
     }
 }
@@ -52,6 +59,7 @@ struct RawConfig {
 #[derive(Deserialize, Default)]
 struct RawContext {
     map_cap: Option<usize>,
+    neighborhood_cap: Option<usize>,
 }
 
 /// Lit `[context]` dans `config.toml` ; une valeur illisible ou hors bornes laisse la
@@ -74,18 +82,28 @@ pub fn load_context(config_dir: &Path) -> (ContextOptions, Option<String>) {
             );
         }
     };
+    let mut options = ContextOptions::default();
+    let mut warnings = Vec::new();
     match raw.context.map_cap {
-        None => (ContextOptions::default(), None),
-        Some(cap) if (MIN_MAP_CAP..=MAX_MAP_CAP).contains(&cap) => {
-            (ContextOptions { map_cap: cap }, None)
-        }
-        Some(cap) => (
-            ContextOptions::default(),
-            Some(format!(
-                "[context] map_cap = {cap} : de {MIN_MAP_CAP} à {MAX_MAP_CAP}, {DEFAULT_MAP_CAP} retenu"
-            )),
-        ),
+        Some(cap) if (MIN_MAP_CAP..=MAX_MAP_CAP).contains(&cap) => options.map_cap = cap,
+        Some(cap) => warnings.push(format!(
+            "[context] map_cap = {cap} : de {MIN_MAP_CAP} à {MAX_MAP_CAP}, {DEFAULT_MAP_CAP} retenu"
+        )),
+        None => {}
     }
+    match raw.context.neighborhood_cap {
+        Some(cap) if NEIGHBORHOOD_CAPS.contains(&cap) => options.neighborhood_cap = cap,
+        Some(cap) => warnings.push(format!(
+            "[context] neighborhood_cap = {cap} : de {} à {}, {DEFAULT_NEIGHBORHOOD_CAP} retenu",
+            NEIGHBORHOOD_CAPS.start(),
+            NEIGHBORHOOD_CAPS.end()
+        )),
+        None => {}
+    }
+    (
+        options,
+        (!warnings.is_empty()).then(|| warnings.join(" ; ")),
+    )
 }
 
 /// Réglages de la carte propres au projet (`context.json`).
@@ -134,6 +152,7 @@ pub(crate) struct MapState {
     /// `<id-projet>/` ; `None` : rien n'est persisté.
     dir: Option<PathBuf>,
     default_cap: usize,
+    neighborhood_cap: usize,
     inner: Mutex<Inner>,
     touches: mpsc::UnboundedSender<Touch>,
 }
@@ -158,12 +177,14 @@ impl MapState {
             .unwrap_or_default();
         let cache = read("map.json")
             .and_then(|text| serde_json::from_str::<MapFile>(&text).ok())
+            .filter(|file| file.version == MAP_FILE_VERSION)
             .map(|file| file.cache)
             .unwrap_or_default();
         let (touches, receiver) = mpsc::unbounded_channel();
         let state = Self {
             dir,
             default_cap: options.map_cap,
+            neighborhood_cap: options.neighborhood_cap,
             inner: Mutex::new(Inner {
                 cache,
                 stale: true,
@@ -214,7 +235,7 @@ impl MapState {
             return;
         };
         let file = MapFile {
-            version: 1,
+            version: MAP_FILE_VERSION,
             updated_at: built.updated_at.to_string(),
             reason: built.reason,
             cache: inner.cache.clone(),
@@ -311,6 +332,36 @@ fn current(state: &AppState) -> Option<ProjectMapInfo> {
     let inner = state.map.inner.lock().ok()?;
     let built = inner.built.as_ref()?;
     Some(state.map.info(&inner, built))
+}
+
+/// Voisinage de `path` (contenu enregistré `content`) et, si `with_map`, texte et
+/// jetons de la carte, d'après la carte à jour ; bloquant.
+pub(crate) fn widen(
+    state: &AppState,
+    path: &str,
+    content: &str,
+    with_map: bool,
+) -> (Neighborhood, Option<(String, usize)>) {
+    let built = current(state);
+    let Ok(inner) = state.map.inner.lock() else {
+        return (Neighborhood::default(), None);
+    };
+    let session = state.project.session(UserId::local());
+    let settings = state.map.settings(&inner.prefs);
+    let around = neighborhood(
+        &state.project,
+        &session,
+        &inner.cache,
+        &settings.exclude,
+        path,
+        content,
+        state.map.neighborhood_cap,
+    );
+    let map = with_map
+        .then_some(built)
+        .flatten()
+        .map(|info| (info.text, info.tokens));
+    (around, map)
 }
 
 /// Calcul initial, observation des dossiers du projet, puis recalcul après chaque
@@ -496,5 +547,19 @@ mod tests {
         assert!(warning.unwrap().contains("map_cap = 10"));
         fs::write(dir.path().join("config.toml"), "[llm]\nfast = \"x\"\n").unwrap();
         assert_eq!(load_context(dir.path()).0.map_cap, DEFAULT_MAP_CAP);
+        fs::write(
+            dir.path().join("config.toml"),
+            "[context]\nneighborhood_cap = 2000\n",
+        )
+        .unwrap();
+        assert_eq!(load_context(dir.path()).0.neighborhood_cap, 2000);
+        fs::write(
+            dir.path().join("config.toml"),
+            "[context]\nneighborhood_cap = 1\n",
+        )
+        .unwrap();
+        let (options, warning) = load_context(dir.path());
+        assert_eq!(options.neighborhood_cap, DEFAULT_NEIGHBORHOOD_CAP);
+        assert!(warning.unwrap().contains("neighborhood_cap = 1"));
     }
 }

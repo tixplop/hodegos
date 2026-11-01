@@ -74,6 +74,56 @@ pub struct RemarkDraft {
     pub kind: RemarkKind,
     pub message: String,
     pub confidence: f64,
+    /// Renvois vers des fichiers reçus dans le contexte (phase 9b) ; absent du
+    /// schéma d'un mentor qui ne reçoit que sa section.
+    #[serde(default)]
+    pub see_also: Vec<SeeAlsoDraft>,
+}
+
+/// Renvoi d'une remarque vers un autre fichier : chemin, citation facultative.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SeeAlsoDraft {
+    pub path: String,
+    #[serde(default)]
+    pub quote: String,
+}
+
+/// Renvois gardés au plus, par remarque.
+pub const MAX_SEE_ALSO: usize = 3;
+
+/// Fichier du contexte envoyé, vers lequel une remarque peut renvoyer.
+#[derive(Debug, Clone, Copy)]
+pub struct SeeAlsoSource<'a> {
+    pub path: &'a str,
+    /// Texte envoyé pour ce fichier (signatures, section…), secrets masqués.
+    pub sent: &'a str,
+    /// Contenu enregistré du fichier.
+    pub saved: &'a str,
+}
+
+/// Garde les renvois valides de chaque remarque, 3 au plus : chemin d'un fichier
+/// envoyé, citation vide ou de 3 à 120 caractères, présente mot pour mot dans le
+/// fichier enregistré et dans le texte envoyé. Une remarque ne perd que ses renvois.
+pub fn filter_see_also(remarks: &mut [RemarkDraft], sources: &[SeeAlsoSource<'_>]) {
+    for remark in remarks {
+        let mut seen = std::collections::BTreeSet::new();
+        remark.see_also.retain(|entry| {
+            let Some(source) = sources.iter().find(|s| s.path == entry.path) else {
+                tracing::debug!(path = %entry.path, "renvoi écarté : fichier non envoyé");
+                return false;
+            };
+            let quote_ok = entry.quote.is_empty()
+                || (QUOTE_CHARS.contains(&entry.quote.chars().count())
+                    && source.sent.contains(&entry.quote)
+                    && source.saved.contains(&entry.quote));
+            if !quote_ok {
+                tracing::debug!(path = %entry.path, "renvoi écarté : citation introuvable");
+            }
+            quote_ok && seen.insert((entry.path.clone(), entry.quote.clone()))
+        });
+        remark.see_also.truncate(MAX_SEE_ALSO);
+    }
 }
 
 /// Remarque qui a passé toutes les règles.
@@ -109,6 +159,29 @@ pub fn remarks_schema() -> serde_json::Value {
         "required": ["remarks"],
         "additionalProperties": false
     })
+}
+
+/// Schéma d'un mentor qui reçoit le voisinage ou la carte : `see_also` est requis
+/// (sorties structurées strictes), une liste vide est permise.
+pub fn remarks_schema_with_see_also() -> serde_json::Value {
+    let mut schema = remarks_schema();
+    let item = &mut schema["properties"]["remarks"]["items"];
+    item["properties"]["see_also"] = json!({
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "path": { "type": "string" },
+                "quote": { "type": "string" }
+            },
+            "required": ["path", "quote"],
+            "additionalProperties": false
+        }
+    });
+    if let Some(required) = item["required"].as_array_mut() {
+        required.push(json!("see_also"));
+    }
+    schema
 }
 
 /// Tolère un bloc ```json … ``` autour du JSON.
@@ -702,6 +775,7 @@ mod tests {
             kind: RemarkKind::Observation,
             message: message.to_owned(),
             confidence,
+            see_also: Vec::new(),
         }
     }
 
@@ -1056,5 +1130,80 @@ mod tests {
         let names: Vec<&str> = names.into_iter().collect();
         // find et log suivent un point ; e et a ont un caractère ; console et Math sont courants.
         assert_eq!(names, ["debut", "dejaPris", "emprunts", "total"]);
+    }
+
+    #[test]
+    fn renvois_valides_gardes_les_autres_retires() {
+        const SAVED: &str =
+            "export function lister(): Emprunt[] {\n  return JSON.parse(lire());\n}\n";
+        let sources = [
+            SeeAlsoSource {
+                path: "src/stockage/depot.ts",
+                sent: "export function lister(): Emprunt[]",
+                saved: SAVED,
+            },
+            SeeAlsoSource {
+                path: "docs/adr/0001.md",
+                sent: "## Décision\nUn seul module.",
+                saved: "# 0001\n## Décision\nUn seul module.\n",
+            },
+        ];
+        let entry = |path: &str, quote: &str| SeeAlsoDraft {
+            path: path.to_owned(),
+            quote: quote.to_owned(),
+        };
+        let mut remarks = vec![RemarkDraft {
+            see_also: vec![
+                entry("src/stockage/depot.ts", "lister(): Emprunt[]"),
+                entry("src/autre.ts", ""),
+                entry("src/stockage/depot.ts", "JSON.parse"),
+                entry("docs/adr/0001.md", "Un"),
+                entry("docs/adr/0001.md", "inventé"),
+                entry("docs/adr/0001.md", ""),
+                entry("src/stockage/depot.ts", "lister(): Emprunt[]"),
+                entry("docs/adr/0001.md", "Un seul module."),
+                entry("src/stockage/depot.ts", ""),
+            ],
+            ..draft("e.debut === debut", "Regardez.", 0.8)
+        }];
+        filter_see_also(&mut remarks, &sources);
+        // Non envoyé, citation hors du texte envoyé (corps), trop courte, inventée,
+        // doublon : retirés ; trois au plus ; la remarque reste.
+        assert_eq!(
+            remarks[0].see_also,
+            vec![
+                entry("src/stockage/depot.ts", "lister(): Emprunt[]"),
+                entry("docs/adr/0001.md", ""),
+                entry("docs/adr/0001.md", "Un seul module."),
+            ]
+        );
+        let mut none = vec![RemarkDraft {
+            see_also: vec![entry("src/stockage/depot.ts", "")],
+            ..draft("e.debut === debut", "Regardez.", 0.8)
+        }];
+        filter_see_also(&mut none, &[]);
+        assert!(none[0].see_also.is_empty(), "rien d'envoyé, aucun renvoi");
+    }
+
+    #[test]
+    fn schema_strict_avec_renvois_et_lecture() {
+        let schema = remarks_schema_with_see_also();
+        let item = &schema["properties"]["remarks"]["items"];
+        assert_eq!(item["additionalProperties"], false);
+        assert!(
+            item["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("see_also"))
+        );
+        assert!(
+            remarks_schema()["properties"]["remarks"]["items"]["properties"]["see_also"].is_null()
+        );
+        let parsed = parse_remarks(
+            r#"{"remarks":[{"quote":"e.debut === debut","level":"indice","kind":"question","message":"Regardez.","confidence":0.8,"see_also":[{"path":"a.ts","quote":""}]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed[0].see_also.len(), 1);
+        assert!(parse_remarks(r#"{"remarks":[{"quote":"e.debut === debut","level":"indice","kind":"question","message":"Regardez.","confidence":0.8}]}"#).unwrap()[0].see_also.is_empty());
     }
 }

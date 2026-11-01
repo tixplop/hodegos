@@ -15,6 +15,7 @@ use hodegos_mentors::{
 use jiff::Timestamp;
 
 use crate::AppState;
+use crate::context::{self, Widened};
 use crate::pass::{locate_anchor, model_for, remark_level};
 use crate::protocol::{ErrorCode, Remark, ThreadEntry};
 
@@ -152,6 +153,9 @@ pub(crate) fn prepare(
             })
             .collect(),
     };
+    // Même contexte que la passe : voisinage et carte, recalculés sur l'état actuel.
+    let widened = context::widen(state, mentor.context, &path, &file.content);
+    let extra = widened.as_ref().map(Widened::extra);
     let prompt = section_prompt(&SectionRequest {
         mentor,
         level,
@@ -161,6 +165,7 @@ pub(crate) fn prepare(
         section,
         diff: "",
         thread: Some(&thread),
+        extra: extra.as_ref(),
     });
     Ok(Job {
         remark_id: remark.id.clone(),

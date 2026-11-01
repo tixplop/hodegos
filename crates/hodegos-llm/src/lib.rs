@@ -23,6 +23,7 @@ pub use config::{
 pub use fake::FakeLlmClient;
 pub use openrouter::{ModelInfo, OpenRouterClient, check_key, fetch_models};
 pub use validate::{
-    MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules, ValidRemark,
-    parse_remarks, parse_replies, remarks_schema, reply_schema, validate, validate_replies,
+    MAX_SEE_ALSO, MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules,
+    SeeAlsoDraft, SeeAlsoSource, ValidRemark, filter_see_also, parse_remarks, parse_replies,
+    remarks_schema, remarks_schema_with_see_also, reply_schema, validate, validate_replies,
 };

@@ -10,7 +10,7 @@ use hodegos_core::secrets::exclusion;
 use hodegos_core::{Language, RelPath, Section, changed_sections, sections};
 use hodegos_llm::{
     AskError, BudgetLevel, ChatMessage, Effort, LlmClient, LlmRequest, RemarkDraft, RemarkLevel,
-    Role, Rules, ask_for_remarks, remarks_schema,
+    Role, Rules, ask_for_remarks, filter_see_also, remarks_schema, remarks_schema_with_see_also,
 };
 use hodegos_mentors::{
     CastRequest, Casting, Forced, Level, Mentor, ModelTier, Registry, SectionRequest, cast,
@@ -20,7 +20,10 @@ use jiff::Timestamp;
 use tokio::task::JoinSet;
 
 use crate::AppState;
-use crate::protocol::{Anchor, MentorRef, PassOutcome, Remark, ServerMessage, ThreadEntry};
+use crate::context::{self, Widened};
+use crate::protocol::{
+    Anchor, ContextItem, MentorRef, PassOutcome, Remark, ServerMessage, ThreadEntry,
+};
 
 /// Sections soumises aux mentors par passe, au plus.
 const MAX_SECTIONS: usize = 2;
@@ -72,6 +75,13 @@ struct Job {
     level: RemarkLevel,
     max_remarks: usize,
     request: LlmRequest,
+    context: Arc<JobContext>,
+}
+
+/// Contexte élargi d'un appel (phase 9b) et ce qui est parti, pour ses remarques.
+struct JobContext {
+    widened: Option<Widened>,
+    items: Vec<ContextItem>,
 }
 
 /// Passe prête à partir, ou terminée sans appel au modèle.
@@ -139,6 +149,7 @@ pub(crate) fn mentor_ref(registry: &Registry, id: &str) -> Option<MentorRef> {
         name: m.name.clone(),
         initials: m.initials.clone(),
         role: m.role.clone(),
+        context: m.context,
     })
 }
 
@@ -303,6 +314,8 @@ fn launch(
             );
             return Prepared::Done(PassOutcome::ProviderError);
         };
+        let widened = context::widen(state, mentor.context, &request.path, &request.new);
+        let extra = widened.as_ref().map(Widened::extra);
         let prompt = section_prompt(&SectionRequest {
             mentor: &mentor,
             level: mentor.entry_level,
@@ -312,7 +325,20 @@ fn launch(
             section: &section,
             diff: &diff,
             thread: None,
+            extra: extra.as_ref(),
         });
+        let schema = if widened.is_some() {
+            remarks_schema_with_see_also()
+        } else {
+            remarks_schema()
+        };
+        let items = context::items(
+            mentor.context,
+            &section.id,
+            context::user_tokens(&prompt.user),
+            widened.as_ref(),
+        );
+        drop(extra);
         jobs.push(Job {
             mentor_id: mentor.id.clone(),
             section_text: section.text(&request.new),
@@ -325,10 +351,11 @@ fn launch(
                     ChatMessage::new(Role::User, prompt.user),
                 ],
                 schema_name: "remarques".to_owned(),
-                schema: remarks_schema(),
+                schema,
                 effort,
             },
             section,
+            context: Arc::new(JobContext { widened, items }),
         });
     }
 
@@ -380,18 +407,33 @@ pub(crate) async fn run(
                 level: job.level,
                 max_remarks: job.max_remarks,
             };
-            let result = ask_for_remarks(client.as_ref(), job.request.clone(), &rules).await;
-            (job.mentor_id, job.section, job.section_text, result)
+            let mut result = ask_for_remarks(client.as_ref(), job.request.clone(), &rules).await;
+            if let Ok(asked) = &mut result {
+                let sources = job
+                    .context
+                    .widened
+                    .as_ref()
+                    .map(Widened::sources)
+                    .unwrap_or_default();
+                filter_see_also(&mut asked.remarks, &sources);
+            }
+            (
+                job.mentor_id,
+                job.section,
+                job.section_text,
+                job.context,
+                result,
+            )
         });
     }
 
-    let mut found: Vec<(String, Section, String, RemarkDraft)> = Vec::new();
+    let mut found: Vec<(String, Section, String, Arc<JobContext>, RemarkDraft)> = Vec::new();
     let mut provider_error = None;
     let mut invalid = 0;
     let mut answered = 0;
     let mut cost = 0.0;
     while let Some(joined) = tasks.join_next().await {
-        let Ok((mentor_id, section, text, result)) = joined else {
+        let Ok((mentor_id, section, text, job_context, result)) = joined else {
             continue;
         };
         match result {
@@ -399,7 +441,13 @@ pub(crate) async fn run(
                 cost += asked.cost_usd;
                 answered += 1;
                 for remark in asked.remarks {
-                    found.push((mentor_id.clone(), section.clone(), text.clone(), remark));
+                    found.push((
+                        mentor_id.clone(),
+                        section.clone(),
+                        text.clone(),
+                        job_context.clone(),
+                        remark,
+                    ));
                 }
             }
             Err(err) => {
@@ -425,13 +473,21 @@ pub(crate) async fn run(
         None => {}
     }
 
-    found.sort_by(|a, b| b.3.confidence.total_cmp(&a.3.confidence));
+    found.sort_by(|a, b| b.4.confidence.total_cmp(&a.4.confidence));
     found.truncate(MAX_REMARKS);
     let now = Timestamp::now().to_string();
     let remarks = found
         .into_iter()
-        .map(|(mentor_id, section, text, draft)| {
-            anchor(&run.path, mentor_id, &section, &text, draft, &now)
+        .map(|(mentor_id, section, text, job_context, draft)| {
+            anchor(
+                &run.path,
+                mentor_id,
+                &section,
+                &text,
+                &job_context,
+                draft,
+                &now,
+            )
         })
         .collect();
 
@@ -497,9 +553,14 @@ fn anchor(
     mentor_id: String,
     section: &Section,
     section_text: &str,
-    draft: RemarkDraft,
+    job_context: &JobContext,
+    mut draft: RemarkDraft,
     now: &str,
 ) -> Remark {
+    let see_also = context::see_also(
+        job_context.widened.as_ref(),
+        std::mem::take(&mut draft.see_also),
+    );
     let line_hint = line_of(section, section_text, &draft.quote).unwrap_or(section.start_line);
     let level = draft.level.as_str().to_owned();
     Remark {
@@ -521,5 +582,7 @@ fn anchor(
             at: now.to_owned(),
         }],
         created_at: now.to_owned(),
+        see_also,
+        context: job_context.items.clone(),
     }
 }

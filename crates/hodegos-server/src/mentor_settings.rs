@@ -312,6 +312,12 @@ pub(crate) fn prompt(
         .first()
         .map_or(EXAMPLE_LANGUAGE, String::as_str);
     Ok(ServerMessage::MentorPrompt {
-        text: system_prompt(mentor, mentor.entry_level, language, false),
+        text: system_prompt(
+            mentor,
+            mentor.entry_level,
+            language,
+            false,
+            !mentor.context.is_section(),
+        ),
     })
 }

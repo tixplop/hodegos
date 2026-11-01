@@ -125,6 +125,21 @@ Détails des passes :
   une étape suivante (`next_step`) seulement : elle est alors ancrée au début de
   la section (`line_hint` = `start_line`), c'est-à-dire sur son titre en Markdown,
   et l'interface marque cette ligne.
+- Contexte d'un mentor de section (phase 9b, `docs/phase9.md`) : un mentor
+  `context: neighborhood` reçoit aussi le voisinage du fichier, `project` aussi la
+  carte du projet. Une remarque porte alors `see_also` (absent si vide) : 3 renvois
+  au plus, `{ path, quote, section_id, section_name, line_hint }` ; `quote` vide
+  renvoie au fichier, `section_id` et `section_name` sont ceux de la section où
+  tombe la citation (ou du début du fichier), `line_hint` sa ligne. Un renvoi n'est
+  gardé que si le fichier a été envoyé et que la citation figure dans le fichier
+  enregistré et dans le texte envoyé. Toute remarque d'une passe porte `context` :
+  `[{ block, detail, tokens }]`, avec `block` parmi `section` (section, diff et
+  20 lignes autour), `neighborhood` (total du voisinage, ou « non envoyés »),
+  `neighbor` (un fichier voisin : chemin, relation, forme envoyée) et `map` ; jetons
+  estimés à 4 caractères par jeton, 0 pour un bloc non envoyé ; jamais de contenu.
+  Le palier suivant et la relance reçoivent le même contexte, recalculé, sans
+  produire de renvois. Plafond du voisinage : `[context] neighborhood_cap` de
+  `config.toml` (500 à 16 000, 3 000 par défaut).
 - Passe d'ouverture (phase 7) : à l'`open_file` d'un fichier dont le titulaire
   d'au moins une section a `on_open: true`, si aucune remarque n'a encore été faite
   sur ce fichier et qu'aucune passe d'ouverture n'y a abouti. Elle porte sur les
@@ -256,7 +271,8 @@ Détails de l'arbre (phase 8a) :
 
 Le format complet d'une remarque est décrit dans `docs/cadrage.md`, section
 « Contrat : format d'une remarque ». Un mentor dans `titular`, `consultants` et
-`available` est décrit par `id`, `name`, `initials`, `role`.
+`available` est décrit par `id`, `name`, `initials`, `role`, et `context`
+(`neighborhood` ou `project`, absent pour `section` ; phase 9b).
 
 Détails des réglages (phase 8d, ADR 0007) :
 
@@ -298,14 +314,14 @@ Détails des mentors (phase 8e) :
 - Validation : exactement celle du chargeur (`validate` dans `hodegos-mentors`),
   qui collecte toutes les erreurs ; chacune porte son champ (`id`, `name`,
   `initials`, `role`, `mode`, `model`, `priority`, `entry_level`, `max_remarks`,
-  `triggers.paths[N]`, `frontmatter`, `yaml`). Le message du chargeur est leur
+  `context`, `triggers.paths[N]`, `frontmatter`, `yaml`). Le message du chargeur est leur
   réunion, séparée par « ; ». S'y ajoutent l'identifiant déjà défini au même
   niveau et l'identifiant qui change à l'enregistrement.
 - `items` : un par identifiant, le niveau le plus précis l'emporte ; `overrides`
   liste les niveaux inférieurs qui le définissent aussi. Un mentor désactivé garde
   le nom du niveau qu'il désactive. `errors` : fichiers ignorés par le chargeur.
 - `form` (dans `mentor_file`) : `{ id, name, initials, role, enabled, mode, model,
-  priority, entry_level, max_remarks, on_open, triggers { paths, languages,
+  priority, entry_level, max_remarks, on_open, context, triggers { paths, languages,
   headings, keywords } }`, absent pour un fichier invalide ou une surcharge
   minimale (`id` et `enabled: false` seuls). Le formulaire réécrit le frontmatter
   dans l'ordre des mentors livrés, sans ses commentaires ; `content` garde le

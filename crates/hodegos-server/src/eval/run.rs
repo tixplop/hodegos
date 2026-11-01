@@ -298,6 +298,7 @@ pub async fn run_case(
             section,
             diff: if index == 0 { &diff } else { "" },
             thread: (index > 0).then_some(&follow_up),
+            extra: None,
         });
         let (schema_name, schema) = if index == 0 {
             ("remarques", remarks_schema())
@@ -470,6 +471,7 @@ pub fn first_prompt(registry: &Registry, case: &Case) -> Option<(ModelTier, usiz
         section,
         diff: &diff,
         thread: None,
+        extra: None,
     });
     Some((
         mentor.model,

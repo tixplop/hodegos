@@ -5,6 +5,7 @@
 
 mod assets;
 mod auth;
+mod context;
 pub mod eval;
 mod followup;
 mod git;

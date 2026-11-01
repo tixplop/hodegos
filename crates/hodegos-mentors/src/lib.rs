@@ -15,11 +15,13 @@ pub use casting::{
 };
 pub use eject::{EjectError, eject};
 pub use mentor::{
-    FieldError, FormTriggers, Level, Mentor, MentorError, MentorForm, Mode, ModelTier, Origin,
-    Parsed, Triggers, join, minimal_override, parse, read_form, render, validate,
+    ContextScope, FieldError, FormTriggers, Level, Mentor, MentorError, MentorForm, Mode,
+    ModelTier, Origin, Parsed, Triggers, join, minimal_override, parse, read_form, render,
+    validate,
 };
 pub use prompt::{
-    Author, FollowUp, FollowUpKind, Prompt, PromptInput, build_prompt, system_prompt,
+    Author, Extra, FollowUp, FollowUpKind, NeighborText, Prompt, PromptInput, build_prompt,
+    system_prompt,
 };
 pub use registry::{MentorFile, MentorSources, Registry, Warning, default_user_dir, inventory};
 pub use section_prompt::{CONTEXT_LINES, SectionRequest, Thread, section_prompt};

@@ -33,6 +33,39 @@ impl Mode {
     }
 }
 
+/// Ce qu'un mentor de section reçoit en plus de la section (phase 9b).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextScope {
+    /// La section, 20 lignes autour et le diff.
+    #[default]
+    Section,
+    /// En plus, le voisinage du fichier.
+    Neighborhood,
+    /// En plus, le voisinage et la carte du projet.
+    Project,
+}
+
+impl ContextScope {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Section => "section",
+            Self::Neighborhood => "neighborhood",
+            Self::Project => "project",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Section, Self::Neighborhood, Self::Project]
+            .into_iter()
+            .find(|c| c.as_str() == name)
+    }
+
+    pub fn is_section(&self) -> bool {
+        *self == Self::Section
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ModelTier {
@@ -106,6 +139,8 @@ pub struct Mentor {
     pub max_remarks: u8,
     /// Passe sur tout le fichier à sa première ouverture (`on_open: true`).
     pub on_open: bool,
+    /// Contexte reçu en plus de la section (phase 9b).
+    pub context: ContextScope,
     pub triggers: Triggers,
     /// Posture, injectée après le cadre commun des prompts.
     pub body: String,
@@ -164,6 +199,9 @@ pub struct MentorForm {
     pub entry_level: Level,
     pub max_remarks: i64,
     pub on_open: bool,
+    /// Absent d'un formulaire envoyé avant la phase 9b : `section`.
+    #[serde(default)]
+    pub context: ContextScope,
     #[serde(default)]
     pub triggers: FormTriggers,
 }
@@ -193,6 +231,7 @@ struct RawFrontmatter {
     entry_level: Option<String>,
     max_remarks: Option<i64>,
     on_open: Option<bool>,
+    context: Option<String>,
     #[serde(default)]
     triggers: FormTriggers,
 }
@@ -310,6 +349,9 @@ fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet)
     )
     .and_then(|l| Level::from_name(&l))
     .unwrap_or(Level::Indice);
+    let context = choice("context", raw.context, "section, neighborhood, project")
+        .and_then(|c| ContextScope::from_name(&c))
+        .unwrap_or_default();
 
     let mut globs = GlobSetBuilder::new();
     for (index, pattern) in raw.triggers.paths.iter().enumerate() {
@@ -348,6 +390,7 @@ fn check_fields(raw: RawFrontmatter, id: String) -> Result<(MentorForm, GlobSet)
         entry_level,
         max_remarks: i64::from(max_remarks),
         on_open: raw.on_open.unwrap_or(false),
+        context,
         triggers: raw.triggers,
     };
     Ok((form, path_globs))
@@ -374,6 +417,7 @@ pub fn validate(text: &str, origin: Origin, source_name: &str) -> Result<Parsed,
         entry_level: form.entry_level,
         max_remarks: u8::try_from(form.max_remarks).unwrap_or(2),
         on_open: form.on_open,
+        context: form.context,
         triggers: Triggers {
             paths: form.triggers.paths,
             languages: form.triggers.languages,
@@ -426,6 +470,8 @@ struct Written<'a> {
     entry_level: Level,
     max_remarks: i64,
     on_open: bool,
+    #[serde(skip_serializing_if = "ContextScope::is_section")]
+    context: ContextScope,
     triggers: WrittenTriggers<'a>,
 }
 
@@ -452,6 +498,7 @@ pub fn render(form: &MentorForm, body: &str) -> Result<String, MentorError> {
         entry_level: form.entry_level,
         max_remarks: form.max_remarks,
         on_open: form.on_open,
+        context: form.context,
         triggers: WrittenTriggers {
             paths: FlowSeq(&form.triggers.paths),
             languages: FlowSeq(&form.triggers.languages),
@@ -631,5 +678,48 @@ Vous accompagnez {name} en {language}.
             Ok(Parsed::Disabled { id }) if id == "architecte"
         ));
         assert!(read_form(&minimal).is_err());
+    }
+
+    #[test]
+    fn contexte_lu_valide_et_garde_par_le_formulaire() {
+        assert_eq!(
+            active(VALID).context,
+            ContextScope::Section,
+            "section par défaut"
+        );
+        let with = VALID.replace(
+            "max_remarks: 1\n",
+            "max_remarks: 1\ncontext: neighborhood\n",
+        );
+        assert_eq!(active(&with).context, ContextScope::Neighborhood);
+        let project = VALID.replace("max_remarks: 1\n", "max_remarks: 1\ncontext: project\n");
+        assert_eq!(active(&project).context, ContextScope::Project);
+
+        let wrong = VALID.replace("max_remarks: 1\n", "max_remarks: 1\ncontext: voisins\n");
+        let errors = validate(&wrong, Origin::User, "testeur.md").unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].field, "context");
+        assert!(errors[0].message.contains("voisins"));
+
+        // Le formulaire réécrit le champ ; `section` n'est pas écrit, comme les livrés.
+        let (form, body) = read_form(&with).unwrap();
+        let written = render(&form, &body).unwrap();
+        assert!(written.contains("context: neighborhood"), "{written}");
+        assert_eq!(
+            read_form(&written).unwrap().0.context,
+            ContextScope::Neighborhood
+        );
+        let (form, body) = read_form(VALID).unwrap();
+        assert!(!render(&form, &body).unwrap().contains("context"));
+
+        // Un formulaire envoyé sans le champ (front d'avant 9b) vaut `section`.
+        let yaml: String = serde_saphyr::to_string(&form)
+            .unwrap()
+            .lines()
+            .filter(|line| !line.starts_with("context:"))
+            .map(|line| format!("{line}\n"))
+            .collect();
+        let parsed: MentorForm = serde_saphyr::from_str(&yaml).unwrap();
+        assert_eq!(parsed.context, ContextScope::Section);
     }
 }

@@ -5,7 +5,7 @@
 use hodegos_core::secrets::mask_secrets;
 use hodegos_core::{Section, strip_html_comments, strip_html_comments_in_diff};
 
-use crate::prompt::{Author, FollowUp, FollowUpKind, Prompt, PromptInput, build_prompt};
+use crate::prompt::{Author, Extra, FollowUp, FollowUpKind, Prompt, PromptInput, build_prompt};
 use crate::{Level, Mentor};
 
 /// Lignes de contexte de part et d'autre de la section.
@@ -34,6 +34,8 @@ pub struct SectionRequest<'a> {
     /// Diff de la section ; vide pour une reprise.
     pub diff: &'a str,
     pub thread: Option<&'a Thread<'a>>,
+    /// Voisinage et carte, déjà masqués (phase 9b).
+    pub extra: Option<&'a Extra<'a>>,
 }
 
 /// Construit le prompt ; rien de ce qui part n'échappe au masquage des secrets
@@ -89,6 +91,7 @@ pub fn section_prompt(request: &SectionRequest<'_>) -> Prompt {
         section_diff: &diff,
         context: &visible(context(&all, section)),
         follow_up: follow_up.as_ref(),
+        extra: request.extra,
     })
 }
 
@@ -186,6 +189,7 @@ mod tests {
             section: &section(2, 4),
             diff: "+  const token = \"ghp_abcdefghijklmnopqrstuvwxyz0123456789\";\n",
             thread: Some(&thread),
+            extra: None,
         });
         assert!(!prompt.user.contains("ghp_"), "{}", prompt.user);
         assert!(!prompt.user.contains("sk-abc"), "{}", prompt.user);
@@ -221,6 +225,7 @@ mod tests {
             section: &idee,
             diff: "--- avant\n+++ après\n@@ -0,0 +1,4 @@\n+## Idée\n+<!-- consigne\n+sur deux lignes -->\n+Mon idée\n",
             thread: None,
+            extra: None,
         });
         assert!(!prompt.user.contains("<!--"), "{}", prompt.user);
         for hidden in ["avant -->", "consigne", "sur deux lignes", "après -->"] {
