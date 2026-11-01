@@ -386,6 +386,7 @@ fichier » qui renvoie à la remarque dans la vue Projet, « Revue du projet pr�
 barre d'état et le panneau après une modification faite hors de Hodegos, revue « Modifications »
 dans l'historique, passage cité retiré puis remarque « À réévaluer » avec son explication, levée au
 calme, aucune erreur dans la console.
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9e — Réglages et mentors livrés
 
