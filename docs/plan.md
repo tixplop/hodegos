@@ -423,3 +423,8 @@ Strong retenu ; fast non retenu au premier passage (solution au palier exemple d
 après la précision du cadre commun ; voisinage 3/3, réévaluations 3/3. Coût présenté avant
 l'activation : 0,26 $ par jour, 5,80 $ par mois ; rythme et plafonds confirmés. Mentors installés
 dans `mentors/` (ADR 0011).
+Vérification manuelle : `hodegos mentors list` (quatre mentors livrés, portées et contexte), revues
+de création de l'Architecte et du Mentor produit à l'ouverture d'un projet jamais relu, Testeur
+après des modifications au calme, réglages par défaut inchangés et rien en attente une fois
+« À la création du projet » décoché, voisinage du Mentor du langage dans « Contexte de cette passe ».
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
