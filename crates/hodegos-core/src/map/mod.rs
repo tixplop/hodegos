@@ -9,6 +9,7 @@ mod imports;
 mod neighbors;
 #[cfg(test)]
 mod project_tests;
+mod review;
 mod scan;
 
 use std::collections::BTreeSet;
@@ -19,6 +20,10 @@ use serde::{Deserialize, Serialize};
 pub use assemble::{MapBlock, ProjectMap, build_map};
 pub use cache::{MapCache, Refresh};
 pub use neighbors::{DEFAULT_NEIGHBORHOOD_CAP, Neighbor, Neighborhood, Relation, neighborhood};
+pub use review::{
+    DEFAULT_KEY_FILES_CAP, FileChange, KeyFile, KeyFiles, MAX_DIFF_FILES, diff_since, key_files,
+    masked_texts,
+};
 
 /// Plafond par défaut de la carte, en jetons estimés.
 pub const DEFAULT_MAP_CAP: usize = 8_000;
