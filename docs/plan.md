@@ -335,6 +335,7 @@ ligne 3 et l'ADR à la section Décision (ligne 5), « Contexte de cette passe �
 voisinage et chaque fichier avec ses jetons, carte non envoyée), resté ouvert d'un rendu à l'autre,
 lien « Ce que savent les mentors » vers la vue Projet, palier suivant envoyé avec le voisinage,
 aucune erreur dans la console.
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9c — Mentors de projet et vue Projet
 
