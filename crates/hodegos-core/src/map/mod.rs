@@ -5,6 +5,8 @@
 mod assemble;
 mod cache;
 mod extract;
+mod imports;
+mod neighbors;
 #[cfg(test)]
 mod project_tests;
 mod scan;
@@ -16,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 pub use assemble::{MapBlock, ProjectMap, build_map};
 pub use cache::{MapCache, Refresh};
+pub use neighbors::{DEFAULT_NEIGHBORHOOD_CAP, Neighbor, Neighborhood, Relation, neighborhood};
 
 /// Plafond par défaut de la carte, en jetons estimés.
 pub const DEFAULT_MAP_CAP: usize = 8_000;

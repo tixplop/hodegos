@@ -7,6 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser};
 
+use super::imports::{code_imports, markdown_links};
 use crate::sections::{frontmatter, sections};
 use crate::{Language, strip_html_comments};
 
@@ -29,6 +30,9 @@ pub(crate) struct FileFacts {
     pub(crate) document: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) manifest: Option<Manifest>,
+    /// Imports et liens relatifs, bruts : résolus à la demande (`imports::resolve`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) imports: Vec<String>,
 }
 
 /// ADR : numéro, titre, statut et texte de la section Décision.
@@ -115,6 +119,14 @@ fn file_name(path: &str) -> &str {
 
 /// Faits d'un fichier lisible, déjà retenu par l'exploration (ni ignoré ni secret).
 pub(crate) fn facts(path: &str, content: &str) -> FileFacts {
+    let mut facts = role_facts(path, content);
+    if Language::of(path) == Language::Markdown {
+        facts.imports = markdown_links(content);
+    }
+    facts
+}
+
+fn role_facts(path: &str, content: &str) -> FileFacts {
     match role(path) {
         Role::Vision => FileFacts {
             document: Some(vision(content)),
@@ -452,6 +464,7 @@ fn code(path: &str, content: &str) -> FileFacts {
     FileFacts {
         symbols,
         tests,
+        imports: code_imports(language, &root, source),
         ..FileFacts::default()
     }
 }
