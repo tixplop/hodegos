@@ -144,6 +144,7 @@ async fn run(mut socket: WebSocket, state: Arc<AppState>, user: UserId) {
     let mut pending = vec![
         Outgoing::push(connection.state.connection_status()),
         Outgoing::push(ServerMessage::GitStatus(connection.state.git.current())),
+        Outgoing::push(crate::auto::status(&connection.state)),
     ];
     pending.extend(connection.mentor_warnings(false));
     loop {
@@ -457,6 +458,7 @@ impl Connection {
                     language: file.language.as_str().to_owned(),
                     sections: open.sections.iter().map(section_info).collect(),
                     remarks: self.state.store.visible_remarks(rel.as_str()),
+                    project_remarks: self.state.project_store.citing(rel.as_str()),
                 };
                 self.open.insert(rel.clone(), open);
                 self.cursor = Some((rel.clone(), 1));
@@ -789,6 +791,7 @@ impl Connection {
         let paths: HashSet<String> = plan.files.iter().map(|f| f.path.to_string()).collect();
         self.state.store.forget(&paths);
         self.state.mentors.forget(&paths);
+        crate::auto::forgotten(&self.state, &paths);
         for file in &plan.files {
             if self.open.remove(&file.path).is_some() {
                 *self.generations.entry(file.path.clone()).or_insert(0) += 1;
@@ -1440,10 +1443,19 @@ fn move_data(state: &AppState, plan: &MovePlan) -> Result<(), FileError> {
         source,
     };
     let before = state.store.snapshot();
-    state.store.move_paths(&moves).map_err(data_error)?;
-    if let Err(err) = state.mentors.move_paths(&moves) {
+    let before_project = state.project_store.snapshot();
+    let result = state
+        .store
+        .move_paths(&moves)
+        .and_then(|()| state.project_store.move_paths(&moves))
+        .and_then(|()| state.mentors.move_paths(&moves));
+    if let Err(err) = result {
+        // Tout revient à l'état d'avant : le déplacement sera annulé.
         if let Some(before) = before {
             state.store.restore(before);
+        }
+        if let Some(before) = before_project {
+            state.project_store.restore(before);
         }
         return Err(data_error(err));
     }

@@ -75,7 +75,7 @@ connexion reste ouverte.
 | --- | --- | --- |
 | `pong` | — | réponse à `ping` |
 | `dir` | `path`, `entries` (`name`, `kind` : `dir` ou `file`, `mentors`) | réponse à `list_dir` ; poussé aussi quand les entrées d'un dossier déjà listé changent sur le disque (fichier créé, supprimé ou renommé, hors fichiers ignorés), et après `create_entry`, `delete_entry` et `move_entry` |
-| `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` (ouvertes, répondues ou détachées) | réponse à `open_file` |
+| `file` | `path`, `content`, `version`, `language`, `sections`, `remarks` (ouvertes, répondues ou détachées), `project_remarks` (remarques de projet affichées dont un passage présent est dans ce fichier, phase 9d) | réponse à `open_file` |
 | `saved` | `path`, `version` | réponse à `save` |
 | `casting` | `path`, `section_id`, `section_name`, `titular`, `consultants`, `available`, `reasons`, `forced` | ouverture, changement de section ou de casting (curseur, enregistrement, modification externe, rechargement des mentors), choix forcé |
 | `pass_started` | `path`, `sections` (identifiants), `mentors` (titulaires appelés) | dès qu'une passe appelle le modèle |
@@ -103,9 +103,10 @@ connexion reste ouverte.
 | `term_output` | `term_id`, `data` (base64 : octets bruts, pas forcément de l'UTF-8) | sortie du terminal, regroupée toutes les 16 ms au plus, 64 Kio au plus par message |
 | `term_exited` | `term_id`, `code` (`null` si tué par un signal) | fin du shell (`exit`, `term_close`) |
 | `review_estimate` | `mentors` (`id`, `tokens`, `cost` ou `null`, `duration_ms`, `basis` : `last`, `price` ou `unknown`, `detail`), `total_cost` (`null` si un coût est inconnu), `duration_ms`, `budget_left` | réponse à `review_estimate` |
-| `review_started` | `review_id`, `trigger` (`request` en 9c), `mentor_ids` | réponse à `review_request`, poussé aussi à toutes les fenêtres |
+| `review_started` | `review_id`, `trigger` (`request`, ou `create`, `open`, `change`, `commit` pour une revue automatique), `mentor_ids` | réponse à `review_request`, poussé aussi à toutes les fenêtres |
 | `project_remarks` | `review_id` (absent pour `project_remarks_get`), `items` (remarques de projet complètes) | réponse à `project_remarks_get` ; poussé à la fin d'une revue avec ses nouvelles remarques |
 | `review_done` | `review_id`, `outcomes` (mentor → `ok`, `provider_error`, `invalid_response` ou `stale`), `cost`, `duration_ms` | poussé à toutes les fenêtres à la fin d'une revue, suivi de `status` |
+| `project_status` | `pending` (`mentor_id`, `trigger`, `at`), `reviewing` (mentors qui relisent ou réévaluent), `open`, `to_review` | à la connexion (après `git_status`), puis poussé à toutes les fenêtres quand il change (phase 9d) |
 | `reviews` | `mentors` (`id`, `name`, `initials`, `model`, `triggers`, `last_review_at`, `reviewing`), `items` (`id`, `at`, `trigger`, `mentors` : `id`, `outcome`, `remarks`, `cost` ; `cost`, `duration_ms`), la plus récente d'abord | réponse à `reviews_get` |
 | `project_map` | `blocks` (`id`, `enabled`, `tokens`, `truncated`, `detail`), `tokens`, `cap`, `default_cap`, `exclude`, `updated_at`, `reason`, `text` | réponse à `project_map_get` et `project_map_set` |
 | `map_updated` | `tokens`, `cap`, `updated_at`, `reason` (`save`, `external` ou `settings`) | poussé à toutes les fenêtres quand la carte change après un enregistrement, un changement vu sur le disque ou un réglage ; pas au calcul initial (`open`) |
@@ -392,6 +393,38 @@ Détails des revues et des remarques de projet (phase 9c, `docs/phase9.md`, ADR 
 - Données personnelles : `<id-projet>/project_remarks.json`,
   `<id-projet>/reviews.json` (historique, instantané et coût de la dernière revue
   de chaque mentor) et `<id-projet>/snapshots/`.
+
+Détails des revues automatiques et de la réévaluation (phase 9d, ADR 0010) :
+
+- Déclencheurs : `create` (première ouverture d'un projet sans revue notée),
+  `open` (ouverture, si l'empreinte des fichiers a changé depuis la dernière revue
+  du mentor), `change` (modification enregistrée, dans Hodegos ou ailleurs, une
+  fois l'édition au calme), `commit` (changement de `HEAD`, désactivé par défaut).
+  Réglages : `[project_review]` de `config.toml` (`enabled`, `triggers`,
+  `calm_secs` 180, `min_interval_secs` 1 200, `daily_max` 12 par jour UTC et par
+  mentor) ; un mentor peut renoncer à un déclencheur (`project.triggers`).
+- Seuls les mentors `proactive` ont des revues automatiques ; un mentor
+  `strong-signal` seulement si l'un de ses mots-clés figure dans le diff depuis sa
+  dernière revue, jamais à la création ; un mentor `on-demand` jamais. Une revue
+  automatique attend la fin de la précédente du même mentor et l'intervalle
+  minimal ; plusieurs déclencheurs proches font une revue. Au plafond du budget
+  (ou sans fournisseur), rien d'automatique ne part ; une revue demandée reste
+  possible avec confirmation.
+- Passages cités d'une remarque de projet : vérifiés à l'ouverture du projet, puis
+  après chaque changement (fichiers touchés), section par section. Disparu :
+  `anchors[].status` passe à `gone` ; une remarque `passage` devient `detached`
+  (elle ne s'affiche plus), une remarque `project` devient `to_review`. Un fichier
+  supprimé hors de Hodegos ne change rien ; supprimé depuis Hodegos, ses passages
+  sont `gone` ; déplacé depuis Hodegos, ils suivent (déplacement annulé si
+  `project_remarks.json` ne peut pas être écrit).
+- Réévaluation, au calme, une à la fois par mentor, hors plafond quotidien : le
+  mentor reçoit la carte, ses fichiers clés, les sections encore citées, les
+  passages disparus et le fil, et répond `keep` (0 à 3 nouvelles citations : la
+  remarque redevient `open`, ou `answered` si vous avez répondu en dernier) ou
+  `withdraw` (raison de 200 caractères au plus, sans code : ajoutée au fil, la
+  remarque passe en `resolved`). Réponse illisible après une relance, verdict
+  écarté ou panne : la remarque reste `to_review` et est retentée après la revue
+  suivante du mentor. Chaque changement est poussé par `remark_update`.
 
 Détails de la carte du projet (phase 9a, `docs/phase9.md`, ADR 0009) :
 

@@ -5,6 +5,7 @@
 
 mod assets;
 mod auth;
+mod auto;
 mod context;
 pub mod eval;
 mod followup;
@@ -16,7 +17,9 @@ mod pass;
 mod project_map;
 mod project_store;
 pub mod protocol;
+mod reevaluate;
 mod review;
+mod scheduler;
 mod secret;
 mod settings;
 mod snapshots;
@@ -40,6 +43,7 @@ use tokio::sync::{Notify, broadcast};
 
 pub use auth::{Authenticator, LaunchTokenAuthenticator};
 pub use project_map::{ContextOptions, load_context};
+pub use scheduler::{Clock, ManualClock, ReviewOptions, SystemClock, load_review_options};
 pub use terminal::{Bind, BindMode, TerminalOptions, default_binds, load_binds};
 
 use crate::git::GitTracker;
@@ -136,6 +140,10 @@ pub struct ServerOptions {
     pub terminal: TerminalOptions,
     /// Plafonds de contexte des mentors (`[context]`, phase 9).
     pub context: ContextOptions,
+    /// Revues automatiques du projet (`[project_review]`, phase 9d).
+    pub review: ReviewOptions,
+    /// Horloge des revues automatiques ; simulée dans les tests.
+    pub clock: Arc<dyn Clock>,
     /// Fichier que le front ouvre à la connexion (`hodegos new` : `docs/vision.md`).
     pub initial_file: Option<String>,
 }
@@ -172,6 +180,10 @@ struct AppState {
     project_store: project_store::ProjectStore,
     snapshots: snapshots::Snapshots,
     reviews: review::ReviewState,
+    review_options: ReviewOptions,
+    clock: Arc<dyn Clock>,
+    /// Revues automatiques en attente et réévaluations (phase 9d).
+    auto: auto::AutoState,
     /// Fournisseur joignable, et sinon pourquoi.
     provider: Mutex<(bool, Option<String>)>,
     last_pass: Mutex<Option<LastPass>>,
@@ -285,6 +297,8 @@ impl Server {
             llm,
             terminal,
             context,
+            review: review_options,
+            clock,
             initial_file,
         } = options;
         let bind_error = |source: std::io::Error| match source.kind() {
@@ -352,6 +366,9 @@ impl Server {
             project_store,
             snapshots,
             reviews: review::ReviewState::default(),
+            review_options,
+            clock,
+            auto: auto::AutoState::default(),
             provider: Mutex::new(provider),
             last_pass: Mutex::new(None),
             initial_file,
@@ -362,6 +379,7 @@ impl Server {
             tokio::spawn(async move { settings::refresh_catalog(&catalog_state).await });
         }
         tokio::spawn(project_map::run(state.clone(), map_touches));
+        tokio::spawn(auto::run(state.clone()));
         let reload_state = state.clone();
         tokio::spawn(async move {
             while mentor_changes.recv().await.is_some() {

@@ -444,7 +444,12 @@ pub(crate) async fn run(state: Arc<AppState>, mut touches: mpsc::UnboundedReceiv
             .collect();
         let worker = state.clone();
         let message = tokio::task::spawn_blocking(move || {
-            recompute(&worker, (!full).then_some(paths.as_slice()), reason)
+            let message = recompute(&worker, (!full).then_some(paths.as_slice()), reason);
+            // Un vrai changement : revues automatiques et passages cités (phase 9d).
+            if message.is_some() {
+                crate::auto::changed(&worker, &paths);
+            }
+            message
         })
         .await
         .ok()

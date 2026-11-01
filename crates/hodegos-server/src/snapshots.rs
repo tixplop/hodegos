@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-fn digest(text: &str) -> String {
+pub(crate) fn digest(text: &str) -> String {
     Sha256::digest(text.as_bytes())
         .iter()
         .take(16)

@@ -62,6 +62,8 @@ async fn start(project: &Path, terminal: TerminalOptions) -> Socket {
         llm: no_llm(),
         terminal,
         context: Default::default(),
+        review: Default::default(),
+        clock: std::sync::Arc::new(hodegos_server::SystemClock),
         initial_file: None,
     };
     let server = Server::bind(project_in(project), options).await.unwrap();

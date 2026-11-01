@@ -21,6 +21,9 @@ pub(crate) struct GitTracker {
     refresh: Arc<Notify>,
     current: Mutex<GitUpdate>,
     pub(crate) updates: broadcast::Sender<GitUpdate>,
+    /// Chaque recalcul, même sans changement du statut (un commit fait depuis un arbre
+    /// propre change `HEAD` sans changer le statut) : revues automatiques (phase 9d).
+    pub(crate) refreshed: broadcast::Sender<()>,
     /// Dépôt observé (`HEAD`, `index`, `refs/`) ; suit le dépôt s'il apparaît ou change.
     watcher: Mutex<Option<(GitRepo, GitWatcher)>>,
 }
@@ -29,7 +32,9 @@ impl GitTracker {
     /// `refresh` est aussi signalé par l'observateur des fichiers du projet.
     pub(crate) fn new(project: Project, session: Session, refresh: Arc<Notify>) -> Arc<Self> {
         let (updates, _) = broadcast::channel(16);
+        let (refreshed, _) = broadcast::channel(4);
         Arc::new(Self {
+            refreshed,
             project,
             session,
             refresh,
@@ -75,6 +80,7 @@ impl GitTracker {
             if changed {
                 let _ = self.updates.send(status);
             }
+            let _ = self.refreshed.send(());
         }
     }
 

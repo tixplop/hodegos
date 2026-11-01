@@ -28,6 +28,7 @@ async fn connect(dir: &Path) -> (Socket, Value) {
     assert_eq!(next(&mut socket).await["type"], "status");
     let git = next(&mut socket).await;
     assert_eq!(git["type"], "git_status", "{git}");
+    assert_eq!(next(&mut socket).await["type"], "project_status");
     (socket, git["payload"].clone())
 }
 

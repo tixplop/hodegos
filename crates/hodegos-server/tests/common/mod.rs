@@ -70,6 +70,8 @@ pub fn options(dir: &Path, port: u16, llm: Llm) -> ServerOptions {
         llm,
         terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
         context: Default::default(),
+        review: Default::default(),
+        clock: std::sync::Arc::new(hodegos_server::SystemClock),
         initial_file: None,
     }
 }
@@ -166,12 +168,15 @@ pub async fn open_socket_with(dir: &Path, llm: Llm) -> Socket {
     socket
 }
 
-/// Messages qui ouvrent toute connexion : `status`, puis `git_status` ; renvoie le `status`.
+/// Messages qui ouvrent toute connexion : `status`, `git_status`, puis `project_status`
+/// (phase 9d) ; renvoie le `status`.
 pub async fn welcome(socket: &mut Socket) -> Value {
     let status = next(socket).await;
     assert_eq!(status["type"], "status", "{status}");
     let git = next(socket).await;
     assert_eq!(git["type"], "git_status", "{git}");
+    let project = next(socket).await;
+    assert_eq!(project["type"], "project_status", "{project}");
     status
 }
 

@@ -286,6 +286,9 @@ pub enum ServerMessage {
         sections: Vec<SectionInfo>,
         /// Remarques ouvertes du fichier.
         remarks: Vec<Remark>,
+        /// Remarques de projet qui citent ce fichier (phase 9d).
+        #[serde(default)]
+        project_remarks: Vec<ProjectRemark>,
     },
     Saved {
         path: String,
@@ -471,6 +474,13 @@ pub enum ServerMessage {
     Reviews {
         mentors: Vec<ProjectMentorInfo>,
         items: Vec<ReviewInfo>,
+    },
+    /// Revues prévues et en cours, remarques de projet ouvertes et à réévaluer (9d).
+    ProjectStatus {
+        pending: Vec<PendingReview>,
+        reviewing: Vec<String>,
+        open: usize,
+        to_review: usize,
     },
     /// Carte recalculée (ouverture, enregistrement, changement sur le disque, réglages).
     MapUpdated {
@@ -802,6 +812,14 @@ pub struct ProjectAnchor {
     pub line_hint: usize,
     /// `ok`, ou `gone` si le passage a disparu (9d).
     pub status: String,
+}
+
+/// Revue automatique en attente : pour quel mentor, pourquoi, depuis quand.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PendingReview {
+    pub mentor_id: String,
+    pub trigger: String,
+    pub at: String,
 }
 
 /// Estimation d'une revue pour un mentor.
@@ -1532,6 +1550,7 @@ mod tests {
                     parents: vec![],
                 }],
                 remarks: vec![sample_remark()],
+                project_remarks: vec![],
             },
             ServerMessage::RemarkUpdate(Box::new(AnyRemark::Section(sample_remark()))),
             ServerMessage::PassStarted {

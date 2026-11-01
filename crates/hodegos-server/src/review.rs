@@ -49,6 +49,16 @@ pub(crate) struct ReviewState {
     busy: Mutex<HashSet<String>>,
 }
 
+impl ReviewState {
+    /// Mentors dont une revue est en cours.
+    pub(crate) fn running_ids(&self) -> HashSet<String> {
+        self.running
+            .lock()
+            .map(|r| r.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+}
+
 fn refused(code: ErrorCode, message: impl Into<String>) -> Refused {
     Refused {
         code,
@@ -278,8 +288,48 @@ fn items(
     items
 }
 
+/// Carte et fichiers clés d'un mentor ; bloquant.
+pub(crate) fn key_material(state: &AppState, mentor: &Mentor) -> Option<(String, KeyFiles)> {
+    let session = state.project.session(UserId::local());
+    project_map::with_map(state, |map, _, cache| {
+        let keys = key_files(
+            &state.project,
+            &session,
+            cache,
+            &|path| mentor.is_key_file(path),
+            state.map.key_files_cap,
+        );
+        (map.to_owned(), keys)
+    })
+}
+
+/// Passage cité toujours présent : la section `section_id` existe encore dans le fichier
+/// enregistré et contient `quote`. Renvoie sa ligne et le nom de la section.
+pub(crate) fn locate_anchor(
+    state: &AppState,
+    path: &str,
+    section_id: &str,
+    quote: &str,
+) -> Option<(usize, String)> {
+    let rel = RelPath::parse(path).ok()?;
+    let session = state.project.session(UserId::local());
+    let content = state.project.read_file(&session, &rel).ok()?.content;
+    let all = sections(Language::of(path), &content);
+    let section = all.iter().find(|s| s.id == section_id)?;
+    let text = section.text(&content);
+    let offset = text.find(quote)?;
+    Some((
+        section.start_line + text[..offset].matches('\n').count(),
+        section.name.clone(),
+    ))
+}
+
 /// Section du fichier enregistré `path` qui contient `quote`, son texte et sa ligne.
-fn locate(state: &AppState, path: &str, quote: &str) -> Option<(Section, String, usize)> {
+pub(crate) fn locate(
+    state: &AppState,
+    path: &str,
+    quote: &str,
+) -> Option<(Section, String, usize)> {
     let rel = RelPath::parse(path).ok()?;
     let session = state.project.session(UserId::local());
     let content = state.project.read_file(&session, &rel).ok()?.content;
@@ -497,7 +547,7 @@ async fn run(
             if outcome == "ok" {
                 state.set_provider(true, None);
             }
-            let now = Timestamp::now().to_string();
+            let now = state.clock.now().to_string();
             let remarks = drafts
                 .into_iter()
                 .map(|draft| remark(&state, &job, &review_id, draft, &now))
@@ -526,7 +576,7 @@ async fn run(
     }
     let items: Vec<ProjectRemark> = outcomes.iter().flat_map(|o| o.remarks.clone()).collect();
     state.project_store.add(&items);
-    let at = Timestamp::now().to_string();
+    let at = state.clock.now().to_string();
     let mut manifests = BTreeMap::new();
     let mut costs = BTreeMap::new();
     for outcome in outcomes.iter().filter(|o| o.outcome == "ok") {
@@ -565,6 +615,8 @@ async fn run(
     };
     let keep = state.project_store.record(info, manifests, costs);
     state.snapshots.collect(&keep);
+    let mentor_ids: Vec<String> = outcomes.iter().map(|o| o.mentor_id.clone()).collect();
+    crate::auto::review_finished(&state, &mentor_ids);
     tracing::info!(
         revue = %review_id,
         declencheur = trigger,
@@ -700,7 +752,7 @@ pub(crate) fn reply(state: &AppState, id: &str, text: &str) -> Result<ProjectRem
     if !remark.is_active() {
         return Err(refused(ErrorCode::BadMessage, "cette remarque est fermée"));
     }
-    let now = Timestamp::now().to_string();
+    let now = state.clock.now().to_string();
     state
         .project_store
         .update(id, |remark| {
@@ -903,7 +955,7 @@ async fn follow_up_inner(
             .get(id)
             .ok_or_else(|| refused(ErrorCode::NotFound, format!("remarque {id}")));
     };
-    let now = Timestamp::now().to_string();
+    let now = state.clock.now().to_string();
     state
         .project_store
         .update(id, |remark| {

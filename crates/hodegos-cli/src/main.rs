@@ -17,8 +17,8 @@ use hodegos_core::Project;
 use hodegos_llm::{ApiKey, LlmClient, LlmConfig, OpenRouterClient, load_api_key};
 use hodegos_mentors::{MentorSources, Registry, default_user_dir, eject};
 use hodegos_server::{
-    Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, TerminalOptions, client_for,
-    load_binds, load_context,
+    Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, SystemClock,
+    TerminalOptions, client_for, load_binds, load_context, load_review_options,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -208,6 +208,14 @@ async fn run(projet: PathBuf, port: u16, initial_file: Option<String>) -> anyhow
             }
             context
         },
+        review: {
+            let (review, warning) = load_review_options(&config_dir);
+            if let Some(message) = &warning {
+                tracing::warn!(%message, "revues du projet");
+            }
+            review
+        },
+        clock: Arc::new(SystemClock),
         initial_file,
     };
     if let Err(message) = &options.llm.client {

@@ -48,6 +48,8 @@ async fn setup() -> (Setup, Socket) {
         llm: no_llm(),
         terminal: hodegos_server::TerminalOptions::from_env(hodegos_server::default_binds(), None),
         context: Default::default(),
+        review: Default::default(),
+        clock: std::sync::Arc::new(hodegos_server::SystemClock),
         initial_file: None,
     };
     let server = Server::bind(project_in(setup.project.path()), options)

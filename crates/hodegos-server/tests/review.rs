@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Json;
-use common::{Socket, fake_llm, next, next_within, open_socket_with};
+use common::{Socket, fake_llm, next, next_within};
 use hodegos_llm::{BudgetConfig, FakeLlmClient, LlmError, LlmResponse};
 use hodegos_server::Llm;
 use serde_json::{Value, json};
@@ -81,6 +81,29 @@ async fn catalog() -> String {
     let url = format!("http://{}/api/v1", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     url
+}
+
+/// Serveur sans revues automatiques (phase 9d) : ces tests portent sur la revue demandée.
+async fn open_socket_with(dir: &Path, llm: Llm) -> Socket {
+    let options = hodegos_server::ServerOptions {
+        review: hodegos_server::ReviewOptions {
+            enabled: false,
+            ..Default::default()
+        },
+        ..common::options(dir, 0, llm)
+    };
+    let server = hodegos_server::Server::bind(common::project_in(dir), options)
+        .await
+        .unwrap();
+    let port = server.port();
+    let cookie = common::session_cookie(&server).await;
+    tokio::spawn(server.serve(std::future::pending()));
+    let origin = format!("http://127.0.0.1:{port}");
+    let mut socket = common::connect(port, Some(&origin), Some(&cookie))
+        .await
+        .unwrap();
+    common::welcome(&mut socket).await;
+    socket
 }
 
 async fn llm(fake: Arc<FakeLlmClient>) -> Llm {
