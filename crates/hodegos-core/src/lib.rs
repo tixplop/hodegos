@@ -10,6 +10,7 @@ mod files;
 mod git;
 mod ignore_rules;
 mod language;
+pub mod map;
 mod paths;
 mod project;
 pub mod secrets;

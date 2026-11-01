@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use crate::Language;
 
 pub use markdown::frontmatter;
+pub(crate) use markdown::slug;
 
 /// Section d'un fichier ; lignes numérotées à partir de 1, bornes incluses.
 #[derive(Debug, Clone, PartialEq, Eq)]

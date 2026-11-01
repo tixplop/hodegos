@@ -9,14 +9,18 @@ publish.workspace = true
 
 [dependencies]
 deunicode.workspace = true
+globset.workspace = true
 ignore.workspace = true
 notify-debouncer-full.workspace = true
 regex.workspace = true
 rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
 similar.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
+toml.workspace = true
 tracing.workspace = true
 tree-sitter.workspace = true
 tree-sitter-javascript.workspace = true
