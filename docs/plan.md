@@ -292,8 +292,8 @@ maquettes et cas d'usage : `docs/maquettes/phase9/`.
 
 Une sous-phase à la fois, dans l'ordre 9a → 9f. Pour chacune : `cargo test --workspace`,
 clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans les deux thèmes.
-Jusqu'à 9f, les mentors livrés gardent la portée `section` (et le Mentor du langage le contexte
-`section`) : la portée `project` s'essaie avec un mentor personnel.
+Jusqu'à 9f, les mentors livrés gardaient la portée `section` (et le Mentor du langage le contexte
+`section`) ; ils sont livrés dans leurs portées depuis l'ADR 0011.
 
 ### 9a — Carte du projet
 
@@ -408,8 +408,18 @@ Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9f — Évaluation sur plusieurs fichiers
 
-- [ ] Cas de revue, de voisinage et de réévaluation au seuil ; rapport dans `evals/reports/` avec le
+- [x] Cas de revue, de voisinage et de réévaluation au seuil ; rapport dans `evals/reports/` avec le
   coût d'une journée type ; mentors livrés activés dans leurs portées
-- [ ] Coût mesuré présenté avant l'activation des mentors livrés ; rythme (calme, intervalle, revues
+- [x] Coût mesuré présenté avant l'activation des mentors livrés ; rythme (calme, intervalle, revues
   par jour) et plafonds de contexte confirmés ou réduits
-- [ ] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 9
+- [x] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 9
+
+Vérifié le 1er novembre 2026 : `cargo test --workspace` (372 tests), clippy et fmt propres ; aucun
+message ajouté au protocole. Sans réseau : `crates/hodegos-server/src/eval/tests.rs` (cohérence des
+37 cas, revue, voisinage et réévaluation joués avec `FakeLlmClient`), `eval/day.rs` (journée type
+rejouée avec le planificateur). Évaluation réelle (`hodegos eval evals/ --mentors evals/mentors/`,
+0,24 $ en tout) : rapports `evals/reports/2026-11-01-…-gemini-4-argon.md`, `…-2.md`, `…-3.md`.
+Strong retenu ; fast non retenu au premier passage (solution au palier exemple du cas 07), retenu
+après la précision du cadre commun ; voisinage 3/3, réévaluations 3/3. Coût présenté avant
+l'activation : 0,26 $ par jour, 5,80 $ par mois ; rythme et plafonds confirmés. Mentors installés
+dans `mentors/` (ADR 0011).
