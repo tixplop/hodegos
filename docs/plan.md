@@ -404,6 +404,7 @@ bloqué, changements en attente comptés, enregistrement qui réécrit `[project
 en gardant les commentaires, mentor du dépôt avec ses portées, bloc de section masqué quand on décoche
 « Section », contexte et remarques par revue enregistrés, liste « Section + Projet · … · contexte
 voisinage », aucune erreur dans la console.
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9f — Évaluation sur plusieurs fichiers
 
