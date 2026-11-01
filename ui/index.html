@@ -20,6 +20,7 @@
 <span class="hd-muted" aria-hidden="true">/</span>
 <span id="chemin" class="hd-mono app-path"></span>
 <span class="hd-row app-header__end">
+<button id="ouvrir-projet" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="projet">Projet</button>
 <button id="ouvrir-terminal" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="terminal" title="Terminal (Ctrl+`)">Terminal</button>
 <button id="ouvrir-reglages" class="hd-btn hd-btn--ghost hd-btn--sm" type="button" aria-expanded="false" aria-controls="reglages">Réglages</button>
 <button id="theme" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
@@ -164,10 +165,51 @@
 <section id="mentors-liste" class="app-mentors__list" aria-labelledby="mentors-titre" hidden>
 <div class="hd-row app-mentors__list-head"><h2 id="mentors-titre" class="app-settings__title">Mentors</h2><button id="mentor-nouveau" class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Nouveau mentor</button></div>
 <ul id="mentors-items" class="app-mentors__items"></ul>
-<p class="app-mentors__legend">Ordre de priorité à identifiant égal : projet, puis personnel, puis livré. Un mentor livré n'est jamais modifié : on le personnalise.</p>
+<p class="app-mentors__legend">Ordre de priorité à identifiant égal : dépôt, puis personnel, puis livré. Un mentor livré n'est jamais modifié : on le personnalise.</p>
 </section>
 <main id="mentors-fiche" class="hd-main app-mentors" aria-live="polite" hidden>
 <p class="hd-muted">Choisissez un mentor dans la liste.</p>
+</main>
+</div>
+<div id="projet" class="hd-columns app-columns" hidden>
+<main class="hd-main app-project">
+<div class="hd-tabs app-project__tabs" role="tablist" aria-label="Vue projet">
+<button id="projet-onglet-carte" class="hd-tab" type="button" role="tab" aria-selected="true" aria-controls="projet-carte">Carte du projet</button>
+</div>
+<div id="projet-carte" class="app-project__body" role="tabpanel" aria-labelledby="projet-onglet-carte">
+<section class="app-project__main" aria-labelledby="carte-titre">
+<div class="app-settings__intro">
+<h1 id="carte-titre" class="app-settings__h1">Ce que savent les mentors</h1>
+<p class="hd-muted app-settings__lead">La carte est un résumé du projet calculé par Hodegos, sans appel au modèle. Elle est envoyée telle quelle aux mentors qui ont besoin de connaître le projet. Recalculée à chaque modification enregistrée, dans Hodegos ou ailleurs.</p>
+</div>
+<div class="hd-card app-project__weight">
+<div class="hd-row app-project__weight-row"><strong id="carte-poids"></strong><label class="hd-row app-project__cap" for="carte-plafond">Plafond <input id="carte-plafond" class="hd-input app-project__cap-input" type="number" min="1000" max="32000" step="500" inputmode="numeric" aria-describedby="carte-plafond-note"></label></div>
+<span id="carte-maj" class="app-project__note"></span>
+<div id="carte-barre" class="hd-progress" role="img"><div class="hd-progress__bar"></div></div>
+<span id="carte-plafond-note" class="app-project__note">Au-delà du plafond, les blocs sont raccourcis du bas de la liste vers le haut : les tests d'abord, la vision en dernier ; l'en-tête reste entier.</span>
+</div>
+<p id="carte-erreur" class="app-settings__error" role="alert" hidden></p>
+<table class="app-project__blocks">
+<thead><tr><th scope="col">Bloc</th><th scope="col">Contenu</th><th scope="col" class="app-project__num">Jetons</th></tr></thead>
+<tbody id="carte-blocs"></tbody>
+</table>
+<div class="hd-callout">
+<div class="hd-callout__title">Jamais dans la carte</div>
+<p class="app-project__text">Fichiers ignorés par git, fichiers de secrets, valeurs masquées. Exclusions propres à ce projet, en plus :</p>
+<ul id="carte-exclusions" class="app-project__excludes" aria-label="Exclusions du projet"></ul>
+<form id="carte-exclure" class="hd-row app-project__exclude-form">
+<label class="app-sr-only" for="carte-motif">Chemin ou motif à exclure</label>
+<input id="carte-motif" class="hd-input hd-mono app-project__exclude-input" type="text" placeholder="data/**" autocomplete="off" spellcheck="false">
+<button class="hd-btn hd-btn--secondary hd-btn--sm" type="submit">Exclure</button>
+</form>
+<p class="app-project__note">Réglage personnel, écrit dans <span class="hd-mono">~/.local/share/hodegos/&lt;projet&gt;/</span>, jamais dans le dépôt.</p>
+</div>
+</section>
+<section class="app-project__preview" aria-labelledby="carte-apercu-titre">
+<div class="hd-row app-project__preview-head"><h2 id="carte-apercu-titre" class="hd-nav__label">Aperçu, tel qu'envoyé</h2><button id="carte-copier" class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Copier</button></div>
+<pre id="carte-texte" class="app-project__text-preview" tabindex="0"></pre>
+</section>
+</div>
 </main>
 </div>
 <footer class="hd-statusbar">

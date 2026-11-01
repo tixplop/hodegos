@@ -173,6 +173,34 @@ Par projet, dans `~/.local/share/hodegos/<id-projet>/context.json` :
 detail }], tokens, cap, updated_at, text }` ; `project_map_set { map_cap,
 disabled_blocks, exclude }` → `project_map` ; poussé : `map_updated`.
 
+### Précisions retenues à l'implémentation de 9a (1er novembre 2026)
+
+- Ordre des blocs : celui de la spécification (la maquette 09-3 en diffère). L'en-tête
+  est toujours actif. Plafond de 1 000 à 32 000 jetons ; 50 exclusions au plus ;
+  5 000 fichiers parcourus au plus (l'en-tête le dit au-delà).
+- Raccourcis par éléments entiers, du dernier bloc vers le premier : un fichier
+  (Arborescence : un dossier et ses fichiers ; Symboles, Tests), une décision, un
+  manifeste, une ligne (Vision, README).
+- Symboles : Rust `pub` (pas `pub(crate)`), méthodes `pub` d'un `impl` et toutes
+  celles d'un `impl Trait for` ; TypeScript et JavaScript `export` et
+  `module.exports`, méthodes publiques d'une classe exportée ; Python, noms sans `_`
+  initial et méthodes publiques (avec `__init__`). Signature jusqu'au corps, une
+  constante jusqu'à sa valeur, 160 caractères au plus. Les fichiers de test n'ont pas
+  de symboles.
+- Tests : `#[test]` et assimilés (`#[tokio::test]`), `test(…)` et `it(…)`, `test_…`
+  et méthodes `test…` d'une classe `Test…`.
+- Décisions : titre de niveau 1, ligne `Statut :` (ou section Statut), texte de la
+  section Décision ; README : celui de la racine.
+- `map.json` garde, par fichier, l'empreinte et ce qui en est retenu (pas le texte
+  assemblé, recalculé à chaque fois) ; au lancement, seuls les fichiers dont
+  l'empreinte a changé sont réanalysés.
+- `project_map` porte aussi `default_cap` (plafond de `config.toml`), `exclude` et
+  `reason` ; `map_updated` n'est pas poussé au calcul initial. Tous les dossiers non
+  ignorés sont observés (5 000 au plus), ceux créés ensuite aussi.
+- La vue Projet remplace tout l'IDE, comme les réglages ; en 9a, elle n'a que
+  l'onglet « Carte du projet ». Les réglages s'appliquent aussitôt, sans bouton
+  « Enregistrer ».
+
 ## 9b — Contexte des mentors de section (UC-9.1 à UC-9.3)
 
 ### Champ `context`

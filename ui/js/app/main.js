@@ -1,6 +1,6 @@
 /* Hodegos — application : arborescence (création, suppression, déplacement, statut git), onglets, éditeur,
    Markdown en source, aperçu ou lecture, enregistrement, modifications externes, interlocuteurs
-   de la section courante, remarques, état des passes et réglages personnels. */
+   de la section courante, remarques, état des passes, réglages personnels et vue Projet. */
 import { connect } from './connection.js';
 import { createTree } from './tree.js';
 import { confirmDeletion } from './deletion.js';
@@ -9,6 +9,7 @@ import { createEditor, LANGUAGE_NAMES, locate } from './editor.js';
 import { icon } from './icons.js';
 import { createReader } from './md-read.js';
 import { createPanel } from './panel.js';
+import { createProjectView } from './project.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
 import { chooseDestination } from './move.js';
@@ -21,6 +22,8 @@ const ui = {
   path: $('chemin'),
   theme: $('theme'),
   openSettings: $('ouvrir-reglages'),
+  openProject: $('ouvrir-projet'),
+  project: $('projet'),
   openTerminal: $('ouvrir-terminal'),
   terminals: $('terminaux'),
   ide: $('ide'),
@@ -135,6 +138,10 @@ const settings = createSettings(ui.settings, {
   mentors: mentorsPage,
 });
 ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden));
+const projectView = createProjectView(ui.project, {
+  request: (type, payload) => server.request(type, payload),
+});
+ui.openProject.addEventListener('click', () => showProject(ui.project.hidden));
 const terminalPanel = createTerminalPanel({
   section: $('terminal'),
   handle: $('terminal-poignee'),
@@ -147,7 +154,7 @@ const terminalPanel = createTerminalPanel({
   onToggle: (open) => ui.openTerminal.setAttribute('aria-expanded', String(open)),
 });
 ui.openTerminal.addEventListener('click', () => {
-  if (!ui.settings.hidden) showSettings(false);
+  backToIde();
   terminalPanel.toggle();
 });
 const panel = createPanel(ui.mentors, { onActivate: activateMentor, onAutomatic: automaticMentor });
@@ -249,6 +256,10 @@ function onPush(message) {
     settings.apply(message.payload);
     return;
   }
+  if (message.type === 'map_updated') {
+    projectView.updated(!ui.project.hidden);
+    return;
+  }
   if (message.type === 'eval_progress') {
     settings.progress(message.payload);
     renderEvaluation(null, message.payload);
@@ -289,8 +300,37 @@ function onPush(message) {
 
 const LEVEL_NAMES = { fast: 'niveau rapide', strong: 'niveau fort' };
 
+/** L'IDE est affiché : ni les réglages ni la vue Projet. */
+function inIde() {
+  return ui.settings.hidden && ui.project.hidden;
+}
+
+function backToIde() {
+  if (!ui.settings.hidden) showSettings(false);
+  if (!ui.project.hidden) showProject(false);
+}
+
+/** La vue Projet remplace l'IDE, comme les réglages (phase 9a : onglet Carte du projet). */
+function showProject(open) {
+  if (open && !ui.settings.hidden) showSettings(false);
+  ui.ide.hidden = open;
+  ui.project.hidden = !open;
+  ui.openProject.setAttribute('aria-expanded', String(open));
+  ui.openProject.textContent = open ? 'Revenir à l\'éditeur' : 'Projet';
+  if (open) {
+    projectView.load();
+    ui.path.textContent = 'Projet';
+    document.title = 'Projet — Hodegos';
+    $('projet-onglet-carte').focus();
+  } else {
+    render();
+    if (currentPath && !isReading()) editor.focus();
+  }
+}
+
 /** L'écran des réglages remplace l'IDE ; il garde ses changements en attente quand on le quitte. */
 function showSettings(open) {
+  if (open && !ui.project.hidden) showProject(false);
   ui.ide.hidden = open;
   ui.settings.hidden = !open;
   ui.openSettings.setAttribute('aria-expanded', String(open));
@@ -1012,8 +1052,8 @@ function render() {
   ui.empty.hidden = Boolean(tab);
   ui.language.textContent = tab ? languageLabel(tab) : '';
   if (!tab) ui.position.textContent = '';
-  // L'écran des réglages garde son titre.
-  if (ui.settings.hidden) {
+  // Les réglages et la vue Projet gardent leur titre.
+  if (inIde()) {
     ui.path.textContent = tab ? tab.path : '';
     document.title = tab ? `${tab.path.split('/').pop()} — Hodegos` : 'Hodegos';
   }
@@ -1154,10 +1194,10 @@ ui.theme.addEventListener('click', () => {
 document.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
     event.preventDefault();
-    if (ui.settings.hidden) save();
+    if (inIde()) save();
   }
   // Ctrl+E : dernier mode d'édition ⇄ lecture, pour un onglet Markdown.
-  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e' && isMarkdown() && ui.settings.hidden) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e' && isMarkdown() && inIde()) {
     event.preventDefault();
     setMarkdownMode(markdownMode === 'reading' ? editMode : 'reading');
   }
@@ -1169,7 +1209,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== '`' && event.code !== 'Backquote') return;
   event.preventDefault();
   event.stopPropagation();
-  if (!ui.settings.hidden) showSettings(false);
+  backToIde();
   terminalPanel.toggle();
 }, true);
 

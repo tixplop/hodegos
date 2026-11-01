@@ -297,9 +297,22 @@ Jusqu'à 9f, les mentors livrés gardent la portée `section` (et le Mentor du l
 
 ### 9a — Carte du projet
 
-- [ ] La carte d'un projet réel s'affiche telle qu'envoyée, sous son plafond, sans fichier ignoré
+- [x] La carte d'un projet réel s'affiche telle qu'envoyée, sous son plafond, sans fichier ignoré
   ni secret ; désactiver un bloc ou exclure un chemin la change aussitôt
-- [ ] Un enregistrement, dans Hodegos ou ailleurs, met la carte à jour
+  (core `map`, `crates/hodegos-server/tests/project_map.rs` : blocs, plafond, `.gitignore`,
+  secrets par nom et par contenu, valeur masquée, exclusions, `context.json` hors du projet)
+- [x] Un enregistrement, dans Hodegos ou ailleurs, met la carte à jour
+  (`tests/project_map.rs` : `save`, dossier jamais ouvert, dossier créé ensuite, fichier ignoré
+  sans effet, carte relue depuis `map.json` ; core : seuls les fichiers touchés sont relus)
+
+Vérification de l'interface, le 1er novembre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright) dans les deux thèmes, sur un clone du dépôt Hodegos (232 fichiers, 10 ADR) avec un
+`.env.local` non ignoré : carte de 7 900 jetons sous 8 000, symboles raccourcis et signalés, ni
+`target/` ni `.env.local` ni clé ; Tests activé, `evals/**` exclu, plafond à 3 000 appliqués
+aussitôt ; plafond à 50 et motif `../x` refusés sous le poids ; fichier créé hors de Hodegos dans
+un dossier jamais ouvert, puis enregistrement de `README.md` depuis l'éditeur, repris par la carte
+(« après un changement sur le disque », « après un enregistrement ») ; réglages écrits dans
+`~/.local/share/hodegos/<id>/context.json`, rien dans le projet ; aucune erreur dans la console.
 
 ### 9b — Contexte des mentors de section
 

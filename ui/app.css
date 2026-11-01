@@ -176,6 +176,34 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 /* Réglages des mentors (phase 8e), maquette 08-5. */
 .app-mentors__list { flex: 0 0 340px; min-height: 0; overflow: auto; padding: 20px 16px; border-right: 1px solid var(--border); background: var(--surface-0); display: flex; flex-direction: column; gap: 10px; }
 .app-mentors__list[hidden], .app-mentors[hidden], .app-settings[hidden] { display: none; }
+
+/* Vue Projet (phase 9a, maquette 09-3) : carte du projet */
+.app-project { padding: 0; gap: 0; overflow: auto; }
+.app-project__tabs { flex: none; background: var(--surface-0); }
+.app-project__body { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; padding: 24px 32px; }
+.app-project__main { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.app-project__weight { gap: 10px; }
+.app-project__weight-row { justify-content: space-between; }
+.app-project__cap { gap: 6px; font-size: 13px; }
+.app-project__cap-input { width: 100px; height: 28px; }
+.app-project__note { margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.app-project__text { margin: 0; font-size: 13px; line-height: 19px; }
+.app-project__blocks { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 19px; }
+.app-project__blocks th { text-align: left; padding: 0 8px 6px 0; font-size: 12px; color: var(--ink-muted); font-weight: 600; }
+.app-project__blocks td { padding: 8px 8px 8px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.app-project__blocks .app-project__num { text-align: right; padding-right: 0; white-space: nowrap; }
+.app-project__block { gap: 8px; flex-wrap: nowrap; }
+.app-project__block strong { font-weight: 600; }
+.app-project__detail { color: var(--ink-muted); }
+.app-project__off strong { color: var(--ink-muted); font-weight: 500; }
+.app-project__excludes { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.app-project__exclude { display: inline-flex; align-items: center; gap: 2px; }
+.app-project__exclude-form { gap: var(--space-2); flex-wrap: nowrap; }
+.app-project__exclude-input { flex: 1 1 auto; min-width: 0; height: 28px; font-size: 13px; }
+.app-project__preview { flex: 0 1 460px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.app-project__preview-head { justify-content: space-between; }
+.app-project__preview-head h2 { margin: 0; }
+.app-project__text-preview { margin: 0; padding: 14px 16px; max-height: 70vh; overflow: auto; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-lg); font-family: var(--font-mono); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-ligatures: none; }
 .app-mentors__list-head { justify-content: space-between; }
 .app-mentors__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .app-mentors__item { width: 100%; padding: 10px 12px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
@@ -242,6 +270,7 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
   .app-modes__hint { display: none; }
   .app-settings__nav { max-width: none; flex: 1 1 100%; }
   .app-settings, .app-mentors { padding: var(--space-4); }
+  .app-project__body { padding: var(--space-4); }
   .app-mentors__list { flex: 1 1 100%; border-right: 0; }
   .app-mentors__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -5,8 +5,8 @@
 import { confirmDialog } from './dialog.js';
 import { createTextEditor } from './editor.js';
 
-const ORIGINS = { builtin: 'Livré', user: 'Personnel', project: 'Projet' };
-const ORIGIN_OF = { builtin: 'livré', user: 'personnel', project: 'du projet' };
+const ORIGINS = { builtin: 'Livré', user: 'Personnel', project: 'Dépôt' };
+const ORIGIN_OF = { builtin: 'livré', user: 'personnel', project: 'du dépôt' };
 const MODES = { proactive: 'Proactif', 'strong-signal': 'Signal fort', 'on-demand': 'À la demande' };
 const MODELS = { fast: 'Rapide', strong: 'Fort' };
 const LEVELS = { indice: 'Indice', question: 'Question', piste: 'Piste', exemple: 'Exemple' };
@@ -333,7 +333,7 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
     titles.append(element('h1', 'app-settings__h1', name));
     const where = element('span', 'app-mentors__where');
     if (creating) {
-      where.textContent = 'Il sera écrit dans vos mentors personnels ou dans le projet.';
+      where.textContent = 'Il sera écrit dans vos mentors personnels ou dans le dépôt du projet.';
     } else {
       where.append(file.path ? mono(file.path) : 'Mentor livré, intégré à Hodegos');
       if (item?.origin === file.origin && item.overrides.length) {
@@ -355,7 +355,7 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
         row.append(button('Désactiver', 'ghost', () => save({ origin: 'user', id: file.id, content: minimalOverride(file.id) })));
       }
       row.append(
-        button('Personnaliser pour ce projet', 'secondary', () => personalize('project')),
+        button('Personnaliser dans le dépôt', 'secondary', () => personalize('project')),
         button('Personnaliser', 'primary', () => personalize('user')),
       );
       return row;
@@ -384,7 +384,7 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
 
     if (creating) {
       const origin = element('select', 'hd-input');
-      for (const [value, label] of [['user', 'Mentors personnels'], ['project', 'Ce projet (.hodegos/mentors/)']]) {
+      for (const [value, label] of [['user', 'Mentors personnels'], ['project', 'Dépôt du projet (.hodegos/mentors/)']]) {
         const option = element('option', '', label);
         option.value = value;
         origin.append(option);
