@@ -317,9 +317,24 @@ Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9b — Contexte des mentors de section
 
-- [ ] Un mentor `context: neighborhood` reçoit le voisinage ; une remarque peut renvoyer à un autre
+- [x] Un mentor `context: neighborhood` reçoit le voisinage ; une remarque peut renvoyer à un autre
   fichier, et le lien l'ouvre à l'endroit cité
-- [ ] « Contexte de cette passe » liste ce qui est parti, sans contenu
+  (core `map::neighbors` et `map::imports`, mentors `prompt`, llm `filter_see_also`,
+  `crates/hodegos-server/tests/context.rs` : voisinage en signatures sans ignoré ni secret,
+  carte pour `project`, prompt inchangé pour `section`, renvois filtrés et complétés, même
+  contexte au palier suivant)
+- [x] « Contexte de cette passe » liste ce qui est parti, sans contenu
+  (`tests/context.rs` : `block`, `detail`, `tokens` seulement, persistés dans `remarks.json`)
+
+Vérification de l'interface, le 1er novembre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, faux fournisseur local qui renvoie aux fichiers reçus) dans les deux thèmes, sur un
+projet TypeScript avec un mentor du dépôt `context: neighborhood` : badge « Contexte : voisinage »,
+voisinage envoyé (fichier importé, test qui l'importe, ADR qui cite le fichier, même dossier) sans
+corps de fonction ni fichier ignoré, « Voir aussi » avec trois liens qui ouvrent `depot.ts` à la
+ligne 3 et l'ADR à la section Décision (ligne 5), « Contexte de cette passe » dépliable (section,
+voisinage et chaque fichier avec ses jetons, carte non envoyée), resté ouvert d'un rendu à l'autre,
+lien « Ce que savent les mentors » vers la vue Projet, palier suivant envoyé avec le voisinage,
+aucune erreur dans la console.
 
 ### 9c — Mentors de projet et vue Projet
 

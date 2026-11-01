@@ -61,6 +61,18 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-remark__inline { font-size: 13px; font-variant-ligatures: none; }
 .app-remark__note { margin: 0; font-size: 12px; }
 .app-remark__actions { gap: var(--space-1); }
+.app-remark__see-also { display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 18px; }
+.app-remark__see-also-label { color: var(--ink-muted); font-weight: 600; }
+.app-remark__links { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.app-remark__link { padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.app-remark__context { font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.app-remark__context summary { cursor: pointer; font-weight: 600; }
+.app-remark__context-list { display: flex; flex-direction: column; gap: 2px; margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+.app-remark__context-item { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--ink); }
+.app-remark__context-item--file { padding-left: var(--space-3); color: var(--ink-muted); }
+.app-remark__context-item--off { color: var(--ink-muted); }
+.app-remark__tokens { flex: none; font-size: 11px; color: var(--ink-muted); }
+.app-remark__context-note { margin: var(--space-1) 0 0; }
 .app-provider { display: inline-flex; align-items: center; gap: 6px; }
 .app-tree__item .hd-nav__meta { font-family: var(--font-mono); line-height: 18px; }
 

@@ -738,6 +738,8 @@ function renderRemarksPanel() {
     onDraft: (id, text) => drafts.set(id, text),
     onReply: (remark, text) => sendReply(remark, text),
     onDismiss: (remark, reason) => dismissRemark(remark, reason),
+    onOpenAt: (path, line) => openFile(path, line),
+    onShowMap: () => showProject(true),
   });
   if (!currentPath) return;
   const anchors = items
@@ -844,9 +846,11 @@ async function resync() {
 
 /* ---------- Fichiers ---------- */
 
-async function openFile(path) {
+/** Ouvre `path` dans un onglet ; `line` (à partir de 1) : y amène le curseur (« Voir aussi »). */
+async function openFile(path, line = null) {
   if (tabs.has(path)) {
     activate(path);
+    if (line) revealLine(line);
     return;
   }
   try {
@@ -863,9 +867,18 @@ async function openFile(path) {
       saving: false,
     });
     activate(path);
+    if (line) revealLine(line);
   } catch (error) {
     showError(error);
   }
+}
+
+/** Amène la ligne `line` du document affiché à l'écran, en édition comme en lecture. */
+function revealLine(line) {
+  const { doc } = editor.state;
+  const pos = doc.line(Math.min(Math.max(line, 1), doc.lines)).from;
+  if (isReading()) reader.scrollTo(pos);
+  else editor.reveal(pos);
 }
 
 async function reload(tab) {

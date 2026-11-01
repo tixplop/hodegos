@@ -262,6 +262,29 @@ cadre commun ajoute une règle : « Le voisinage et la carte servent à comprend
 vos citations viennent de la section, vos renvois (`see_also`) des fichiers
 reçus. »
 
+### Précisions retenues à l'implémentation de 9b (1er novembre 2026)
+
+- Réponses aux points du plan : le palier suivant et la relance reçoivent le même
+  contexte que la passe, recalculé sur l'état actuel, sans produire de renvois ; le
+  schéma avec `see_also` et la règle ajoutée au cadre commun ne valent que pour un
+  mentor qui reçoit un voisinage ou la carte (le prompt d'un mentor `section` ne
+  change pas) ; un document lié part par la section visée par l'ancre du lien,
+  sinon par ses titres ; un renvoi porte aussi `section_name`, pour son libellé.
+- Imports gardés dans le cache de la carte (`map.json` en version 2) et résolus à
+  la demande : Rust `mod`, `use crate::`, `super::`, `self::` ; TypeScript et
+  JavaScript `import`, `export … from`, `require`, `import()` relatifs (extensions,
+  `index.*`, `.js` vers `.ts`) ; Python imports relatifs ; liens Markdown relatifs.
+- Un fichier qui importe le fichier relu est classé « importe ce fichier » même
+  s'il est aussi son test ; les documents qui citent le chemin passent avant ceux
+  qui citent le dossier. Une entrée qui dépasse le plafond est sautée, les
+  suivantes peuvent encore entrer. Un fichier admis que la carte ne connaît pas
+  encore (tout juste créé) a son voisinage ; un fichier exclu n'en a pas.
+- Les renvois ne visent que les fichiers du voisinage (pas ceux que la carte
+  mentionne seulement).
+- `[context] neighborhood_cap` : de 500 à 16 000 jetons, 3 000 par défaut.
+- Bloc `<voisinage>` : un `<fichier_voisin chemin relation>` par fichier, puis
+  `<carte_du_projet>`, entre `</section>` et `<diff>`.
+
 ## 9c — Mentors de projet et vue Projet (UC-9.4, UC-9.6, UC-9.11)
 
 ### Portées d'un mentor

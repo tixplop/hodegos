@@ -15,6 +15,8 @@ function reasonNode(reason) {
   return span;
 }
 
+const CONTEXTS = { neighborhood: 'voisinage', project: 'projet' };
+
 function mentorRow(mentor, badgeText, badgeVariant, reasons, reviewing) {
   const row = document.createElement('div');
   row.className = 'hd-mentor';
@@ -34,6 +36,17 @@ function mentorRow(mentor, badgeText, badgeVariant, reasons, reviewing) {
   badge.className = `hd-badge${badgeVariant ? ` hd-badge--${badgeVariant}` : ''}`;
   badge.textContent = badgeText;
   head.append(name, badge);
+  // Contexte reçu en plus de la section (phase 9b).
+  const context = CONTEXTS[mentor.context];
+  if (context) {
+    const scope = document.createElement('span');
+    scope.className = 'hd-badge';
+    scope.textContent = `Contexte : ${context}`;
+    scope.title = mentor.context === 'project'
+      ? 'Reçoit le voisinage du fichier et la carte du projet'
+      : 'Reçoit le voisinage du fichier (imports, tests, documents qui le citent, même dossier)';
+    head.append(scope);
+  }
   if (reviewing) {
     const busy = document.createElement('span');
     busy.className = 'hd-badge hd-badge--mentor';
