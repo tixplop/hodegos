@@ -104,7 +104,7 @@ Déroulé d'une passe :
 
 Le MVP est mono-utilisateur, mais quatre précautions bon marché évitent une réécriture si plusieurs personnes l'utilisent un jour.
 
-1. **Données du projet et données de l'utilisateur séparées.** Le dépôt contient ce qui se partage : `.hodegos/mentors/` (mentors propres au projet) et `.hodegos/config.toml`. Tout ce qui est personnel vit dans `~/.config/hodegos/` (clé OpenRouter, préférences, mentors personnels) et `~/.local/share/hodegos/<id-projet>/` (historique des remarques, plus tard la progression). Rien de personnel n'est jamais écrit dans le dépôt.
+1. **Données du projet et données de l'utilisateur séparées.** Le dépôt contient ce qui se partage : `.hodegos/mentors/` (mentors du dépôt) et `.hodegos/config.toml`. Tout ce qui est personnel vit dans `~/.config/hodegos/` (clé OpenRouter, préférences, mentors personnels) et `~/.local/share/hodegos/<id-projet>/` (historique des remarques, plus tard la progression). Rien de personnel n'est jamais écrit dans le dépôt.
 2. **Un contexte de session explicite.** Chaque appel du cœur reçoit une `Session { user: UserId, project: ProjectId }` ; aucun état global mutable. En MVP, `UserId` vaut toujours `local`.
 3. **Authentification interchangeable.** Le serveur passe par un trait `Authenticator` ; l'implémentation du MVP vérifie le jeton de lancement et renvoie `UserId::local()`.
 4. **Ancrage par section et citation.** Une remarque pointe un identifiant de section et un extrait cité, jamais un décalage en caractères ; le disque reste la source de vérité. Une co-édition future (par exemple Yjs avec CodeMirror) s'ajoute alors sans casser les ancres.
@@ -134,7 +134,7 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 
 **Ce qui part vers OpenRouter**
 
-- Seulement : la section modifiée, le diff de cette section, le chemin relatif du fichier, son langage, et au plus 20 lignes de contexte de part et d'autre.
+- Seulement : la section modifiée, le diff de cette section, le chemin relatif du fichier, son langage, et au plus 20 lignes de contexte de part et d'autre. Depuis la phase 9, selon le mentor : le voisinage du fichier et la carte du projet (mentor de section), ou la carte, les fichiers clés, le diff depuis la dernière revue et les remarques ouvertes (mentor de projet) ; tous calculés sans modèle, plafonnés en jetons estimés (4 caractères par jeton), sous les mêmes exclusions et le même masquage, plus les exclusions propres au projet.
 - En Markdown, les commentaires HTML (`<!-- … -->`, consignes du gabarit comprises) sont retirés de la section, du contexte et du diff avant l'envoi (phase 7) ; une ligne qui ne contenait qu'un commentaire disparaît, un commentaire non fermé court jusqu'à la fin.
 - Jamais (décidé en phase 4) : les fichiers ignorés par git, les noms `.env*`, `*.pem`, `*.key`, les clés SSH (`id_*` sans extension ou en `.pub`), et tout fichier contenant un bloc `-----BEGIN … PRIVATE KEY-----`. La passe s'arrête alors avec l'issue `excluded`.
 - Avant chaque envoi, les lignes qui ressemblent à un secret sont remplacées par `[secret masqué]` : jetons reconnaissables (`AKIA…`, `ghp_…`, `github_pat_…`, `sk-…`, `xox…`) et affectations d'une valeur littérale à `password`, `secret`, `token`, `api_key`… (`password = "…"`, `API_KEY=…` en majuscules). Le reste part tel quel.
@@ -142,7 +142,7 @@ Le serveur lit et écrit vos fichiers et dépense vos crédits : il n'accepte qu
 
 ## Contrat : format d'un mentor
 
-Un mentor est un fichier Markdown : un frontmatter YAML qui dit quand il intervient, puis sa posture en texte libre, injectée dans le prompt système. Exemples complets dans `mentors/`. Depuis la phase 8e, ils s'éditent aussi dans Réglages · Mentors : un mentor livré se personnalise (copie personnelle ou de projet), le serveur valide avec les règles du chargeur avant d'écrire, et le cadre commun reste hors d'atteinte.
+Un mentor est un fichier Markdown : un frontmatter YAML qui dit quand il intervient, puis sa posture en texte libre, injectée dans le prompt système. Exemples complets dans `mentors/`. Depuis la phase 8e, ils s'éditent aussi dans Réglages · Mentors : un mentor livré se personnalise (copie personnelle ou du dépôt), le serveur valide avec les règles du chargeur avant d'écrire, et le cadre commun reste hors d'atteinte.
 
 ```markdown
 ---
@@ -162,26 +162,33 @@ triggers:
   languages: [markdown]
   headings: ["Contexte", "Décision", "Conséquences", "Alternatives"]
   keywords: []              # mots dans la section
+scopes: [section, project]  # phase 9 : section | project, l'une ou les deux ; défaut [section]
+context: project            # phase 9, portée section : section | neighborhood | project ; défaut section
+project:                    # phase 9, lu seulement avec la portée project
+  key_files: ["docs/architecture/**", "**/adr/*.md"]
+  max_remarks: 3            # 1 à 3, par revue
+  triggers: [create, open, change]   # sous-ensemble de create | open | change | commit
 ---
 Vous accompagnez une personne qui rédige une décision d'architecture…
 ```
 
-Le corps peut contenir `{language}` (langage du fichier) et `{name}` (nom du mentor), remplacés à la construction du prompt ; aucune autre substitution.
+Le corps peut contenir `{language}` (langage du fichier), `{name}` (nom du mentor) et, depuis la phase 9, `{scope}` (`section` ou `projet`), remplacés à la construction du prompt ; aucune autre substitution.
 
 Où les mentors sont lus, du plus général au plus précis (le plus précis remplace le précédent à `id` égal) :
 
 1. les mentors livrés dans le binaire (`mentors/` du dépôt Hodegos) ;
 2. `~/.config/hodegos/mentors/*.md`, vos mentors personnels ;
-3. `<projet>/.hodegos/mentors/*.md`, les mentors propres au projet.
+3. `<projet>/.hodegos/mentors/*.md`, les mentors du dépôt (origine `project` ; appelés « mentors de projet » jusqu'à la phase 8, ce terme désigne depuis la phase 9 la portée `project`).
 
 Gestion :
 
 - **Désactiver** un mentor : une surcharge au niveau supérieur avec le même `id` et `enabled: false` (les autres champs sont alors facultatifs).
 - **Personnaliser** un mentor livré : `hodegos mentors eject <id>` copie son fichier dans `~/.config/hodegos/mentors/` (ou `--project` pour `.hodegos/mentors/`), prêt à être modifié ; refus si le fichier existe déjà.
 - **Lister** : `hodegos mentors list` affiche chaque mentor actif, son niveau d'origine, son mode, et les fichiers en erreur avec la raison.
-- **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est créé dans le projet qu'à votre demande, par `mentors eject --project` ou, à partir de la phase 8e, en enregistrant un mentor de projet depuis les réglages ; jusque-là, Hodegos en observe les parents pour le voir apparaître.
+- **Rechargement à chaud** : les dossiers personnel et du projet sont surveillés ; un mentor modifié s'applique à la passe suivante, sans redémarrage, et le casting affiché est recalculé. Le dossier personnel (`$XDG_CONFIG_HOME/hodegos/mentors`, par défaut `~/.config/hodegos/mentors`) est créé au lancement s'il manque ; `.hodegos/mentors/` n'est créé dans le projet qu'à votre demande, par `mentors eject --project` ou, à partir de la phase 8e, en enregistrant un mentor du dépôt depuis les réglages ; jusque-là, Hodegos en observe les parents pour le voir apparaître.
 - **`on_open`** (phase 7, `false` par défaut) : un fichier dont le titulaire d'au moins une section a `on_open: true` reçoit une passe d'ouverture (voir « Déroulé d'une passe »). Le Mentor produit l'utilise sur `docs/vision.md`.
 - **Validation** : `id` en `[a-z0-9-]`, `initials` de deux caractères, `priority` de 0 à 100, `max_remarks` de 1 à 2, `mode`, `model` et `entry_level` parmi les valeurs connues ; deux fichiers de même `id` au même niveau : le second est signalé. Les frontmatters sont lus avec `serde-saphyr` (`serde_yaml` n'est plus maintenu).
+- **Portées** (phase 9, `docs/phase9.md`, 9c) : `scopes` vide ou inconnu est une erreur de validation ; le bloc `project` est ignoré sans la portée `project`. Avec la portée `section`, rien ne change (casting, `triggers`, `on_open`, `context`). Avec la portée `project`, le mentor est un **mentor de projet** : hors casting, il relit le projet lors d'une revue. La posture est commune aux deux portées. Les mentors livrés ne reçoivent la portée `project` (et le Mentor du langage le contexte `neighborhood`) qu'après l'évaluation de la sous-phase 9f.
 - Un fichier invalide est ignoré, avec un avertissement dans la barre d'état et le journal ; il ne bloque jamais le démarrage. Un champ inconnu est ignoré, pour permettre d'ajouter des champs plus tard.
 
 Un mentor ne peut pas modifier le cadre commun (règles absolues, paliers, format JSON, garde « pas de solution ») : son corps est ajouté après le cadre, jamais à sa place.
@@ -252,6 +259,13 @@ Règles de validation, dans l'ordre :
 ```
 
 Une liste vide signifie que le mentor n'a rien à ajouter. Mêmes règles que pour une remarque, sauf la citation : JSON invalide relancé une fois, palier égal au palier demandé, message de 400 ou 800 caractères au plus selon le palier, confiance d'au moins 0,5, garde « pas de solution » sur la section réelle ; on garde la réponse la plus confiante. Une réponse écartée n'ajoute rien au fil.
+
+**Ajouts de la phase 9** (détail et exemples dans `docs/phase9.md`) :
+
+- Remarque de section : `see_also` facultatif, 3 entrées au plus (`path` d'un fichier envoyé dans le contexte, `quote` facultative de 3 à 120 caractères, présente mot pour mot dans le fichier enregistré **et** dans le texte envoyé pour ce fichier) ; une entrée invalide est retirée, la remarque reste, ancrée dans le fichier relu. Le serveur y ajoute `section_id` et `line_hint`, et garde dans `context` la liste de ce qui est parti (`[{ block, detail, tokens }]`, jamais les contenus).
+- Remarque de projet (identifiant `rp_…`, `scope: "project"`, `review_id`) : le modèle produit `about` (`passage` : exactement une citation ; `project` : 0 à 3 citations dans des fichiers différents) et `quotes` (`[{ path, quote }]`) ; le serveur en fait `anchors` (`[{ path, section_id, quote, line_hint, status }]`, `status` : `ok` ou `gone`). Chaque citation doit exister mot pour mot dans le fichier enregistré et figurer dans un texte effectivement envoyé (fichier clé, diff ou carte) ; une citation invalide est retirée, une remarque `passage` sans sa citation est écartée. `next_step` reste permis sans citation. `max_remarks` du bloc `project` (3 au plus).
+- Garde « pas de solution » d'une remarque de projet : mêmes règles aux trois premiers paliers ; au palier exemple, les identifiants comptés et les fragments interdits sont ceux de **toutes** les sections citées ; sans citation, le palier maximal est piste.
+- Statut `to_review` (remarque de projet seulement) : un passage d'une remarque `project` a disparu, ou la remarque a reçu une réponse ; son mentor la réévalue à l'échelle du projet et répond `keep` (nouvelles citations) ou `withdraw` (raison de 200 caractères au plus, ajoutée au fil ; la remarque passe en `resolved`). Une remarque `passage` dont le passage disparaît passe en `detached` et ne s'affiche plus.
 
 ## Casting
 
@@ -348,7 +362,7 @@ warn_at = 0.8               # avertissement à 80 %
 - **Passe d'ouverture** (phase 7) : à l'ouverture d'un fichier dont le titulaire d'au moins une section a `on_open: true`, si aucune remarque n'a jamais été faite sur ce fichier (quel que soit son statut) et qu'aucune passe d'ouverture n'y a abouti. Elle porte sur les sections dont le titulaire a `on_open`, dans l'ordre du fichier, 8 au plus (la limite de 2 sections ne s'applique pas), le fichier étant traité comme créé (diff depuis un fichier vide). Budget, exclusions, fournisseur et plafond de 2 remarques comme une autre passe. Une passe aboutie (`ok`), même sans remarque, est notée dans `<id-projet>/opened.json` et ne se refait pas ; après une panne, un budget atteint ou une passe rendue caduque par un enregistrement, elle est retentée à l'ouverture suivante. Une seule à la fois par fichier et par fenêtre.
 - Contexte envoyé : 20 lignes de part et d'autre de la section, secrets masqués.
 - Un nouvel enregistrement du même fichier rend la passe en cours caduque : son coût est compté, ses remarques sont ignorées.
-- Données de l'utilisateur sous `$XDG_DATA_HOME/hodegos/` (par défaut `~/.local/share/hodegos/`) : `usage.json` (coût par mois, en UTC), `<id-projet>/remarks.json` (historique), `<id-projet>/overrides.json` (choix forcés), `<id-projet>/opened.json` (fichiers dont la passe d'ouverture a abouti, phase 7), `<id-projet>/project.json` (racine du projet, pour s'y retrouver). Écriture par fichier temporaire renommé.
+- Données de l'utilisateur sous `$XDG_DATA_HOME/hodegos/` (par défaut `~/.local/share/hodegos/`) : `usage.json` (coût par mois, en UTC), `<id-projet>/remarks.json` (historique), `<id-projet>/overrides.json` (choix forcés), `<id-projet>/opened.json` (fichiers dont la passe d'ouverture a abouti, phase 7), `<id-projet>/project.json` (racine du projet, pour s'y retrouver) ; depuis la phase 9 : `<id-projet>/map.json` (carte du projet et empreinte de ses sources), `<id-projet>/context.json` (plafond, blocs désactivés et exclusions de la carte, propres au projet), `<id-projet>/project_remarks.json` (remarques de projet), `<id-projet>/reviews.json` (historique des revues, empreinte et manifeste par mentor) et `<id-projet>/snapshots/` (textes masqués relus lors des revues, stockés par empreinte, pour le diff depuis la dernière revue). Écriture par fichier temporaire renommé.
 - Une citation qui n'existe plus reste affichée dans sa carte, sans surlignage ; depuis la phase 5, la remarque passe en `detached` (voir « Contrat : format d'une remarque »).
 
 ## Prompts
@@ -477,6 +491,19 @@ La phase 8 rend Hodegos utilisable comme IDE au quotidien, sans changer son prin
 - **8g** : déplacer un fichier ou un dossier par glisser-déposer dans l'arbre (ou « Déplacer vers… » au clavier) ; remarques, choix forcés et passes d'ouverture suivent (ADR 0008).
 
 Inchangés : la garde « pas de solution », le cadre commun des prompts, ce qui part vers le modèle, l'écoute sur `127.0.0.1` avec le jeton (aucun port ni service en plus), les réglages et données personnels hors du dépôt. Plusieurs éléments « hors MVP » du tableau du périmètre y entrent : terminal intégré, git dans l'interface, réglages graphiques, éditeur graphique de mentors.
+
+## Des mentors qui voient le projet (phase 9)
+
+La phase 9 donne aux mentors une connaissance du projet calculée sans modèle, et ajoute des mentors de projet qui relisent l'ensemble ; spécification unique : `docs/phase9.md`, en six sous-phases ; décisions : ADR 0009 (connaissance du projet sans modèle) et ADR 0010 (mentors de projet, revues automatiques, réévaluation).
+
+- **9a** : carte du projet (vision, décisions, arborescence, README, dépendances, signatures, tests), plafonnée, recalculée à chaque modification enregistrée ; vue Projet, onglet Carte.
+- **9b** : contexte d'un mentor de section (`context` : `section`, `neighborhood`, `project`), « Voir aussi » et « Contexte de cette passe ».
+- **9c** : portées (`scopes`), revue demandée avec coût estimé, remarques de projet sur plusieurs fichiers, vue Projet.
+- **9d** : revues automatiques (création, ouverture, modifications au calme, commit en option ; calme, intervalle et plafond quotidien), ancres des remarques de projet, réévaluation.
+- **9e** : réglages des revues et des plafonds de contexte (`[context]`, `[project_review]` de `config.toml`), portées dans l'éditeur de mentors, mentors livrés (dont le Testeur).
+- **9f** : évaluation sur trois projets d'exemple ; coût d'une journée type mesuré avant d'activer les mentors livrés dans leurs portées.
+
+Inchangés : la garde « pas de solution » (appliquée à chaque section citée), le cadre commun hors d'atteinte des fichiers de mentor, aucun fichier ignoré ni secret envoyé, données personnelles hors du dépôt, budget mensuel qui fait foi (au plafond, plus rien d'automatique). Entrent dans le périmètre : le mentor Testeur et le déclencheur « commit ».
 
 ## Plan par phases
 

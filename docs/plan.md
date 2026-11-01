@@ -1,6 +1,6 @@
 # Plan par phases
 
-Huit phases, chacune livrable et vérifiable seule (la phase 8 en sept sous-phases). On en traite une à la fois ; la
+Neuf phases, chacune livrable et vérifiable seule (la phase 8 en sept sous-phases, la phase 9 en six). On en traite une à la fois ; la
 suivante ne commence qu'une fois les critères de fin de la précédente cochés.
 
 ## Phase 1 — Squelette
@@ -280,3 +280,57 @@ pris » sous l'arbre, dépôt à la racine, « Déplacer vers… » au clavier (
 onglet modifié qui suit puis s'enregistre au nouveau chemin, fil d'Ariane, remarque ancrée à sa
 place, casting au nouveau chemin (choix forcé gardé), aucune erreur dans la console. Confirmé à la
 main dans le navigateur Windows le 31 octobre 2026.
+
+## Phase 9 — Des mentors qui voient le projet
+
+Carte du projet calculée sans modèle, voisinage et « Voir aussi » pour les mentors de section,
+mentors de projet qui relisent l'ensemble (revues demandées puis automatiques), remarques sur
+plusieurs fichiers et leur réévaluation, réglages, évaluation sur plusieurs fichiers.
+Spécification : `docs/phase9.md` (précisions retenues à l'intégration comprises) ; décisions :
+`docs/adr/0009-connaissance-du-projet-sans-modele.md`, `docs/adr/0010-mentors-de-projet.md` ;
+maquettes et cas d'usage : `docs/maquettes/phase9/`.
+
+Une sous-phase à la fois, dans l'ordre 9a → 9f. Pour chacune : `cargo test --workspace`,
+clippy et fmt propres, `docs/protocole.md` à jour, vérification manuelle dans les deux thèmes.
+Jusqu'à 9f, les mentors livrés gardent la portée `section` (et le Mentor du langage le contexte
+`section`) : la portée `project` s'essaie avec un mentor personnel.
+
+### 9a — Carte du projet
+
+- [ ] La carte d'un projet réel s'affiche telle qu'envoyée, sous son plafond, sans fichier ignoré
+  ni secret ; désactiver un bloc ou exclure un chemin la change aussitôt
+- [ ] Un enregistrement, dans Hodegos ou ailleurs, met la carte à jour
+
+### 9b — Contexte des mentors de section
+
+- [ ] Un mentor `context: neighborhood` reçoit le voisinage ; une remarque peut renvoyer à un autre
+  fichier, et le lien l'ouvre à l'endroit cité
+- [ ] « Contexte de cette passe » liste ce qui est parti, sans contenu
+
+### 9c — Mentors de projet et vue Projet
+
+- [ ] Un mentor personnel `scopes: [section, project]` fonctionne dans les deux portées
+- [ ] « Demander une revue… » annonce coût et durée, puis produit des remarques qui citent plusieurs
+  fichiers ; paliers, réponse et fermeture fonctionnent dans la vue Projet
+
+### 9d — Revues automatiques, ancres, réévaluation
+
+- [ ] Revues automatiques à la création, à l'ouverture après un changement fait hors de Hodegos, et
+  après des modifications une fois au calme ; intervalle et plafond quotidien respectés ; arrêt au
+  plafond du budget
+- [ ] Remarques de projet dans la vue Projet, puis dans le fichier ouvert
+- [ ] Passage supprimé : remarque `passage` disparue ; remarque `project` réévaluée, puis maintenue
+  ou levée avec sa raison
+
+### 9e — Réglages et mentors livrés
+
+- [ ] Revues du projet et portées réglables depuis l'interface ; `hodegos mentors list` affiche
+  portées et contexte
+
+### 9f — Évaluation sur plusieurs fichiers
+
+- [ ] Cas de revue, de voisinage et de réévaluation au seuil ; rapport dans `evals/reports/` avec le
+  coût d'une journée type ; mentors livrés activés dans leurs portées
+- [ ] Coût mesuré présenté avant l'activation des mentors livrés ; rythme (calme, intervalle, revues
+  par jour) et plafonds de contexte confirmés ou réduits
+- [ ] docs/cadrage.md, docs/plan.md, docs/protocole.md et CLAUDE.md intègrent la phase 9

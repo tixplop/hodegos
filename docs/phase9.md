@@ -39,6 +39,45 @@ Les **revues** des mentors de projet, elles, coûtent : après des modifications
 elles partent quand l'édition est au calme, avec un intervalle minimal et un
 plafond quotidien (9d).
 
+## Précisions retenues à l'intégration (1er novembre 2026)
+
+Questions relevées en confrontant la spécification au code et aux documents, et
+tranchées avant 9a.
+
+1. **« Fichiers suivis »** veut dire *non ignorés* : tout fichier de l'arbre de
+   Hodegos (hors `.gitignore`, fichiers de secrets et exclusions du projet),
+   commité ou non. Carte, diff d'une revue et empreinte fonctionnent donc sans
+   git et dès la création par `hodegos new` (`git init` sans commit).
+2. **Diff depuis la dernière revue** : à chaque revue, les textes relus sont
+   gardés dans un instantané personnel,
+   `~/.local/share/hodegos/<id-projet>/snapshots/` : un magasin par contenu
+   (empreinte SHA-256 du texte **masqué**, partagé entre mentors) et un
+   manifeste par mentor (chemin → empreinte) noté dans `reviews.json`. Aucun
+   secret n'y est copié ; les contenus qu'aucun manifeste ne cite plus sont
+   supprimés après chaque revue. Le diff ne dépend pas de git.
+3. **Vocabulaire** : « mentor de projet » désigne désormais la portée `project`.
+   Un mentor rangé dans `<projet>/.hodegos/mentors/` (origine `project`, phase
+   8e) devient un **mentor du dépôt** dans les documents et l'interface (libellé
+   « du dépôt » dans Réglages · Mentors, changé avec la vue Projet en 9a) ; la
+   valeur `origin: project` du protocole ne change pas. Les textes déjà écrits
+   de la phase 8 (`docs/phase8.md`, critères 8e) gardent l'ancien sens.
+4. **Citations `see_also`** : comme toute citation, elles doivent figurer dans
+   le texte **effectivement envoyé** pour ce fichier (signatures, section ou
+   fichier entier), en plus d'exister mot pour mot dans le fichier enregistré ;
+   sinon la citation est retirée et le lien ouvre le fichier sans endroit
+   précis.
+
+Points réglés par défaut, à revoir si l'usage le demande :
+
+5. **`create` et `open`** : `create` est la première ouverture d'un projet pour
+   lequel aucune revue n'est notée (`reviews.json` absent), qu'il vienne de
+   `hodegos new` ou non (la création n'écrit rien sous `~/.local/share`) ;
+   ensuite, c'est `open`.
+6. **Mentor `strong-signal` de portée `project`** : pas de revue `create` ;
+   revue automatique (`open`, `change`, `commit`) seulement si l'un de ses
+   `triggers.keywords` figure dans le diff depuis sa dernière revue. La revue
+   demandée reste possible, comme pour un mentor `on-demand`.
+
 ## Découpage et ordre
 
 | Sous-phase | Contenu | Dépend de |
@@ -83,7 +122,7 @@ aux mentors qui en ont besoin.
 | En-tête | nom du projet, langages et nombre de fichiers, outil de test détecté | arbre, manifestes |
 | Vision | `docs/vision.md` sans les commentaires HTML | fichier |
 | Décisions | pour chaque ADR (`**/adr/*.md`, `docs/architecture/**`) : numéro, titre, statut, texte de la section Décision | Markdown |
-| Arborescence | fichiers suivis et non ignorés, regroupés par dossier | arbre |
+| Arborescence | fichiers non ignorés (précision 1), regroupés par dossier | arbre |
 | README | titres et premier paragraphe | Markdown |
 | Dépendances | noms et versions des manifestes (`Cargo.toml`, `package.json`, `pyproject.toml`, `requirements.txt`) | manifestes |
 | Symboles | par fichier de code : signatures des éléments exportés ou publics, jamais les corps | tree-sitter |
@@ -225,7 +264,7 @@ Ce que reçoit un mentor de projet, dans cet ordre :
 2. ses fichiers clés, en entier, masqués, dans la limite de `key_files_cap`
    (12 000 jetons par défaut ; au-delà, les fichiers les moins récemment
    modifiés sont réduits à leurs signatures ou à leurs titres) ;
-3. le diff depuis **sa** dernière revue (fichiers suivis et non ignorés,
+3. le diff depuis **sa** dernière revue (fichiers non ignorés, précisions 1 et 2,
    20 fichiers au plus, les plus modifiés) ; à la première revue, aucun diff ;
 4. ses remarques de projet encore ouvertes (message et citations), pour ne pas
    se répéter.
@@ -327,7 +366,7 @@ les remarques de projet.
 | `change` | après des modifications enregistrées (dans Hodegos ou ailleurs), quand l'édition est au calme | idem, si un fichier modifié est dans le périmètre du mentor (fichiers clés, ou code et documents non exclus) |
 | `commit` | après un changement de `HEAD` (désactivé par défaut) | idem |
 
-- Changements détectés par une empreinte des fichiers suivis et non ignorés,
+- Changements détectés par une empreinte des fichiers non ignorés (précision 1),
   notée à chaque revue (`reviews.json`).
 - Réglages personnels (maquette `09-5`) : revues automatiques oui ou non ;
   déclencheurs actifs ; **calme** après la dernière modification (3 min par
@@ -501,6 +540,9 @@ Pour chaque sous-phase : `cargo test --workspace`, clippy et fmt propres,
 - [ ] Cas de revue, de voisinage et de réévaluation au seuil ; rapport dans
   `evals/reports/` avec le coût d'une journée type ; mentors livrés activés dans
   leurs portées.
+- [ ] Coût mesuré présenté avant l'activation des mentors livrés ; rythme
+  (calme, intervalle, revues par jour) et plafonds de contexte confirmés ou
+  réduits.
 
 ## Hors phase 9
 
