@@ -180,7 +180,8 @@ struct AppState {
     project_store: project_store::ProjectStore,
     snapshots: snapshots::Snapshots,
     reviews: review::ReviewState,
-    review_options: ReviewOptions,
+    /// Réglages des revues automatiques, modifiables depuis les réglages (phase 9e).
+    review_options: RwLock<ReviewOptions>,
     clock: Arc<dyn Clock>,
     /// Revues automatiques en attente et réévaluations (phase 9d).
     auto: auto::AutoState,
@@ -191,6 +192,14 @@ struct AppState {
 }
 
 impl AppState {
+    /// Réglages des revues automatiques en vigueur.
+    fn review_options(&self) -> ReviewOptions {
+        self.review_options
+            .read()
+            .map(|o| o.clone())
+            .unwrap_or_default()
+    }
+
     fn canonical_host(&self) -> String {
         format!("127.0.0.1:{}", self.port)
     }
@@ -366,7 +375,7 @@ impl Server {
             project_store,
             snapshots,
             reviews: review::ReviewState::default(),
-            review_options,
+            review_options: RwLock::new(review_options),
             clock,
             auto: auto::AutoState::default(),
             provider: Mutex::new(provider),

@@ -5,7 +5,10 @@ use std::fmt;
 
 use hodegos_core::map::{BlockId, MapBlock};
 use hodegos_llm::Effort;
-use hodegos_mentors::{ContextScope, FieldError, MentorForm, Mode, ModelTier, Origin, Scope};
+use hodegos_mentors::{
+    ContextScope, FieldError, MentorForm, Mode, ModelTier, Origin, ProjectSettings, ReviewTrigger,
+    Scope,
+};
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole du MVP.
@@ -225,6 +228,36 @@ pub enum ClientMessage {
     },
     ProjectRemarksGet,
     ReviewsGet,
+    /// Réglages des revues du projet et plafonds de contexte (phase 9e).
+    ProjectReviewSet {
+        project_review: ReviewSettings,
+        context: ContextSettings,
+    },
+}
+
+/// `[project_review]` de `config.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewSettings {
+    pub enabled: bool,
+    pub triggers: Vec<ReviewTrigger>,
+    pub calm_secs: u64,
+    pub min_interval_secs: u64,
+    pub daily_max: u32,
+}
+
+/// `[context]` de `config.toml`, en jetons estimés.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextSettings {
+    pub map_cap: usize,
+    pub neighborhood_cap: usize,
+    pub key_files_cap: usize,
+}
+
+/// Revues automatiques du mois en cours (UTC) pour ce projet.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct AutoSpend {
+    pub reviews: usize,
+    pub cost: f64,
 }
 
 /// Texte confidentiel (clé d'API) : masqué par `Debug`.
@@ -537,6 +570,12 @@ pub struct MentorItem {
     /// Portées (phase 9c) ; vide pour un mentor désactivé.
     #[serde(default)]
     pub scopes: Vec<Scope>,
+    /// Contexte d'un mentor de section (phase 9b).
+    #[serde(default)]
+    pub context: ContextScope,
+    /// Bloc `project` d'un mentor de projet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<ProjectSettings>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -581,6 +620,10 @@ pub struct SettingsInfo {
     pub last_eval: LevelEvals,
     /// Évaluation en cours.
     pub eval_running: Option<Tier>,
+    /// Revues du projet et plafonds de contexte (phase 9e).
+    pub project_review: ReviewSettings,
+    pub context: ContextSettings,
+    pub auto_spend: AutoSpend,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

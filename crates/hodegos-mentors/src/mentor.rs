@@ -188,7 +188,7 @@ impl fmt::Display for Origin {
         f.write_str(match self {
             Self::Builtin => "livré",
             Self::User => "personnel",
-            Self::Project => "projet",
+            Self::Project => "dépôt",
         })
     }
 }
@@ -1009,5 +1009,47 @@ Vous accompagnez {name} en {language}.
             !plain.contains("scopes") && !plain.contains("project"),
             "{plain}"
         );
+    }
+
+    #[test]
+    fn brouillons_des_mentors_livres_de_la_phase_9_valides() {
+        // `evals/mentors/` : installés dans `mentors/` après l'évaluation 9f.
+        for (name, text, scopes, context) in [
+            (
+                "architecte.md",
+                include_str!("../../../evals/mentors/architecte.md"),
+                vec![Scope::Section, Scope::Project],
+                ContextScope::Project,
+            ),
+            (
+                "mentor-produit.md",
+                include_str!("../../../evals/mentors/mentor-produit.md"),
+                vec![Scope::Section, Scope::Project],
+                ContextScope::Project,
+            ),
+            (
+                "mentor-langage.md",
+                include_str!("../../../evals/mentors/mentor-langage.md"),
+                vec![Scope::Section],
+                ContextScope::Neighborhood,
+            ),
+            (
+                "testeur.md",
+                include_str!("../../../evals/mentors/testeur.md"),
+                vec![Scope::Project],
+                ContextScope::Section,
+            ),
+        ] {
+            let mentor = match parse(text, Origin::Builtin, name).unwrap() {
+                Parsed::Active(m) => *m,
+                Parsed::Disabled { .. } => panic!("{name} désactivé"),
+            };
+            assert_eq!(mentor.scopes, scopes, "{name}");
+            assert_eq!(mentor.context, context, "{name}");
+            assert!(
+                mentor.body.contains("{scope}") || !mentor.scopes.contains(&Scope::Project),
+                "{name}"
+            );
+        }
     }
 }

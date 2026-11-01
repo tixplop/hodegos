@@ -15,7 +15,9 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hodegos_core::Project;
 use hodegos_llm::{ApiKey, LlmClient, LlmConfig, OpenRouterClient, load_api_key};
-use hodegos_mentors::{MentorSources, Registry, default_user_dir, eject};
+use hodegos_mentors::{
+    ContextScope, Mentor, MentorSources, Registry, Scope, default_user_dir, eject,
+};
 use hodegos_server::{
     Connect, DEFAULT_PORT, Llm, Server, ServerOptions, SettingsSource, SystemClock,
     TerminalOptions, client_for, load_binds, load_context, load_review_options,
@@ -286,7 +288,7 @@ fn list(registry: &Registry, sources: &MentorSources) {
             .map_or_else(|| "(aucun)".to_owned(), |d| d.display().to_string())
     };
     println!("Mentors personnels : {}", dir(&sources.user_dir));
-    println!("Mentors du projet  : {}", dir(&sources.project_dir));
+    println!("Mentors du dépôt   : {}", dir(&sources.project_dir));
     println!();
 
     let mentors: Vec<_> = registry.active().collect();
@@ -303,11 +305,12 @@ fn list(registry: &Registry, sources: &MentorSources) {
     println!("Mentors actifs ({}) :", mentors.len());
     for mentor in &mentors {
         println!(
-            "  {:id_width$}  {:name_width$}  {:9}  {:13}  {}",
+            "  {:id_width$}  {:name_width$}  {:9}  {:13}  {:38}  {}",
             mentor.id,
             mentor.name,
             mentor.origin.to_string(),
             mentor.mode.as_str(),
+            scopes(mentor),
             mentor.source_name,
         );
     }
@@ -325,6 +328,27 @@ fn list(registry: &Registry, sources: &MentorSources) {
             println!("  {} : {}", warning.file, warning.message);
         }
     }
+}
+
+/// Portées et contexte d'un mentor (phase 9) : « section, projet · contexte voisinage ».
+fn scopes(mentor: &Mentor) -> String {
+    let scopes: Vec<&str> = mentor
+        .scopes
+        .iter()
+        .map(|s| match s {
+            Scope::Section => "section",
+            Scope::Project => "projet",
+        })
+        .collect();
+    let mut line = scopes.join(", ");
+    if mentor.scopes.contains(&Scope::Section) {
+        line.push_str(match mentor.context {
+            ContextScope::Section => " · contexte section",
+            ContextScope::Neighborhood => " · contexte voisinage",
+            ContextScope::Project => " · contexte projet",
+        });
+    }
+    line
 }
 
 /// Client OpenRouter d'après `config.toml` et la clé ; sinon, la raison de son absence,
@@ -366,5 +390,32 @@ fn llm(config_dir: &Path) -> Llm {
             key_from_env,
             connect,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hodegos_mentors::{Origin, Parsed, parse};
+
+    use super::*;
+
+    fn mentor(extra: &str) -> Mentor {
+        let text = format!("---\nid: m\nname: M\ninitials: MM\nrole: R\n{extra}---\nPosture.\n");
+        match parse(&text, Origin::User, "m.md").unwrap() {
+            Parsed::Active(m) => *m,
+            Parsed::Disabled { .. } => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn portees_et_contexte_dans_la_liste() {
+        assert_eq!(scopes(&mentor("")), "section · contexte section");
+        assert_eq!(
+            scopes(&mentor(
+                "scopes: [section, project]\ncontext: neighborhood\n"
+            )),
+            "section, projet · contexte voisinage"
+        );
+        assert_eq!(scopes(&mentor("scopes: [project]\n")), "projet");
     }
 }

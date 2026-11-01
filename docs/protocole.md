@@ -63,6 +63,7 @@ connexion reste ouverte.
 | `term_close` | `term_id` | Tue le shell et tout ce qu'il a lancé ; `term_exited` suit |
 | `provider_test` | — | Vérifie la clé (`GET /key`, sans génération ni coût) ; renvoie `provider_test_result` |
 | `project_map_get` | — | Renvoie `project_map`, la carte du projet telle qu'envoyée aux mentors (phase 9a) ; calculée d'abord si elle ne l'est pas encore |
+| `project_review_set` | `project_review` (`enabled`, `triggers`, `calm_secs` 0 à 3 600, `min_interval_secs` 0 à 86 400, `daily_max` 0 à 200), `context` (`map_cap` 1 000 à 32 000, `neighborhood_cap` 500 à 16 000, `key_files_cap` 2 000 à 32 000) | Réécrit `[project_review]` et `[context]` de `config.toml` en gardant ses commentaires, applique sans redémarrage (un plafond de carte changé recalcule la carte) et renvoie `settings`, poussé aussi à toutes les fenêtres (phase 9e). Refus : `invalid_settings`, sans rien écrire |
 | `review_estimate` | `mentor_ids` | Coût et durée estimés d'une revue par ces mentors de projet (phase 9c) ; renvoie `review_estimate` |
 | `review_request` | `mentor_ids`, `confirm_over_budget` (facultatif, `false`) | Lance une revue demandée ; renvoie `review_started`, puis pousse `project_remarks` et `review_done` à toutes les fenêtres. Refus : `not_found` (pas un mentor de projet actif), `provider_error`, `budget_exceeded` sans confirmation |
 | `project_remarks_get` | — | Renvoie `project_remarks` : les remarques de projet ouvertes, répondues ou à réévaluer |
@@ -90,13 +91,13 @@ connexion reste ouverte.
 | `entry_moved` | `from`, `to` (nouveau chemin complet), `kind` | réponse à `move_entry` |
 | `dirs` | `paths`, `truncated` | réponse à `list_dirs` : dossiers non exclus, racine non comprise, dans l'ordre de l'arbre ; `truncated` vaut `true` au-delà de 5 000 |
 | `git_status` | `branch`, `detached`, `entries` (`path`, `status`), `changes`, `conflicts` ; `null` sans dépôt ou sans git | à la connexion, juste après le premier `status`, puis à chaque changement du statut |
-| `settings` | `fast`, `strong`, `fast_effort`, `strong_effort`, `budget` (`monthly_cap_usd`, `warn_at`, `used_usd`), `key_source` (`env`, `file` ou `none`), `key_hint`, `editable`, `config_dir`, `last_eval` (`fast`, `strong`), `eval_running` (`fast`, `strong` ou `null`) | réponse à `settings_get`, `settings_set` et `api_key_set` ; poussé à toutes les fenêtres après un changement et à la fin d'une évaluation |
+| `settings` | `fast`, `strong`, `fast_effort`, `strong_effort`, `budget` (`monthly_cap_usd`, `warn_at`, `used_usd`), `key_source` (`env`, `file` ou `none`), `key_hint`, `editable`, `config_dir`, `last_eval` (`fast`, `strong`), `eval_running` (`fast`, `strong` ou `null`), `project_review` et `context` (comme `project_review_set`), `auto_spend` (`reviews`, `cost` : revues automatiques du mois UTC pour ce projet) | réponse à `settings_get`, `settings_set` et `api_key_set` ; poussé à toutes les fenêtres après un changement et à la fin d'une évaluation |
 | `eval_required` | `level`, `cases`, `estimated_cost`, `estimated_duration_ms`, `max_cost`, `basis` (`same`, `tokens` ou `prompts`) | réponse à `settings_set` non confirmé quand un niveau doit être réévalué |
 | `model_info` | `id`, `exists`, `structured_outputs`, `reasoning`, `prompt_price`, `completion_price` (dollars par jeton) | réponse à `model_check` |
 | `provider_test_result` | `ok`, `message` | réponse à `provider_test` |
 | `eval_progress` | `level`, `done`, `total`, `cost` | poussé à toutes les fenêtres au début et à la fin de chaque cas d'une évaluation |
 | `eval_done` | un résultat d'évaluation (voir plus bas) | poussé à toutes les fenêtres à la fin d'une évaluation, suivi de `settings` et `status` |
-| `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`, `scopes`), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
+| `mentors` | `items` (`id`, `name`, `initials`, `origin`, `path`, `overrides`, `enabled`, `mode`, `model`, `on_open`, `scopes`, `context`, `project` : `key_files`, `max_remarks`, `triggers`, absent sans la portée projet), `errors` (`origin`, `path`, `id`, `errors`) | réponse à `mentors_list` et `mentor_delete` |
 | `mentor_file` | `id`, `origin`, `path`, `content`, `editable`, `form`, `body`, `errors` | réponse à `mentor_get`, `mentor_save` et `mentor_eject` |
 | `mentor_prompt` | `text` | réponse à `mentor_prompt` |
 | `term_opened` | `term_id`, `shell` (nom court, pour l'onglet), `warning` (`[terminal] binds` invalide) | réponse à `term_open` |

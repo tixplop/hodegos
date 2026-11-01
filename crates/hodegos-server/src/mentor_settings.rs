@@ -119,6 +119,8 @@ pub(crate) fn list(state: &AppState) -> ServerMessage {
                 model: shown.map(|m| m.model),
                 on_open: shown.is_some_and(|m| m.on_open),
                 scopes: shown.map(|m| m.scopes.clone()).unwrap_or_default(),
+                context: shown.map(|m| m.context).unwrap_or_default(),
+                project: shown.and_then(|m| m.project.clone()),
                 id,
             })
         })

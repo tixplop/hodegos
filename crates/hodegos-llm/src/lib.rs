@@ -18,8 +18,8 @@ pub use client::{
     BoxFuture, ChatMessage, LlmClient, LlmError, LlmRequest, LlmResponse, Role, Tokens,
 };
 pub use config::{
-    ApiKey, BudgetConfig, ConfigError, Effort, LlmConfig, Settings, load_api_key, write_api_key,
-    write_settings,
+    ApiKey, BudgetConfig, ConfigError, ConfigValue, Effort, LlmConfig, Settings, load_api_key,
+    write_api_key, write_settings, write_values,
 };
 pub use fake::FakeLlmClient;
 pub use openrouter::{ModelInfo, OpenRouterClient, check_key, fetch_models};

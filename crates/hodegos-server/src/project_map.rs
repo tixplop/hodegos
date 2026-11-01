@@ -31,9 +31,9 @@ const MAX_WATCHED_DIRS: usize = 5_000;
 /// Version de `map.json` : la 2 garde les imports (phase 9b) ; une autre est ignorée.
 const MAP_FILE_VERSION: u32 = 2;
 /// Bornes du plafond du voisinage.
-const NEIGHBORHOOD_CAPS: std::ops::RangeInclusive<usize> = 500..=16_000;
+pub(crate) const NEIGHBORHOOD_CAPS: std::ops::RangeInclusive<usize> = 500..=16_000;
 /// Bornes du plafond des fichiers clés d'une revue.
-const KEY_FILES_CAPS: std::ops::RangeInclusive<usize> = 2_000..=32_000;
+pub(crate) const KEY_FILES_CAPS: std::ops::RangeInclusive<usize> = 2_000..=32_000;
 
 /// Réglages de `[context]` dans `config.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,9 +167,8 @@ pub(crate) struct Touch {
 pub(crate) struct MapState {
     /// `<id-projet>/` ; `None` : rien n'est persisté.
     dir: Option<PathBuf>,
-    default_cap: usize,
-    neighborhood_cap: usize,
-    pub(crate) key_files_cap: usize,
+    /// Plafonds de `[context]`, modifiables depuis les réglages (phase 9e).
+    options: std::sync::RwLock<ContextOptions>,
     inner: Mutex<Inner>,
     touches: mpsc::UnboundedSender<Touch>,
 }
@@ -200,9 +199,7 @@ impl MapState {
         let (touches, receiver) = mpsc::unbounded_channel();
         let state = Self {
             dir,
-            default_cap: options.map_cap,
-            neighborhood_cap: options.neighborhood_cap,
-            key_files_cap: options.key_files_cap,
+            options: std::sync::RwLock::new(options),
             inner: Mutex::new(Inner {
                 cache,
                 stale: true,
@@ -212,6 +209,18 @@ impl MapState {
             touches,
         };
         (state, receiver)
+    }
+
+    /// Plafonds de contexte en vigueur.
+    pub(crate) fn options(&self) -> ContextOptions {
+        self.options.read().map(|o| *o).unwrap_or_default()
+    }
+
+    /// Nouveaux plafonds (réglages, phase 9e) ; la carte est recalculée par l'appelant.
+    pub(crate) fn set_options(&self, options: ContextOptions) {
+        if let Ok(mut current) = self.options.write() {
+            *current = options;
+        }
     }
 
     /// Signale des chemins modifiés ; la carte sera recalculée au calme.
@@ -225,7 +234,7 @@ impl MapState {
             Exclusions::default()
         });
         MapSettings {
-            cap: prefs.map_cap.unwrap_or(self.default_cap),
+            cap: prefs.map_cap.unwrap_or(self.options().map_cap),
             disabled: prefs
                 .disabled_blocks
                 .as_ref()
@@ -240,7 +249,7 @@ impl MapState {
             blocks: built.map.blocks.clone(),
             tokens: built.map.tokens,
             cap: built.map.cap,
-            default_cap: self.default_cap,
+            default_cap: self.options().map_cap,
             exclude: inner.prefs.exclude.clone(),
             updated_at: built.updated_at.to_string(),
             reason: built.reason,
@@ -275,7 +284,7 @@ fn updated(built: &Built) -> ServerMessage {
 
 /// Recalcule la carte (en entier si `paths` est `None`) ; renvoie `map_updated` si
 /// elle a changé. Bloquant : à appeler hors des fils de tokio.
-fn recompute(
+pub(crate) fn recompute(
     state: &AppState,
     paths: Option<&[RelPath]>,
     reason: MapReason,
@@ -384,7 +393,7 @@ pub(crate) fn widen(
         &settings.exclude,
         path,
         content,
-        state.map.neighborhood_cap,
+        state.map.options().neighborhood_cap,
     );
     let map = with_map
         .then_some(built)
@@ -523,7 +532,7 @@ pub(crate) async fn set(
     let exclude: Vec<String> = exclude.iter().map(|p| p.trim().to_owned()).collect();
     Exclusions::new(&exclude).map_err(invalid)?;
     let prefs = Prefs {
-        map_cap: (map_cap != state.map.default_cap).then_some(map_cap),
+        map_cap: (map_cap != state.map.options().map_cap).then_some(map_cap),
         disabled_blocks: Some(
             disabled_blocks
                 .into_iter()

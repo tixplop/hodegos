@@ -122,7 +122,7 @@ fn prepare(state: &AppState, mentor: Mentor) -> Result<Job, Refused> {
             &session,
             cache,
             &|path| mentor.is_key_file(path),
-            state.map.key_files_cap,
+            state.map.options().key_files_cap,
         );
         (
             map.to_owned(),
@@ -297,7 +297,7 @@ pub(crate) fn key_material(state: &AppState, mentor: &Mentor) -> Option<(String,
             &session,
             cache,
             &|path| mentor.is_key_file(path),
-            state.map.key_files_cap,
+            state.map.options().key_files_cap,
         );
         (map.to_owned(), keys)
     })

@@ -339,6 +339,23 @@ impl ProjectStore {
         (last, count)
     }
 
+    /// Revues automatiques du mois (UTC) de `month` et leur coût.
+    pub(crate) fn auto_spend(&self, month: (i16, i8)) -> (usize, f64) {
+        let Ok(file) = self.reviews.lock() else {
+            return (0, 0.0);
+        };
+        file.reviews
+            .iter()
+            .filter(|r| r.trigger != "request")
+            .filter(|r| {
+                r.at.parse::<jiff::Timestamp>().is_ok_and(|at| {
+                    let date = at.to_zoned(jiff::tz::TimeZone::UTC).date();
+                    (date.year(), date.month()) == month
+                })
+            })
+            .fold((0, 0.0), |(count, cost), r| (count + 1, cost + r.cost))
+    }
+
     /// Aucune revue n'a jamais été notée pour ce projet.
     pub(crate) fn never_reviewed(&self) -> bool {
         self.reviews.lock().is_ok_and(|f| f.reviews.is_empty())
@@ -380,5 +397,51 @@ impl ProjectStore {
             .values()
             .flat_map(|m| m.files.values().cloned())
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::ReviewMentorInfo;
+
+    fn review(at: &str, trigger: &str, cost: f64) -> ReviewInfo {
+        ReviewInfo {
+            id: format!("rv_{at}"),
+            at: at.to_owned(),
+            trigger: trigger.to_owned(),
+            mentors: vec![ReviewMentorInfo {
+                id: "archi".to_owned(),
+                outcome: "ok".to_owned(),
+                remarks: 0,
+                cost,
+            }],
+            cost,
+            duration_ms: 1000,
+        }
+    }
+
+    #[test]
+    fn depense_du_mois_et_rythme_des_revues_automatiques() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ProjectStore::open(Some(dir.path().to_path_buf()));
+        for (at, trigger, cost) in [
+            ("2026-10-31T23:00:00Z", "change", 0.5),
+            ("2026-11-01T08:00:00Z", "create", 0.01),
+            ("2026-11-01T09:00:00Z", "request", 0.2),
+            ("2026-11-01T10:00:00Z", "change", 0.02),
+        ] {
+            store.record(review(at, trigger, cost), BTreeMap::new(), BTreeMap::new());
+        }
+        let (count, cost) = store.auto_spend((2026, 11));
+        assert_eq!(count, 2, "demandées et mois précédent exclus");
+        assert!((cost - 0.03).abs() < 1e-9);
+        let (last, today) = store.rhythm(jiff::civil::date(2026, 11, 1));
+        assert_eq!(today["archi"], 2);
+        assert_eq!(last["archi"].to_string(), "2026-11-01T10:00:00Z");
+        // Relu depuis reviews.json.
+        let again = ProjectStore::open(Some(dir.path().to_path_buf()));
+        assert_eq!(again.auto_spend((2026, 11)).0, 2);
+        assert!(!again.never_reviewed());
     }
 }

@@ -277,6 +277,39 @@ pub fn write_settings(config_dir: &Path, settings: &Settings) -> Result<(), Conf
     write_atomic(&path, &doc.to_string(), mode.unwrap_or(0o644))
 }
 
+/// Valeur à écrire dans `config.toml` par [`write_values`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConfigValue {
+    Bool(bool),
+    Int(i64),
+    List(Vec<String>),
+}
+
+/// Écrit des valeurs `(table, clé, valeur)` dans `config.toml` en gardant ses
+/// commentaires et le reste de son contenu (phase 9e : `[project_review]`, `[context]`).
+pub fn write_values(
+    config_dir: &Path,
+    values: &[(&str, &str, ConfigValue)],
+) -> Result<(), ConfigError> {
+    let path = config_dir.join("config.toml");
+    let (mut doc, mode) = read_document(&path)?;
+    for (name, key, value) in values {
+        let target = table(&mut doc, name, &path)?;
+        let value = match value {
+            ConfigValue::Bool(b) => Value::from(*b),
+            ConfigValue::Int(i) => Value::from(*i),
+            ConfigValue::List(items) => Value::Array(
+                items
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<toml_edit::Array>(),
+            ),
+        };
+        set(target, key, value);
+    }
+    write_atomic(&path, &doc.to_string(), mode.unwrap_or(0o644))
+}
+
 /// Écrit la clé dans `<config_dir>/credentials.toml`, lisible par vous seul (600).
 pub fn write_api_key(config_dir: &Path, key: &ApiKey) -> Result<(), ConfigError> {
     let path = config_dir.join("credentials.toml");
@@ -547,5 +580,38 @@ monthly_cap_usd = 10.0 # dollars
         );
         assert_eq!(ApiKey::new("sk-or-nouvelle-a3f9").hint(), "a3f9");
         assert_eq!(ApiKey::new("ab").hint(), "ab");
+    }
+
+    #[test]
+    fn ecrit_des_valeurs_en_gardant_les_commentaires() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "# mes réglages\n[llm]\nfast = \"x\" # rapide\n\n[project_review]\n# rythme\ncalm_secs = 180 # trois minutes\n",
+        )
+        .unwrap();
+        write_values(
+            dir.path(),
+            &[
+                ("project_review", "calm_secs", ConfigValue::Int(60)),
+                ("project_review", "enabled", ConfigValue::Bool(false)),
+                (
+                    "project_review",
+                    "triggers",
+                    ConfigValue::List(vec!["change".to_owned()]),
+                ),
+                ("context", "map_cap", ConfigValue::Int(6000)),
+            ],
+        )
+        .unwrap();
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(text.contains("# mes réglages"));
+        assert!(text.contains("fast = \"x\" # rapide"));
+        assert!(text.contains("# rythme"));
+        assert!(text.contains("calm_secs = 60 # trois minutes"), "{text}");
+        assert!(text.contains("enabled = false"));
+        assert!(text.contains("triggers = [\"change\"]"));
+        assert!(text.contains("[context]\nmap_cap = 6000"));
     }
 }

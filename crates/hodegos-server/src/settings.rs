@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use hodegos_llm::{
-    ApiKey, BudgetConfig, Effort, LlmConfig, ModelInfo, Settings, check_key, fetch_models,
-    write_api_key, write_settings,
+    ApiKey, BudgetConfig, ConfigValue, Effort, LlmConfig, ModelInfo, Settings, check_key,
+    fetch_models, write_api_key, write_settings, write_values,
 };
 use hodegos_mentors::{MentorSources, ModelTier, Registry};
 use jiff::Timestamp;
@@ -22,10 +22,11 @@ use crate::eval::report::{Verdict, markdown, summarize};
 use crate::eval::run::{CaseResult, Models, Spend, first_prompt};
 use crate::eval::{Step, evaluate, report_path, slug};
 use crate::protocol::{
-    BudgetInfo, BudgetSettings, ErrorCode, EstimateBasis, EvalOrigin, EvalResult, KeySource,
-    LevelEvals, LevelSetting, ServerMessage, SettingsInfo, Tier,
+    AutoSpend, BudgetInfo, BudgetSettings, ContextSettings, ErrorCode, EstimateBasis, EvalOrigin,
+    EvalResult, KeySource, LevelEvals, LevelSetting, ReviewSettings, ServerMessage, SettingsInfo,
+    Tier,
 };
-use crate::{AppState, Connect, LlmNow, SettingsSource, client_for};
+use crate::{AppState, Connect, ContextOptions, LlmNow, SettingsSource, client_for};
 
 /// Dépense maximale d'une évaluation lancée depuis l'IDE, en dollars.
 pub(crate) const EVAL_MAX_COST: f64 = 3.0;
@@ -270,7 +271,157 @@ pub(crate) fn info(state: &AppState) -> ServerMessage {
             strong: last(Tier::Strong),
         },
         eval_running: state.eval_running.lock().ok().and_then(|r| *r),
+        project_review: {
+            let review = state.review_options();
+            ReviewSettings {
+                enabled: review.enabled,
+                triggers: review.triggers,
+                calm_secs: review.calm.as_secs(),
+                min_interval_secs: review.min_interval.as_secs(),
+                daily_max: review.daily_max,
+            }
+        },
+        context: {
+            let context = state.map.options();
+            ContextSettings {
+                map_cap: context.map_cap,
+                neighborhood_cap: context.neighborhood_cap,
+                key_files_cap: context.key_files_cap,
+            }
+        },
+        auto_spend: {
+            let today = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).date();
+            let (reviews, cost) = state
+                .project_store
+                .auto_spend((today.year(), today.month()));
+            AutoSpend { reviews, cost }
+        },
     }))
+}
+
+/// `project_review_set` : valide, écrit `[project_review]` et `[context]` dans
+/// `config.toml` (commentaires gardés), applique sans redémarrage et prévient toutes les
+/// fenêtres. Un plafond de carte changé recalcule la carte.
+pub(crate) fn set_project_review(
+    state: &Arc<AppState>,
+    review: ReviewSettings,
+    context: ContextSettings,
+) -> Result<ServerMessage, Refused> {
+    use crate::project_map::{KEY_FILES_CAPS, NEIGHBORHOOD_CAPS};
+    use crate::scheduler::{MAX_CALM_SECS, MAX_DAILY, MAX_INTERVAL_SECS};
+    use hodegos_core::map::{MAX_MAP_CAP, MIN_MAP_CAP};
+
+    let Some(source) = &state.settings else {
+        return Err(refused(
+            ErrorCode::InvalidSettings,
+            "réglages en lecture seule",
+        ));
+    };
+    let invalid = |message: String| refused(ErrorCode::InvalidSettings, message);
+    if review.calm_secs > MAX_CALM_SECS {
+        return Err(invalid(format!(
+            "calme : {} minutes au plus",
+            MAX_CALM_SECS / 60
+        )));
+    }
+    if review.min_interval_secs > MAX_INTERVAL_SECS {
+        return Err(invalid(format!(
+            "intervalle : {} minutes au plus",
+            MAX_INTERVAL_SECS / 60
+        )));
+    }
+    if review.daily_max > MAX_DAILY {
+        return Err(invalid(format!("revues par jour : {MAX_DAILY} au plus")));
+    }
+    if !(MIN_MAP_CAP..=MAX_MAP_CAP).contains(&context.map_cap) {
+        return Err(invalid(format!(
+            "plafond de la carte : de {MIN_MAP_CAP} à {MAX_MAP_CAP} jetons"
+        )));
+    }
+    if !NEIGHBORHOOD_CAPS.contains(&context.neighborhood_cap) {
+        return Err(invalid(format!(
+            "plafond du voisinage : de {} à {} jetons",
+            NEIGHBORHOOD_CAPS.start(),
+            NEIGHBORHOOD_CAPS.end()
+        )));
+    }
+    if !KEY_FILES_CAPS.contains(&context.key_files_cap) {
+        return Err(invalid(format!(
+            "fichiers clés : de {} à {} jetons",
+            KEY_FILES_CAPS.start(),
+            KEY_FILES_CAPS.end()
+        )));
+    }
+    let mut triggers = review.triggers.clone();
+    triggers.sort();
+    triggers.dedup();
+    let int = |value: u64| ConfigValue::Int(i64::try_from(value).unwrap_or(i64::MAX));
+    write_values(
+        &source.config_dir,
+        &[
+            (
+                "project_review",
+                "enabled",
+                ConfigValue::Bool(review.enabled),
+            ),
+            (
+                "project_review",
+                "triggers",
+                ConfigValue::List(triggers.iter().map(|t| t.as_str().to_owned()).collect()),
+            ),
+            ("project_review", "calm_secs", int(review.calm_secs)),
+            (
+                "project_review",
+                "min_interval_secs",
+                int(review.min_interval_secs),
+            ),
+            (
+                "project_review",
+                "daily_max",
+                int(u64::from(review.daily_max)),
+            ),
+            ("context", "map_cap", int(context.map_cap as u64)),
+            (
+                "context",
+                "neighborhood_cap",
+                int(context.neighborhood_cap as u64),
+            ),
+            (
+                "context",
+                "key_files_cap",
+                int(context.key_files_cap as u64),
+            ),
+        ],
+    )
+    .map_err(|e| refused(ErrorCode::Internal, e.to_string()))?;
+
+    if let Ok(mut options) = state.review_options.write() {
+        options.enabled = review.enabled;
+        options.triggers = triggers;
+        options.calm = std::time::Duration::from_secs(review.calm_secs);
+        options.min_interval = std::time::Duration::from_secs(review.min_interval_secs);
+        options.daily_max = review.daily_max;
+    }
+    let before = state.map.options();
+    state.map.set_options(ContextOptions {
+        map_cap: context.map_cap,
+        neighborhood_cap: context.neighborhood_cap,
+        key_files_cap: context.key_files_cap,
+    });
+    tracing::info!("réglages des revues du projet enregistrés");
+    if before.map_cap != context.map_cap {
+        let worker = state.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Some(message) =
+                crate::project_map::recompute(&worker, None, crate::protocol::MapReason::Settings)
+            {
+                let _ = worker.events.send(message);
+            }
+        });
+    }
+    let message = info(state);
+    let _ = state.events.send(message.clone());
+    Ok(message)
 }
 
 /// Diffuse les réglages et l'état à toutes les connexions.

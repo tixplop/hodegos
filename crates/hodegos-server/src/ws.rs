@@ -621,6 +621,13 @@ impl Connection {
                 });
                 Ok(Vec::new())
             }
+            ClientMessage::ProjectReviewSet {
+                project_review,
+                context,
+            } => Ok(vec![settings_reply(
+                re,
+                settings::set_project_review(&self.state, project_review, context),
+            )]),
             ClientMessage::ProjectRemarksGet => {
                 Ok(vec![Outgoing::reply(re, review::remarks(&self.state))])
             }

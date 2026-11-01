@@ -13,6 +13,11 @@ use hodegos_mentors::{Mode, ReviewTrigger};
 use jiff::{SignedDuration, Timestamp};
 use serde::Deserialize;
 
+/// Bornes des réglages : calme et intervalle en secondes, revues par jour.
+pub(crate) const MAX_CALM_SECS: u64 = 3600;
+pub(crate) const MAX_INTERVAL_SECS: u64 = 86_400;
+pub(crate) const MAX_DAILY: u32 = 200;
+
 /// Réglages des revues automatiques (`[project_review]` de `config.toml`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewOptions {
@@ -98,21 +103,21 @@ pub fn load_review_options(config_dir: &Path) -> (ReviewOptions, Option<String>)
         options.triggers = triggers;
     }
     match raw.calm_secs {
-        Some(secs) if secs <= 3600 => options.calm = Duration::from_secs(secs),
+        Some(secs) if secs <= MAX_CALM_SECS => options.calm = Duration::from_secs(secs),
         Some(secs) => warnings.push(format!(
             "[project_review] calm_secs = {secs} : 3600 au plus"
         )),
         None => {}
     }
     match raw.min_interval_secs {
-        Some(secs) if secs <= 86_400 => options.min_interval = Duration::from_secs(secs),
+        Some(secs) if secs <= MAX_INTERVAL_SECS => options.min_interval = Duration::from_secs(secs),
         Some(secs) => warnings.push(format!(
             "[project_review] min_interval_secs = {secs} : 86400 au plus"
         )),
         None => {}
     }
     match raw.daily_max {
-        Some(max) if max <= 200 => options.daily_max = max,
+        Some(max) if max <= MAX_DAILY => options.daily_max = max,
         Some(max) => warnings.push(format!("[project_review] daily_max = {max} : 200 au plus")),
         None => {}
     }

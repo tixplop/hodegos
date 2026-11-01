@@ -228,6 +228,7 @@ fn tick(state: &Arc<AppState>) {
             .find(|m| m.id == id)
             .is_some_and(|m| m.mode == Mode::StrongSignal && keyword_hit(state, m))
     };
+    let options = state.review_options();
     let (due, calm) = {
         let Ok(mut scheduler) = state.auto.scheduler.lock() else {
             return;
@@ -235,7 +236,7 @@ fn tick(state: &Arc<AppState>) {
         let due = scheduler.due(
             &candidates,
             &Context {
-                options: &state.review_options,
+                options: &options,
                 budget_ok,
                 running: &running,
                 last_review: &last_review,
@@ -247,7 +248,7 @@ fn tick(state: &Arc<AppState>) {
         for (id, _) in &due {
             scheduler.clear(id);
         }
-        (due, scheduler.calm(&state.review_options, now))
+        (due, scheduler.calm(&options, now))
     };
     for (id, trigger) in due {
         let state = state.clone();
@@ -368,7 +369,7 @@ pub(crate) async fn run(state: Arc<AppState>) {
         push_status(&first, false);
     })
     .await;
-    let mut interval = tokio::time::interval(state.review_options.tick);
+    let mut interval = tokio::time::interval(state.review_options().tick);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
