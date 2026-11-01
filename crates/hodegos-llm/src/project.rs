@@ -161,9 +161,34 @@ fn rejection(draft: &mut ProjectRemarkDraft, rules: &ProjectRules<'_>) -> Option
         return Some(reason);
     }
     let asked = draft.quotes.len();
+    let mut sections = filter_quotes(&mut draft.quotes, rules);
+    match draft.about {
+        About::Passage if draft.quotes.len() != 1 || asked != 1 => {
+            return Some("remarque sur un passage sans sa citation unique");
+        }
+        _ => {}
+    }
+    sections.truncate(MAX_PROJECT_QUOTES);
+    if rules.level == RemarkLevel::Exemple && draft.quotes.is_empty() {
+        return Some("garde « pas de solution » : exemple sans section citée");
+    }
+    // Garde sur toutes les sections citées : identifiants et fragments de chacune.
+    let cited = sections.join("\n");
+    solution_guard(
+        &draft.message,
+        &Rules {
+            section_text: &cited,
+            level: rules.level,
+            max_remarks: 1,
+        },
+    )
+}
+
+/// Garde les citations valides (3 au plus) et renvoie la section de chacune.
+fn filter_quotes(quotes: &mut Vec<QuoteDraft>, rules: &ProjectRules<'_>) -> Vec<String> {
     let mut seen: Vec<String> = Vec::new();
     let mut sections: Vec<String> = Vec::new();
-    draft.quotes.retain(|q| {
+    quotes.retain(|q| {
         if !QUOTE_CHARS.contains(&q.quote.chars().count()) || seen.contains(&q.path) {
             return false;
         }
@@ -179,27 +204,116 @@ fn rejection(draft: &mut ProjectRemarkDraft, rules: &ProjectRules<'_>) -> Option
         sections.push(section);
         true
     });
-    match draft.about {
-        About::Passage if draft.quotes.len() != 1 || asked != 1 => {
-            return Some("remarque sur un passage sans sa citation unique");
-        }
-        _ => {}
-    }
-    draft.quotes.truncate(MAX_PROJECT_QUOTES);
-    sections.truncate(MAX_PROJECT_QUOTES);
-    if rules.level == RemarkLevel::Exemple && draft.quotes.is_empty() {
-        return Some("garde « pas de solution » : exemple sans section citée");
-    }
-    // Garde sur toutes les sections citées : identifiants et fragments de chacune.
-    let cited = sections.join("\n");
-    solution_guard(
-        &draft.message,
-        &Rules {
-            section_text: &cited,
-            level: rules.level,
-            max_remarks: 1,
+    quotes.truncate(MAX_PROJECT_QUOTES);
+    sections
+}
+
+/* ---------- Réévaluation (phase 9d) ---------- */
+
+/// Verdict du mentor sur une remarque de projet dont un passage a disparu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Verdict {
+    Keep,
+    Withdraw,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReevaluationDraft {
+    pub verdict: Verdict,
+    /// Nouvelles citations, pour `keep`.
+    pub quotes: Vec<QuoteDraft>,
+    /// Pourquoi la remarque est levée, pour `withdraw`.
+    pub reason: String,
+}
+
+/// Raison d'une levée, en caractères.
+pub const MAX_REASON_CHARS: usize = 200;
+
+/// Verdict validé.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Reevaluated {
+    /// La remarque reste, avec ses citations valides (0 à 3).
+    Keep(Vec<QuoteDraft>),
+    /// La remarque est levée ; la raison s'ajoute au fil.
+    Withdraw(String),
+}
+
+pub fn reevaluation_schema() -> serde_json::Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "verdict": { "type": "string", "enum": ["keep", "withdraw"] },
+            "quotes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string" },
+                        "quote": { "type": "string" }
+                    },
+                    "required": ["path", "quote"],
+                    "additionalProperties": false
+                }
+            },
+            "reason": { "type": "string" }
         },
-    )
+        "required": ["verdict", "quotes", "reason"],
+        "additionalProperties": false
+    })
+}
+
+pub fn parse_reevaluation(content: &str) -> Result<ReevaluationDraft, String> {
+    let trimmed = content.trim();
+    let json = trimmed
+        .strip_prefix("```json")
+        .or_else(|| trimmed.strip_prefix("```"))
+        .and_then(|rest| rest.strip_suffix("```"))
+        .unwrap_or(trimmed);
+    serde_json::from_str(json).map_err(|e| format!("JSON invalide ou non conforme au schéma : {e}"))
+}
+
+/// `keep` : citations validées comme celles d'une revue. `withdraw` : raison de 1 à
+/// 200 caractères, sans code (garde « pas de solution »).
+pub fn validate_reevaluation(
+    mut draft: ReevaluationDraft,
+    rules: &ProjectRules<'_>,
+) -> Result<Reevaluated, &'static str> {
+    match draft.verdict {
+        Verdict::Keep => {
+            filter_quotes(&mut draft.quotes, rules);
+            Ok(Reevaluated::Keep(draft.quotes))
+        }
+        Verdict::Withdraw => {
+            let reason = draft.reason.trim();
+            if reason.is_empty() || reason.chars().count() > MAX_REASON_CHARS {
+                return Err("raison vide ou trop longue");
+            }
+            if let Some(refusal) = solution_guard(
+                reason,
+                &Rules {
+                    section_text: "",
+                    level: RemarkLevel::Indice,
+                    max_remarks: 1,
+                },
+            ) {
+                return Err(refusal);
+            }
+            Ok(Reevaluated::Withdraw(reason.to_owned()))
+        }
+    }
+}
+
+/// Demande un verdict au modèle (une relance sur une réponse illisible) ; renvoie le
+/// verdict validé, ou pourquoi il est écarté, et le coût.
+pub async fn ask_for_reevaluation(
+    client: &dyn LlmClient,
+    request: LlmRequest,
+    rules: &ProjectRules<'_>,
+) -> Result<(Result<Reevaluated, &'static str>, f64), AskError> {
+    let (draft, cost_usd, _) = ask_parsed(client, request, parse_reevaluation).await?;
+    Ok((validate_reevaluation(draft, rules), cost_usd))
 }
 
 /// Remarques validées d'une revue, et ce qu'elle a coûté.
@@ -432,5 +546,59 @@ mod tests {
         .unwrap();
         assert_eq!(parsed[0].about, About::Project);
         assert!(parse_project_remarks(r#"{"remarks":[{"about":"tout","quotes":[],"level":"indice","kind":"question","message":"m","confidence":0.9}]}"#).is_err());
+    }
+
+    #[test]
+    fn verdicts_de_reevaluation() {
+        let (sent, level) = rules(RemarkLevel::Indice);
+        let rules = ProjectRules {
+            level,
+            max_remarks: 3,
+            sent: &sent,
+            map: "",
+            locate: &locate,
+        };
+        let keep = validate_reevaluation(
+            ReevaluationDraft {
+                verdict: Verdict::Keep,
+                quotes: vec![
+                    quote("src/annuler.ts", "JSON.parse"),
+                    quote("src/annuler.ts", "inventé"),
+                ],
+                reason: String::new(),
+            },
+            &rules,
+        );
+        assert_eq!(
+            keep,
+            Ok(Reevaluated::Keep(vec![quote(
+                "src/annuler.ts",
+                "JSON.parse"
+            )]))
+        );
+        let withdraw = |reason: &str| {
+            validate_reevaluation(
+                ReevaluationDraft {
+                    verdict: Verdict::Withdraw,
+                    quotes: vec![],
+                    reason: reason.to_owned(),
+                },
+                &rules,
+            )
+        };
+        assert_eq!(
+            withdraw("Le second fichier n'écrit plus dans les données."),
+            Ok(Reevaluated::Withdraw(
+                "Le second fichier n'écrit plus dans les données.".to_owned()
+            ))
+        );
+        assert!(withdraw("").is_err());
+        assert!(withdraw(&"x".repeat(201)).is_err());
+        assert!(withdraw("Faites :\n```ts\nconst a = 1;\nconst b = 2;\n```").is_err());
+        assert!(parse_reevaluation(r#"{"verdict":"peut-être","quotes":[],"reason":""}"#).is_err());
+        assert_eq!(
+            reevaluation_schema()["required"],
+            json!(["verdict", "quotes", "reason"])
+        );
     }
 }

@@ -34,6 +34,17 @@ Remarque sur le projet (blocs <carte_du_projet> et <fichiers_cites>) :
 - Les fichiers cités par la remarque sont reçus pour que vous la suiviez ; vous
   n'écrivez dans aucun d'eux.";
 
+/// Complément d'une réévaluation (phase 9d).
+const REEVALUATION_FRAME: &str = "\
+Réévaluation d'une remarque sur le projet (blocs <carte_du_projet>,
+<fichiers_cles>, <fichiers_cites> et <remarque>) :
+- Un passage que citait votre remarque a disparu. Relisez-la à l'échelle du projet.
+- verdict keep si elle reste vraie : quotes = 0 à 3 nouvelles citations, chacune
+  dans un fichier différent, copiées mot pour mot des textes reçus ; reason vide.
+- verdict withdraw si elle ne tient plus : reason = pourquoi, 200 caractères au
+  plus, sans code ; quotes vide.
+- Votre message et son palier ne changent pas ; vous n'écrivez rien d'autre.";
+
 /// Fichier reçu en entier, ou réduit à ses signatures ou à ses titres.
 #[derive(Debug, Clone)]
 pub struct FileText<'a> {
@@ -79,6 +90,45 @@ pub struct ProjectFollowUpInput<'a> {
     pub map: &'a str,
     pub cited: Vec<FileText<'a>>,
     pub follow_up: &'a FollowUp<'a>,
+}
+
+/// Ce que reçoit un mentor pour réévaluer une remarque de projet.
+#[derive(Debug, Clone)]
+pub struct ReevaluationInput<'a> {
+    pub mentor: &'a Mentor,
+    pub level: Level,
+    pub map: &'a str,
+    pub key_files: Vec<FileText<'a>>,
+    /// Sections encore citées.
+    pub cited: Vec<FileText<'a>>,
+    /// Passages disparus : (chemin, citation).
+    pub gone: Vec<(&'a str, &'a str)>,
+    pub follow_up: &'a FollowUp<'a>,
+}
+
+/// Prompt d'une réévaluation.
+pub fn reevaluation_prompt(input: &ReevaluationInput<'_>) -> Prompt {
+    let system = format!(
+        "{}\n\n{REEVALUATION_FRAME}\n\n{}",
+        frame(input.mentor, input.level),
+        posture(input.mentor, "", "projet")
+    );
+    let mut gone = String::from("<passages_disparus>\n");
+    for (path, quote) in &input.gone {
+        gone.push_str(&format!(
+            "<citation chemin=\"{path}\">{}</citation>\n",
+            escape(quote)
+        ));
+    }
+    gone.push_str("</passages_disparus>\n");
+    let user = format!(
+        "<carte_du_projet>\n{}\n</carte_du_projet>\n{}{}<remarque>\n{gone}{}</remarque>\nRéévaluez cette remarque.",
+        input.map.trim_end(),
+        files_block("fichiers_cles", &input.key_files),
+        files_block("fichiers_cites", &input.cited),
+        thread_block(input.follow_up),
+    );
+    Prompt { system, user }
 }
 
 fn frame(mentor: &Mentor, level: Level) -> String {
@@ -280,5 +330,35 @@ mod tests {
         );
         assert!(prompt.user.contains("<fil>"));
         assert!(prompt.user.ends_with("Palier demandé : question."));
+    }
+
+    #[test]
+    fn reevaluation_avec_passages_disparus() {
+        let mentor = mentor();
+        let follow_up = FollowUp {
+            kind: FollowUpKind::Reply,
+            quote: "writeFileSync(",
+            levels_given: vec![Level::Indice],
+            entries: vec![(Author::Mentor, "Comptez."), (Author::Person, "Deux.")],
+        };
+        let prompt = reevaluation_prompt(&ReevaluationInput {
+            mentor: &mentor,
+            level: Level::Indice,
+            map: "# carte",
+            key_files: vec![],
+            cited: vec![],
+            gone: vec![("src/email.ts", "writeFileSync(")],
+            follow_up: &follow_up,
+        });
+        assert!(prompt.system.contains("Vous ne donnez jamais la solution"));
+        assert!(prompt.system.contains("verdict keep"));
+        assert!(prompt.user.contains(
+            "<passages_disparus>\n<citation chemin=\"src/email.ts\">writeFileSync(</citation>"
+        ));
+        assert!(
+            prompt
+                .user
+                .contains("<message auteur=\"personne\">Deux.</message>")
+        );
     }
 }

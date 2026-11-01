@@ -24,9 +24,10 @@ pub use config::{
 pub use fake::FakeLlmClient;
 pub use openrouter::{ModelInfo, OpenRouterClient, check_key, fetch_models};
 pub use project::{
-    About, AskedProject, MAX_PROJECT_QUOTES, ProjectRemarkDraft, ProjectRules, ProjectValidated,
-    QuoteDraft, ask_for_project_remarks, parse_project_remarks, project_remarks_schema,
-    validate_project,
+    About, AskedProject, MAX_PROJECT_QUOTES, MAX_REASON_CHARS, ProjectRemarkDraft, ProjectRules,
+    ProjectValidated, QuoteDraft, Reevaluated, ReevaluationDraft, Verdict, ask_for_project_remarks,
+    ask_for_reevaluation, parse_project_remarks, parse_reevaluation, project_remarks_schema,
+    reevaluation_schema, validate_project, validate_reevaluation,
 };
 pub use validate::{
     MAX_SEE_ALSO, MIN_CONFIDENCE, RemarkDraft, RemarkKind, RemarkLevel, ReplyDraft, Rules,

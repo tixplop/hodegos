@@ -21,8 +21,8 @@ pub use mentor::{
     minimal_override, parse, read_form, render, validate,
 };
 pub use project_prompt::{
-    FileDiff, FileText, OpenRemark, ProjectFollowUpInput, ReviewInput, project_follow_up_prompt,
-    review_prompt,
+    FileDiff, FileText, OpenRemark, ProjectFollowUpInput, ReevaluationInput, ReviewInput,
+    project_follow_up_prompt, reevaluation_prompt, review_prompt,
 };
 pub use prompt::{
     Author, Extra, FollowUp, FollowUpKind, NeighborText, Prompt, PromptInput, build_prompt,
