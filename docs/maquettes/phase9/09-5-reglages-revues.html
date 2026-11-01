@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — revues du projet</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Réglages</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Revues du projet</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Projet</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+<div class="hd-columns" style="flex-wrap: nowrap;">
+<nav class="hd-sidebar" aria-label="Réglages" style="max-width: 240px; flex: 0 0 240px;">
+<div class="hd-nav"><div class="hd-nav__group">
+<span class="hd-nav__label">Réglages personnels</span>
+<a class="hd-nav__item" href="#">Modèles et effort</a>
+<a class="hd-nav__item" href="#">Clé d'API</a>
+<a class="hd-nav__item" href="#">Budget</a>
+<a class="hd-nav__item" href="#" aria-current="page">Revues du projet</a>
+<a class="hd-nav__item" href="#">Mentors <span class="hd-nav__meta">4</span></a>
+</div></div>
+</nav>
+<main class="hd-main" style="padding: 28px 40px; gap: 20px; max-width: 920px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h1 style="margin: 0; font-size: 26px; line-height: 32px; font-weight: 700;">Revues du projet</h1>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: var(--ink-muted);">Quand les mentors de projet relisent l'ensemble sans que vous le demandiez. Ces réglages valent pour tous vos projets ; chaque mentor peut ensuite renoncer à un déclencheur (Réglages · Mentors).</p>
+</div>
+<section class="hd-card" style="padding: 18px 20px; gap: 14px;">
+<div class="hd-card__head" style="font-size: 14px;"><strong style="font-size: 16px;">Déclencheurs</strong><label class="hd-row hd-card__end" style="gap: 6px; font-size: 13px;"><input type="checkbox" checked> Revues automatiques</label></div>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px;"><input type="checkbox" checked style="margin-top: 3px;"><span><strong style="font-weight: 600;">À la création du projet</strong><br><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Après hodegos new : une première lecture de la vision et de ce qui existe.</span></span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px;"><input type="checkbox" checked style="margin-top: 3px;"><span><strong style="font-weight: 600;">À l'ouverture du projet</strong><br><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Seulement si des fichiers ont changé depuis la dernière revue (commit, autre éditeur, terminal).</span></span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px;"><input type="checkbox" checked style="margin-top: 3px;"><span><strong style="font-weight: 600;">Après des modifications</strong><br><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">La carte est recalculée à chaque enregistrement ; la revue part quand l'édition est au calme.</span></span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px;"><input type="checkbox" style="margin-top: 3px;"><span><strong style="font-weight: 600;">Après un commit</strong><br><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">En plus des modifications : utile si vous commitez souvent depuis le terminal.</span></span></label>
+</section>
+<section class="hd-card" style="padding: 18px 20px; gap: 14px;">
+<div class="hd-card__head" style="font-size: 14px;"><strong style="font-size: 16px;">Rythme et coût</strong></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="calme">Calme après la dernière modification</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="calme" type="text" value="3" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">minutes</span></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="intervalle">Intervalle minimal entre deux revues</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="intervalle" type="text" value="20" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">minutes</span></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="parjour">Revues automatiques par jour</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="parjour" type="text" value="12" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">au plus</span></div><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">par mentor ; au-delà, à la demande seulement</span></div>
+</div>
+<div class="hd-callout">
+<div class="hd-callout__title">Budget</div>
+<p style="margin: 0; font-size: 13px; line-height: 19px;">Les revues automatiques comptent dans le budget mensuel. Au seuil d'avertissement, elles continuent et la barre d'état le signale ; au plafond, elles s'arrêtent (les revues demandées restent possibles, avec confirmation). Ce mois-ci : 31 revues automatiques, 0,84 $.</p>
+</div>
+</section>
+<section class="hd-card" style="padding: 18px 20px; gap: 12px;">
+<div class="hd-card__head" style="font-size: 14px;"><strong style="font-size: 16px;">Connaissance du projet</strong></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="carte">Plafond de la carte</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="carte" type="text" value="8 000" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">jetons</span></div><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">par défaut, pour chaque projet</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="voisinage">Plafond du voisinage</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="voisinage" type="text" value="3 000" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">jetons</span></div><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">par passe de section</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="cles">Fichiers clés envoyés en entier</label><div class="hd-row" style="gap: 6px; flex-wrap: nowrap;"><input class="hd-input" id="cles" type="text" value="12 000" style="width: 110px;"><span style="font-size: 13px; color: var(--ink-muted);">jetons</span></div><span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">par revue, au-delà : raccourcis</span></div>
+</div>
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Blocs et exclusions d'un projet : vue Projet · Carte du projet. Jetons estimés à 4 caractères par jeton.</p>
+</section>
+<div class="hd-row" style="justify-content: flex-end;">
+<button class="hd-btn hd-btn--secondary" type="button">Annuler les changements</button>
+<button class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
+</div>
+</main>
+</div>
+<footer class="hd-statusbar">
+<span>Réglages · Revues du projet</span>
+<span class="hd-statusbar__end hd-row">
+<span>Budget : 2,31 $ sur 10 $</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+</div>
+</body>
+</html>

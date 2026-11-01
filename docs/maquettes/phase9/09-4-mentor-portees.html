@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — portées d'un mentor</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Réglages</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span>Mentors</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Projet</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+<div class="hd-columns" style="flex-wrap: nowrap;">
+<nav class="hd-sidebar" aria-label="Réglages" style="max-width: 200px; flex: 0 0 200px;">
+<div class="hd-nav"><div class="hd-nav__group">
+<span class="hd-nav__label">Réglages personnels</span>
+<a class="hd-nav__item" href="#">Modèles et effort</a>
+<a class="hd-nav__item" href="#">Clé d'API</a>
+<a class="hd-nav__item" href="#">Budget</a>
+<a class="hd-nav__item" href="#">Revues du projet</a>
+<a class="hd-nav__item" href="#" aria-current="page">Mentors <span class="hd-nav__meta">4</span></a>
+</div></div>
+</nav>
+<section aria-label="Liste des mentors" style="flex: 0 0 300px; padding: 20px 16px; border-right: 1px solid var(--border); background: var(--surface-0); display: flex; flex-direction: column; gap: 10px;">
+<div class="hd-row" style="justify-content: space-between;"><h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Mentors</h2><button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Nouveau mentor</button></div>
+<article class="hd-card" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">ML</span><strong>Mentor du langage</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<div class="hd-row" style="gap: 4px;"><span class="hd-badge">Section</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Livré · rapide · contexte voisinage</span>
+</article>
+<article class="hd-card hd-card--active" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">AR</span><strong>Architecte</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<div class="hd-row" style="gap: 4px;"><span class="hd-badge">Section</span><span class="hd-badge">Projet</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Personnel, remplace le livré · fort</span>
+</article>
+<article class="hd-card" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">PR</span><strong>Mentor produit</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<div class="hd-row" style="gap: 4px;"><span class="hd-badge">Section</span><span class="hd-badge">Projet</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Livré · fort · à l'ouverture</span>
+</article>
+<article class="hd-card" style="padding: 10px 12px;">
+<div class="hd-row" style="gap: 8px;"><span class="hd-avatar hd-avatar--mentor hd-avatar--sm" aria-hidden="true">TE</span><strong>Testeur</strong><span class="hd-badge hd-badge--success" style="margin-left: auto;">Actif</span></div>
+<div class="hd-row" style="gap: 4px;"><span class="hd-badge">Projet</span></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Livré · rapide</span>
+</article>
+<p style="margin: 8px 0 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Un mentor couvre une portée ou les deux : il relit les sections qui le concernent, le projet, ou les deux.</p>
+</section>
+<main class="hd-main" style="padding: 20px 28px; gap: 14px;">
+<div class="hd-row" style="align-items: flex-start;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h1 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 700;">Architecte</h1>
+<span style="font-size: 13px; color: var(--ink-muted);"><span class="hd-mono">~/.config/hodegos/mentors/architecte.md</span> · remplace le mentor livré</span>
+</div>
+<div class="hd-row" style="margin-left: auto;"><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Dupliquer</button><button class="hd-btn hd-btn--secondary hd-btn--sm" type="button">Revenir au mentor livré</button></div>
+</div>
+<div class="hd-row" role="group" aria-label="Portées" style="gap: 20px;"><span class="hd-label">Portées</span><label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox" checked> Section</label><label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox" checked> Projet</label><span style="font-size: 12px; color: var(--ink-muted);">Niveau de modèle : <strong>Fort</strong> · palier d'entrée : <strong>Indice</strong></span></div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
+<fieldset style="margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px;">
+<legend style="padding: 0 6px; font-size: 13px; font-weight: 600;">Comme mentor de section</legend>
+<div style="display: flex; flex-direction: column; gap: 4px;"><span class="hd-label" id="l-ctx">Contexte envoyé</span><div class="hd-row" role="group" aria-labelledby="l-ctx" style="gap: 4px; flex-wrap: nowrap;"><button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Section</button><button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="false">Voisinage</button><button class="hd-btn hd-btn--choice hd-btn--sm" type="button" aria-pressed="true">Projet</button></div></div>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Projet = la section, son voisinage et la carte du projet.</span>
+<div class="hd-row"><span class="hd-label" style="width: 70px;">Chemins</span><span class="hd-id">docs/architecture/**</span><span class="hd-id">**/adr/*.md</span></div>
+<div class="hd-row"><span class="hd-label" style="width: 70px;">Titres</span><span class="hd-id">Contexte</span><span class="hd-id">Décision</span><span class="hd-id">Conséquences</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-max">Remarques par passe</label><select class="hd-input" id="m-max"><option>1</option><option selected>2</option></select></div>
+</fieldset>
+<fieldset style="margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px;">
+<legend style="padding: 0 6px; font-size: 13px; font-weight: 600;">Comme mentor de projet</legend>
+<span class="hd-label">Revues automatiques</span>
+<label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox" checked> À la création du projet</label>
+<label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox" checked> À l'ouverture, si des fichiers ont changé depuis la dernière revue</label>
+<label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox" checked> Après des modifications, une fois l'édition au calme</label>
+<label class="hd-row" style="gap: 8px; font-size: 13px; flex-wrap: nowrap;"><input type="checkbox"> Après un commit</label>
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Délai, fréquence et plafond : Réglages · Revues du projet.</span>
+<div class="hd-row"><span class="hd-label" style="width: 90px;">Fichiers clés</span><span class="hd-id">docs/architecture/**</span><span class="hd-id">docs/vision.md</span><button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ajouter</button></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><label class="hd-label" for="m-maxp">Remarques par revue</label><select class="hd-input" id="m-maxp"><option>1</option><option>2</option><option selected>3</option></select></div>
+</fieldset>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<label class="hd-label" for="m-posture">Posture (commune aux deux portées ; <span class="hd-mono">{scope}</span> vaut « section » ou « projet »)</label>
+<textarea id="m-posture" rows="7" style="font-family: var(--font-mono); font-size: 13px; line-height: 20px; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--surface-0); color: var(--ink); resize: vertical;">Vous accompagnez une personne qui décide de l'architecture de son projet.
+Sur une section : cohérence entre contexte et décision, alternatives,
+conséquences. Sur le projet : écarts entre ce qui est décidé et ce qui
+est fait — décision contournée, deux modules qui font la même chose de
+deux façons, dépendance que l'architecture n'annonce pas.
+Faites constater l'écart ; ne dites jamais quoi corriger ni comment.</textarea>
+</div>
+<div class="hd-row" style="justify-content: flex-end;">
+<span style="font-size: 12px; color: var(--ink-muted); margin-right: auto;">Le cadre commun (règles absolues, paliers, format JSON) reste hors d'atteinte, pour les deux portées.</span>
+<button class="hd-btn hd-btn--secondary" type="button">Annuler</button>
+<button class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
+</div>
+</main>
+</div>
+<footer class="hd-statusbar">
+<span>Réglages · Mentors</span>
+<span>3 mentors de projet actifs</span>
+<span class="hd-statusbar__end hd-row">
+<span>Budget : 2,31 $ sur 10 $</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+</div>
+</body>
+</html>

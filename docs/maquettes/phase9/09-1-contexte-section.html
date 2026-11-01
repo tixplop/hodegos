@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hodegos — remarque avec le contexte du projet</title>
+<link rel="stylesheet" href="../../../ui/styles/tokens.css">
+<link rel="stylesheet" href="../../../ui/styles/components.css">
+<script src="../../../ui/js/hodegos.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1e3f9e}
+</style>
+</head>
+<body>
+<div class="hd-app" data-theme="light" style="width: 100%; min-height: 900px; display: flex; flex-direction: column; font-family: var(--font-sans); color: var(--ink); background: var(--surface-50);">
+<header class="hd-header">
+<span class="hd-logo" aria-hidden="true"><svg class="hd-logo__mark" width="28" height="28" viewBox="0 0 28 28"><rect class="hd-logo__tile" width="28" height="28" rx="7"></rect><path class="hd-logo__trail" d="M8.5 20.5C8.5 13.5 19.5 15 19.5 8.5"></path><circle class="hd-logo__start" cx="8.5" cy="20.5" r="2.5"></circle><circle class="hd-logo__end" cx="19.5" cy="8.5" r="3.5"></circle></svg></span>
+<span class="hd-wordmark">hodegos</span>
+<span class="hd-muted" aria-hidden="true">/</span>
+<span class="hd-mono" style="font-size: 13px;">src/emprunts/annuler.ts</span>
+<div class="hd-row" style="margin-left: auto;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Projet</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Terminal</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Réglages</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Thème sombre</button>
+</div>
+</header>
+<div class="hd-columns" style="flex-wrap: nowrap;">
+<nav class="hd-sidebar" aria-label="Fichiers du projet" style="max-width: 250px; flex: 0 0 250px; padding: 12px 8px;">
+<div class="hd-nav"><div class="hd-nav__group">
+<span class="hd-nav__label" style="padding: 0 8px 4px;">Fichiers</span>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-family: var(--font-mono); font-size: 13px;">
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 10px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>docs</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>architecture</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">0001-stockage.md</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">AR</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 38px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">vision.md</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">PR</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 10px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>src</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>emprunts</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" aria-current="page" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">annuler.ts</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">ML</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">reserver.ts</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">ML</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">reserver.test.ts</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">ML</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>notifications</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">email.ts</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">ML</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="transform: rotate(90deg); flex: none;"><path d="M9 6l6 6-6 6"></path></svg>stockage</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 52px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">depot.ts</span><span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-nav__meta">ML</span></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">package.json</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+<li><div class="hd-nav__item" style="padding: 3px 8px 3px 24px; line-height: 18px;"><span style="display: inline-flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">README.md</span><span style="display: inline-flex; align-items: center; gap: 6px;"></span></div></li>
+</ul>
+</div></div>
+</nav>
+<main class="hd-main" style="padding: 0; gap: 0;">
+<div class="hd-tabs" role="tablist" aria-label="Fichiers ouverts" style="background: var(--surface-0); padding: 0; height: 32px; align-items: stretch;">
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="true" style="font-size: 13px; padding: 0 12px;">annuler.ts</button>
+<button class="hd-tab hd-mono" type="button" role="tab" aria-selected="false" style="font-size: 13px; padding: 0 12px;">reserver.ts</button>
+</div>
+<div class="hd-editor" style="flex: 1;">
+<div class="hd-editor__line"><span class="hd-editor__num">1</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">import</span> { readFileSync, writeFileSync } <span style="color: var(--syntax-keyword);">from</span> <span style="color: var(--syntax-string);">"node:fs"</span>;</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">2</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">import</span> { <span style="color: var(--syntax-type);">Emprunt</span> } <span style="color: var(--syntax-keyword);">from</span> <span style="color: var(--syntax-string);">"../modele"</span>;</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">3</span><span class="hd-editor__code"></span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">4</span><span class="hd-editor__code"><span style="color: var(--syntax-keyword);">export function</span> <span style="color: var(--syntax-function);">annuler</span>(id: <span style="color: var(--syntax-type);">string</span>, maintenant: <span style="color: var(--syntax-type);">Date</span>) {</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">5</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">const</span> emprunts: <span style="color: var(--syntax-type);">Emprunt</span>[] = JSON.<span style="color: var(--syntax-function);">parse</span>(</span></div>
+<div class="hd-editor__line" style="box-shadow: inset 3px 0 0 var(--accent);"><span class="hd-editor__num">6</span><span class="hd-editor__code">    <span class="hd-anchor"><span style="color: var(--syntax-function);">readFileSync</span>(<span style="color: var(--syntax-string);">"data/emprunts.json"</span>, <span style="color: var(--syntax-string);">"utf8"</span>)</span><span class="hd-marker hd-marker--active">1</span></span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">7</span><span class="hd-editor__code">  );</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">8</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">const</span> cible = emprunts.<span style="color: var(--syntax-function);">find</span>((e) =&gt; e.id === id);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">9</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (!cible) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Emprunt inconnu"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">10</span><span class="hd-editor__code">  <span style="color: var(--syntax-keyword);">if</span> (cible.debut &lt;= maintenant) <span style="color: var(--syntax-keyword);">throw new</span> <span style="color: var(--syntax-type);">Error</span>(<span style="color: var(--syntax-string);">"Déjà commencé"</span>);</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">11</span><span class="hd-editor__code">  <span style="color: var(--syntax-function);">writeFileSync</span>(</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">12</span><span class="hd-editor__code">    <span style="color: var(--syntax-string);">"data/emprunts.json"</span>,</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">13</span><span class="hd-editor__code">    JSON.<span style="color: var(--syntax-function);">stringify</span>(emprunts.<span style="color: var(--syntax-function);">filter</span>((e) =&gt; e.id !== id))</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">14</span><span class="hd-editor__code">  );</span></div>
+<div class="hd-editor__line"><span class="hd-editor__num">15</span><span class="hd-editor__code">}</span></div>
+</div>
+</main>
+
+<aside class="hd-panel" aria-label="Mentors" style="max-width: 440px; flex: 0 0 440px;">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border);">
+<h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600;">Interlocuteurs de cette section</h2>
+<div class="hd-row"><span class="hd-id">fn:annuler</span><span class="hd-muted">annuler</span></div>
+<div class="hd-mentor">
+<span class="hd-avatar hd-avatar--mentor" aria-hidden="true">ML</span>
+<div class="hd-mentor__body">
+<div class="hd-row" style="gap: 6px;"><span class="hd-mentor__name">Mentor du langage</span><span class="hd-badge hd-badge--info">Titulaire</span><span class="hd-badge">Contexte : voisinage</span></div>
+<span class="hd-mentor__why">Langage typescript</span>
+</div>
+</div>
+</div>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+<article class="hd-card hd-card--active">
+<div class="hd-card__head"><span class="hd-marker hd-marker--active" style="vertical-align: baseline; margin: 0;">1</span><span class="hd-msg__author--mentor">Mentor du langage</span><span class="hd-mono hd-muted">l.6</span><span class="hd-badge hd-badge--info hd-card__end">Question</span></div>
+<p class="hd-msg">Dans <span class="hd-mono" style="font-size: 13px;">reserver.ts</span>, les emprunts sont lus par <span class="hd-mono" style="font-size: 13px;">depot.lister()</span>. Ici, vous ouvrez le fichier vous-même. Que dit la décision sur le stockage de cet accès direct ?</p>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 12px; line-height: 16px; color: var(--ink-muted);">Voir aussi</span>
+<div class="hd-row" style="gap: 6px;"><a class="hd-id" href="#" style="text-decoration: none;">docs/architecture/0001-stockage.md <span style="color: var(--ink-muted);">› Décision</span></a><a class="hd-id" href="#" style="text-decoration: none;">src/emprunts/reserver.ts <span style="color: var(--ink-muted);">› l.7</span></a><a class="hd-id" href="#" style="text-decoration: none;">src/stockage/depot.ts <span style="color: var(--ink-muted);">› lister</span></a></div>
+</div>
+<div class="hd-row" style="gap: 4px;">
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Palier suivant</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Répondre</button>
+<button class="hd-btn hd-btn--ghost hd-btn--sm" type="button">Ignorer</button>
+</div>
+</article>
+
+<details open style="border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-0);">
+<summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;">Contexte de cette passe</summary>
+<div style="padding: 0 14px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 19px;">
+<div class="hd-row" style="justify-content: space-between;"><span>Section <span class="hd-mono">fn:annuler</span> et 20 lignes autour</span><span class="hd-muted hd-mono">410 jetons</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<div class="hd-row" style="justify-content: space-between;"><span>Voisinage : 3 fichiers</span><span class="hd-muted hd-mono">1 280 jetons</span></div>
+<ul style="margin: 0; padding-left: 18px; color: var(--ink-muted); font-size: 12px; line-height: 18px;">
+<li><span class="hd-mono">reserver.ts</span> — même dossier, sections résumées en signatures</li>
+<li><span class="hd-mono">stockage/depot.ts</span> — importé par les fichiers voisins</li>
+<li><span class="hd-mono">0001-stockage.md</span> — cite <span class="hd-mono">src/stockage</span> ; section Décision</li>
+</ul>
+</div>
+<div class="hd-row" style="justify-content: space-between;"><span>Carte du projet</span><span class="hd-muted">non envoyée (contexte : voisinage)</span></div>
+<p style="margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted);">Fichiers ignorés par git et secrets jamais inclus ; contenus masqués comme la section. <a href="#">Ce que savent les mentors</a></p>
+</div>
+</details>
+</div>
+</aside>
+</div>
+<footer class="hd-statusbar">
+<span><span class="hd-mono">6:14</span></span>
+<span>TypeScript</span>
+<span>Titulaire : <strong style="color: var(--mentor);">Mentor du langage</strong> · contexte voisinage</span>
+<span class="hd-statusbar__end hd-row">
+<span>Budget : 2,31 $ sur 10 $</span>
+<span style="display: inline-flex; align-items: center; gap: 6px;"><span class="hd-dot" aria-hidden="true"></span>OpenRouter connecté</span>
+</span>
+</footer>
+</div>
+</body>
+</html>
