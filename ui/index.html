@@ -89,6 +89,7 @@
 <a class="hd-nav__item" data-page="modeles" href="#reglages-modeles" aria-current="page">Modèles et effort</a>
 <a class="hd-nav__item" data-page="modeles" href="#reglages-cle">Clé d'API <span id="nav-cle" class="hd-nav__meta"></span></a>
 <a class="hd-nav__item" data-page="modeles" href="#reglages-budget">Budget <span id="nav-budget" class="hd-nav__meta"></span></a>
+<a class="hd-nav__item" href="#revues-projet" data-page="revues">Revues du projet</a>
 <a class="hd-nav__item" href="#mentors" data-page="mentors">Mentors <span id="nav-mentors" class="hd-nav__meta"></span></a>
 </div>
 <div class="hd-nav__group">
@@ -160,6 +161,45 @@
 <span id="reglages-attente" class="hd-muted app-settings__pending" aria-live="polite"></span>
 <button id="reglages-annuler" class="hd-btn hd-btn--secondary" type="button">Annuler les changements</button>
 <button id="reglages-enregistrer" class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
+</div>
+</main>
+<main id="page-revues" class="hd-main app-settings" hidden>
+<div id="revues-projet" class="app-settings__intro">
+<h1 class="app-settings__h1">Revues du projet</h1>
+<p class="hd-muted app-settings__lead">Quand les mentors de projet relisent l'ensemble sans que vous le demandiez. Ces réglages valent pour tous vos projets ; chaque mentor peut ensuite renoncer à un déclencheur (Réglages · Mentors).</p>
+</div>
+<section class="hd-card app-settings__card" aria-labelledby="revues-declencheurs-titre">
+<div class="hd-card__head app-settings__head"><h2 id="revues-declencheurs-titre" class="app-settings__title">Déclencheurs</h2><label class="hd-row app-reviews__switch hd-card__end"><input id="revues-actives" type="checkbox"> Revues automatiques</label></div>
+<div id="revues-declencheurs" class="app-reviews__triggers"></div>
+</section>
+<section class="hd-card app-settings__card" aria-labelledby="revues-rythme-titre">
+<div class="hd-card__head app-settings__head"><h2 id="revues-rythme-titre" class="app-settings__title">Rythme et coût</h2></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-calme">Calme après la dernière modification (minutes)</label><input class="hd-input" id="revues-calme" type="number" min="0" max="60" step="any" inputmode="numeric" data-field="calm"><span class="app-settings__note" data-error="calm"></span></div>
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-intervalle">Intervalle minimal entre deux revues d'un mentor (minutes)</label><input class="hd-input" id="revues-intervalle" type="number" min="0" max="1440" step="any" inputmode="numeric" data-field="interval"><span class="app-settings__note" data-error="interval"></span></div>
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-jour">Revues automatiques par jour, par mentor</label><input class="hd-input" id="revues-jour" type="number" min="0" max="200" step="1" inputmode="numeric" data-field="daily"><span class="app-settings__note" data-error="daily"></span></div>
+</div>
+<p class="app-settings__note">Au-delà du plafond quotidien, à la demande seulement.</p>
+<div class="hd-callout">
+<div class="hd-callout__title">Budget</div>
+<p class="app-project__text">Les revues automatiques comptent dans le budget mensuel. Au seuil d'avertissement, elles continuent et la barre d'état le signale ; au plafond, elles s'arrêtent (les revues demandées restent possibles, avec confirmation).</p>
+<p id="revues-depense" class="app-project__note"></p>
+</div>
+</section>
+<section class="hd-card app-settings__card" aria-labelledby="revues-contexte-titre">
+<div class="hd-card__head app-settings__head"><h2 id="revues-contexte-titre" class="app-settings__title">Connaissance du projet</h2></div>
+<div class="app-settings__fields">
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-carte">Plafond de la carte (jetons, par défaut pour chaque projet)</label><input class="hd-input" id="revues-carte" type="number" min="1000" max="32000" step="500" inputmode="numeric" data-field="map"><span class="app-settings__note" data-error="map"></span></div>
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-voisinage">Plafond du voisinage (jetons, par passe de section)</label><input class="hd-input" id="revues-voisinage" type="number" min="500" max="16000" step="500" inputmode="numeric" data-field="neighborhood"><span class="app-settings__note" data-error="neighborhood"></span></div>
+<div class="app-settings__field app-settings__field--small"><label class="hd-label" for="revues-cles">Fichiers clés envoyés en entier (jetons, par revue)</label><input class="hd-input" id="revues-cles" type="number" min="2000" max="32000" step="500" inputmode="numeric" data-field="keys"><span class="app-settings__note" data-error="keys"></span></div>
+</div>
+<p class="app-settings__note">Blocs et exclusions d'un projet : vue Projet · Carte du projet. Jetons estimés à 4 caractères par jeton.</p>
+</section>
+<p id="revues-erreur" class="app-settings__error" role="alert" hidden></p>
+<div class="hd-row app-settings__actions">
+<span id="revues-attente" class="hd-muted app-settings__pending" aria-live="polite"></span>
+<button id="revues-annuler" class="hd-btn hd-btn--secondary" type="button">Annuler les changements</button>
+<button id="revues-enregistrer" class="hd-btn hd-btn--primary" type="button">Enregistrer</button>
 </div>
 </main>
 <section id="mentors-liste" class="app-mentors__list" aria-labelledby="mentors-titre" hidden>

@@ -71,7 +71,7 @@ export function evalSummary(result) {
  * `onSettings(settings)` suit les réglages reçus (barre d'état) ; `mentors` est la page
  * des mentors (`show()`, `hide()`), dans le même écran.
  */
-export function createSettings(root, { request, onSettings, mentors }) {
+export function createSettings(root, { request, onSettings, mentors, reviews }) {
   const $ = (id) => root.querySelector(`#${id}`);
   const levels = Object.fromEntries(Object.keys(LEVELS).map((key) => [key, {
     card: $(`niveau-${key}`),
@@ -400,6 +400,7 @@ export function createSettings(root, { request, onSettings, mentors }) {
     saved = settings;
     if (!saved.eval_running) progress = null;
     onSettings(saved);
+    reviews.apply(saved);
     // Un changement diffusé par le serveur ne remplace pas une saisie en cours.
     if (pending === 0) reset();
     else render();
@@ -451,15 +452,15 @@ export function createSettings(root, { request, onSettings, mentors }) {
   for (const input of [ui.cap, ui.warn]) input.addEventListener('input', render);
   ui.cancel.addEventListener('click', reset);
   ui.save.addEventListener('click', () => save());
-  const modelsPage = $('page-modeles');
+  const pages = { modeles: $('page-modeles'), revues: $('page-revues') };
   for (const link of root.querySelectorAll('.app-settings__nav a[href^="#"]')) {
     link.addEventListener('click', (event) => {
       event.preventDefault();
       for (const other of root.querySelectorAll('.app-settings__nav a')) other.removeAttribute('aria-current');
       link.setAttribute('aria-current', 'page');
-      const onMentors = link.dataset.page === 'mentors';
-      modelsPage.hidden = onMentors;
-      if (onMentors) {
+      const page = link.dataset.page;
+      for (const [name, node] of Object.entries(pages)) node.hidden = name !== page;
+      if (page === 'mentors') {
         mentors.show();
         return;
       }

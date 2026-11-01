@@ -14,6 +14,7 @@ import { createProjectRemarks } from './project-remarks.js';
 import { renderRemarks } from './remarks.js';
 import { createMentorsSettings } from './mentors-settings.js';
 import { chooseDestination } from './move.js';
+import { createReviewSettings } from './review-settings.js';
 import { createSettings } from './settings.js';
 import { createSidebarResizer } from './sidebar.js';
 import { createTerminalPanel } from './terminal.js';
@@ -137,6 +138,9 @@ const settings = createSettings(ui.settings, {
   request: (type, payload) => server.request(type, payload),
   onSettings: renderEvaluation,
   mentors: mentorsPage,
+  reviews: createReviewSettings($('page-revues'), {
+    request: (type, payload) => server.request(type, payload),
+  }),
 });
 ui.openSettings.addEventListener('click', () => showSettings(ui.settings.hidden));
 const projectView = createProjectView(ui.project, {
@@ -154,6 +158,7 @@ const projectRemarks = createProjectRemarks(ui.project, {
   onChange: () => {
     renderRemarksPanel();
     tree.setProjectPaths(projectRemarks.citedPaths());
+    if (lastProjectStatus) renderProjectStatus(lastProjectStatus);
   },
 });
 ui.openProject.addEventListener('click', () => showProject(ui.project.hidden));
@@ -887,8 +892,13 @@ function openProjectRemark(id) {
 }
 
 /** `project_status` : compteur du bouton Projet, barre d'état, panneau des mentors. */
+/** Dernier `project_status` reçu, redessiné quand les noms des mentors arrivent. */
+let lastProjectStatus = null;
+
 function renderProjectStatus(status) {
-  projectRemarks.status(status);
+  const first = lastProjectStatus !== status;
+  lastProjectStatus = status;
+  if (first) projectRemarks.status(status);
   const count = status.open + status.to_review;
   const counter = $('projet-compteur');
   counter.hidden = count === 0;

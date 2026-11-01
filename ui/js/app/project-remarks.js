@@ -298,6 +298,8 @@ export function createProjectRemarks(root, { request, onOpenAt, onShowMap, mento
       history = reply.payload.items;
       renderMentors();
       renderHistory();
+      // Les noms des mentors de projet sont connus : la barre d'état peut les afficher.
+      onChange();
     } catch (error) {
       ui.mentors.replaceChildren(element('p', 'app-settings__error', error.message));
     }

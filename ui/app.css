@@ -243,3 +243,13 @@ div.app-remark__text p { margin: 0; white-space: pre-wrap; }
 .app-project-file__card { gap: var(--space-1); padding: var(--space-3); }
 .app-project-file__text { margin: 0; font-size: 13px; line-height: 19px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .app-remark__review-note { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.app-reviews__switch { gap: var(--space-2); font-size: 13px; font-weight: 500; }
+.app-reviews__triggers { display: flex; flex-direction: column; gap: var(--space-3); }
+.app-reviews__trigger { display: flex; gap: var(--space-2); align-items: flex-start; }
+.app-reviews__trigger input { margin-top: 3px; }
+.app-reviews__trigger-text { display: flex; flex-direction: column; gap: 2px; }
+.app-mentors__scopes { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; border: 0; }
+.app-mentors__scopes legend { padding: 0; font-weight: 600; }
+.app-mentors__scopes .hd-row { gap: var(--space-4); }
+.app-mentors__review-triggers { display: flex; flex-direction: column; gap: var(--space-1); }
+.app-mentors__triggers[hidden] { display: none; }

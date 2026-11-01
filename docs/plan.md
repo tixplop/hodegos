@@ -390,8 +390,20 @@ Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9e — Réglages et mentors livrés
 
-- [ ] Revues du projet et portées réglables depuis l'interface ; `hodegos mentors list` affiche
+- [x] Revues du projet et portées réglables depuis l'interface ; `hodegos mentors list` affiche
   portées et contexte
+  (`crates/hodegos-server/tests/review_settings.rs` : `config.toml` réécrit en gardant ses
+  commentaires, bornes refusées sans écriture, réglages appliqués sans redémarrage, portées et
+  bloc `project` enregistrés et validés champ par champ ; `project_store` : dépense du mois ;
+  llm `write_values` ; cli : ligne des portées ; mentors : brouillons de `evals/mentors/` valides)
+
+Vérification de l'interface, le 1er novembre 2026, par un parcours scripté dans Chromium sans écran
+(Playwright, projet local) dans les deux thèmes : page « Revues du projet » (déclencheurs, rythme en
+minutes, plafonds, dépense du mois), valeur hors bornes signalée sous son champ et enregistrement
+bloqué, changements en attente comptés, enregistrement qui réécrit `[project_review]` et `[context]`
+en gardant les commentaires, mentor du dépôt avec ses portées, bloc de section masqué quand on décoche
+« Section », contexte et remarques par revue enregistrés, liste « Section + Projet · … · contexte
+voisinage », aucune erreur dans la console.
 
 ### 9f — Évaluation sur plusieurs fichiers
 

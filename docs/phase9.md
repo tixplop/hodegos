@@ -559,6 +559,28 @@ Poussés : `review_started` (avec `trigger`), `review_done`,
     `change` seulement ; posture : comportements sans test, tests qui ne
     vérifient rien.
 
+### Précisions retenues à l'implémentation de 9e (1er novembre 2026)
+
+- Mentors livrés : leur configuration cible est écrite dans `evals/mentors/`
+  (brouillons, hors du binaire, validés par un test du chargeur) ; `mentors/` garde
+  ceux de la phase 8 jusqu'à l'évaluation 9f, qui les installe si le coût est
+  validé. Les postures de l'Architecte et du Mentor produit gagnent un paragraphe
+  « À l'échelle {scope} » ; le Mentor du langage, un paragraphe sur le voisinage
+  et `see_also` ; le Testeur est nouveau (`[project]`, rapide, `change` seul,
+  aucun fichier clé : la carte suffit).
+- Réglages · Revues du projet : message `project_review_set`, distinct de
+  `settings_set` (pas de réévaluation des modèles) ; `config.toml` réécrit en
+  gardant ses commentaires ; appliqué sans redémarrage (un déclencheur retiré vide
+  l'attente au tour suivant, un plafond de carte changé recalcule la carte).
+  Calme et intervalle en minutes à l'écran, décimales permises (secondes dans
+  `config.toml`). La dépense du mois est celle de ce projet (`reviews.json`).
+- Réglages · Mentors : cases « Section » et « Projet » ; « Comme mentor de
+  section » (contexte envoyé, déclencheurs du casting) et « Comme mentor de
+  projet » (déclencheurs, fichiers clés, remarques par revue) n'apparaissent
+  qu'avec leur portée ; sans la portée projet, le bloc `project` n'est pas écrit.
+- `hodegos mentors list` : colonne « section, projet · contexte voisinage » ;
+  l'origine `project` s'affiche « dépôt » (précision 3).
+
 ## 9f — Évaluation sur plusieurs fichiers
 
 - `evals/projects/` : 3 petits projets d'exemple (TypeScript, Rust, Python),

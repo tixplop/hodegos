@@ -1,6 +1,6 @@
-/* Réglages des mentors (phase 8e, maquette 08-5) : liste, fiche en formulaire ou en
-   fichier brut, personnaliser, créer, dupliquer, désactiver, revenir au niveau inférieur,
-   prompt assemblé. Le serveur valide avec les règles du chargeur et renvoie les erreurs
+/* Réglages des mentors (phase 8e, maquette 08-5 ; portées en phase 9e, maquette 09-4) :
+   liste, fiche en formulaire ou en fichier brut, personnaliser, créer, dupliquer,
+   désactiver, revenir au niveau inférieur, prompt assemblé. Le serveur valide avec les règles du chargeur et renvoie les erreurs
    champ par champ ; un mentor livré n'est jamais écrit. */
 import { confirmDialog } from './dialog.js';
 import { createTextEditor } from './editor.js';
@@ -11,9 +11,21 @@ const MODES = { proactive: 'Proactif', 'strong-signal': 'Signal fort', 'on-deman
 const MODELS = { fast: 'Rapide', strong: 'Fort' };
 const LEVELS = { indice: 'Indice', question: 'Question', piste: 'Piste', exemple: 'Exemple' };
 const TRIGGERS = { paths: 'Chemins', languages: 'Langages', headings: 'Titres', keywords: 'Mots-clés' };
+const CONTEXTS = { section: 'Section', neighborhood: 'Voisinage', project: 'Projet' };
+const CONTEXT_NOTES = {
+  section: 'Section = la section, son diff et 20 lignes autour.',
+  neighborhood: 'Voisinage = la section, plus les fichiers importés, ceux qui l\'importent, son test et les documents qui le citent.',
+  project: 'Projet = la section, son voisinage et la carte du projet.',
+};
+const REVIEW_TRIGGERS = {
+  create: 'À la création du projet',
+  open: 'À l\'ouverture, si des fichiers ont changé depuis la dernière revue',
+  change: 'Après des modifications, une fois l\'édition au calme',
+  commit: 'Après un commit',
+};
 
 /** Champs affichés dans le formulaire ; les autres erreurs vont dans l'encadré. */
-const FORM_FIELDS = ['id', 'name', 'initials', 'role', 'mode', 'priority', 'model', 'entry_level', 'max_remarks'];
+const FORM_FIELDS = ['id', 'name', 'initials', 'role', 'mode', 'priority', 'model', 'entry_level', 'max_remarks', 'scopes', 'context'];
 
 const EMPTY_FORM = {
   id: '',
@@ -27,6 +39,9 @@ const EMPTY_FORM = {
   entry_level: 'indice',
   max_remarks: 2,
   on_open: false,
+  context: 'section',
+  scopes: ['section'],
+  project: { key_files: [], max_remarks: 3, triggers: ['create', 'open', 'change'] },
   triggers: { paths: [], languages: [], headings: [], keywords: [] },
 };
 
@@ -114,6 +129,12 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
     if (item.mode) parts.push(MODES[item.mode].toLowerCase());
     if (item.model) parts.push(MODELS[item.model].toLowerCase());
     if (item.on_open) parts.push('à l\'ouverture');
+    if (item.scopes?.includes('section') && item.context && item.context !== 'section') {
+      parts.push(`contexte ${CONTEXTS[item.context].toLowerCase()}`);
+    }
+    if (item.scopes?.length) {
+      parts.unshift(item.scopes.map((s) => (s === 'section' ? 'Section' : 'Projet')).join(' + '));
+    }
     return parts.join(' · ');
   }
 
@@ -325,6 +346,133 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
     return box;
   }
 
+  /** Portées : cases « Section » et « Projet » (au moins une). */
+  function scopesRow() {
+    const box = element('fieldset', 'app-mentors__scopes');
+    box.append(element('legend', '', 'Portées'));
+    const row = element('div', 'hd-row');
+    for (const [scope, label] of [['section', 'Section'], ['project', 'Projet']]) {
+      const check = element('label', 'hd-row app-mentors__check');
+      const input = element('input');
+      input.type = 'checkbox';
+      input.checked = form.scopes.includes(scope);
+      input.disabled = !editable();
+      input.addEventListener('change', () => {
+        const next = new Set(form.scopes);
+        if (input.checked) next.add(scope);
+        else next.delete(scope);
+        form.scopes = ['section', 'project'].filter((s) => next.has(s));
+        dirty = true;
+        renderFiche();
+      });
+      check.append(input, label);
+      row.append(check);
+    }
+    box.append(row, element('p', 'app-mentors__hint', 'Un mentor relit les sections qui le concernent, le projet lors d\'une revue, ou les deux.'));
+    for (const e of errorFor('scopes')) box.append(element('span', 'app-mentors__field-error', e.message));
+    return box;
+  }
+
+  function contextSelect() {
+    const node = select('context', CONTEXTS);
+    node.addEventListener('change', () => renderFiche());
+    return node;
+  }
+
+  /** « Comme mentor de projet » : déclencheurs, fichiers clés, remarques par revue. */
+  function projectBlock() {
+    const project = form.project;
+    const box = element('fieldset', 'app-mentors__triggers');
+    box.append(element('legend', '', 'Comme mentor de projet'));
+    const triggers = element('div', 'app-mentors__review-triggers');
+    triggers.append(element('span', 'hd-label', 'Revues automatiques'));
+    for (const [value, label] of Object.entries(REVIEW_TRIGGERS)) {
+      const check = element('label', 'hd-row app-mentors__check');
+      const input = element('input');
+      input.type = 'checkbox';
+      input.checked = project.triggers.includes(value);
+      input.disabled = !editable();
+      input.addEventListener('change', () => {
+        const next = new Set(project.triggers);
+        if (input.checked) next.add(value);
+        else next.delete(value);
+        project.triggers = Object.keys(REVIEW_TRIGGERS).filter((t) => next.has(t));
+        dirty = true;
+        renderFooter();
+      });
+      check.append(input, label);
+      triggers.append(check);
+    }
+    triggers.append(element('p', 'app-mentors__hint', 'Délai, fréquence et plafond : Réglages · Revues du projet.'));
+    box.append(triggers);
+
+    // Fichiers clés : étiquettes retirables, comme les chemins des déclencheurs.
+    const files = element('div', 'hd-row app-mentors__tags');
+    const label = element('span', 'hd-label app-mentors__tags-label', 'Fichiers clés');
+    label.id = `mentor-cles-${++ids}`;
+    files.setAttribute('role', 'group');
+    files.setAttribute('aria-labelledby', label.id);
+    files.append(label);
+    if (!project.key_files.length) files.append(element('span', 'hd-muted app-mentors__none', 'Aucun (la carte seule)'));
+    project.key_files.forEach((value, index) => {
+      const invalid = errors.some((e) => e.field === `project.key_files[${index}]`);
+      const tag = element('span', `hd-id app-mentors__tag${invalid ? ' app-mentors__tag--error' : ''}`, value);
+      if (editable()) {
+        const remove = element('button', 'app-mentors__remove', '×');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', `Retirer ${value}`);
+        remove.addEventListener('click', () => {
+          project.key_files.splice(index, 1);
+          dirty = true;
+          renderFiche();
+        });
+        tag.append(remove);
+      }
+      files.append(tag);
+    });
+    if (editable()) {
+      const add = element('input', 'hd-input app-mentors__add');
+      add.type = 'text';
+      add.setAttribute('aria-label', 'Ajouter : fichier clé');
+      add.placeholder = 'docs/architecture/**';
+      const commit = () => {
+        const value = add.value.trim();
+        if (!value) return;
+        project.key_files.push(value);
+        dirty = true;
+        renderFiche();
+        ficheRoot.querySelector('[aria-label="Ajouter : fichier clé"]')?.focus();
+      };
+      add.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+        }
+      });
+      files.append(add, button('Ajouter', 'ghost', commit));
+    }
+    box.append(files);
+
+    const count = element('select', 'hd-input');
+    for (const n of [1, 2, 3]) {
+      const option = element('option', '', String(n));
+      option.value = String(n);
+      count.append(option);
+    }
+    count.value = String(project.max_remarks);
+    count.disabled = !editable();
+    count.addEventListener('change', () => {
+      project.max_remarks = Number(count.value);
+      dirty = true;
+      renderFooter();
+    });
+    box.append(field('Remarques par revue', count, 'project.max_remarks'));
+    for (const e of errors.filter((x) => x.field.startsWith('project.') && x.field !== 'project.max_remarks')) {
+      box.append(element('span', 'app-mentors__field-error', `${e.field} : ${e.message}`));
+    }
+    return box;
+  }
+
   function header() {
     const head = element('div', 'hd-row app-mentors__head');
     const titles = element('div', 'app-mentors__titles');
@@ -416,9 +564,16 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
       );
       grid.append(element('p', 'app-mentors__hint', 'L\'effort suit le niveau de modèle (Réglages · Modèles et effort).'));
       parts.push(grid);
+      parts.push(scopesRow());
+      if (!form.scopes.includes('section')) {
+        if (form.scopes.includes('project')) parts.push(projectBlock());
+      }
 
       const triggers = element('fieldset', 'app-mentors__triggers');
-      triggers.append(element('legend', '', 'Déclencheurs'));
+      triggers.hidden = !form.scopes.includes('section');
+      triggers.append(element('legend', '', 'Comme mentor de section'));
+      triggers.append(field('Contexte envoyé', contextSelect(), 'context'));
+      triggers.append(element('p', 'app-mentors__hint', CONTEXT_NOTES[form.context] ?? ''));
       for (const key of Object.keys(TRIGGERS)) triggers.append(tagList(key));
       const onOpen = element('label', 'hd-row app-mentors__check');
       const box = element('input');
@@ -429,17 +584,18 @@ export function createMentorsSettings(listRoot, ficheRoot, { request, onCount })
       onOpen.append(box, 'Passe à la première ouverture d\'un fichier (', mono('on_open'), ')');
       triggers.append(onOpen);
       parts.push(triggers);
+      if (form.scopes.includes('section') && form.scopes.includes('project')) parts.push(projectBlock());
     }
 
     const editorBox = element('div', 'app-mentors__posture');
     const caption = element('span', 'hd-label');
     if (rawMode) caption.append('Fichier ', mono(file?.path ?? ''), ' tel quel (frontmatter et posture)');
-    else caption.append('Posture (Markdown ; ', mono('{language}'), ' et ', mono('{name}'), ' sont remplacés)');
+    else caption.append('Posture, commune aux deux portées (Markdown ; ', mono('{language}'), ', ', mono('{name}'), ' et ', mono('{scope}'), ' — « section » ou « projet » — sont remplacés)');
     editorBox.append(caption, posture);
     if (form || rawMode || creating) parts.push(editorBox);
 
     const general = errors.filter((e) => rawMode || !form
-      || !(FORM_FIELDS.includes(e.field) || e.field.startsWith('triggers')));
+      || !(FORM_FIELDS.includes(e.field) || e.field.startsWith('triggers') || e.field.startsWith('project')));
     if (general.length) {
       const box = element('div', 'hd-callout hd-callout--warning');
       box.setAttribute('role', 'alert');
