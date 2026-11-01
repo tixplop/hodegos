@@ -358,6 +358,7 @@ estimés et budget restant, revue lancée (fichiers clés envoyés en entier), d
 une étape suivante, citations qui ouvrent le fichier à la ligne, palier suivant, réponse puis
 relance du mentor, « Contexte de cette passe », « Résolu » qui retire la remarque, historique
 avec coût et durée, aucune erreur dans la console.
+Confirmé à la main dans le navigateur Windows le 1er novembre 2026.
 
 ### 9d — Revues automatiques, ancres, réévaluation
 
